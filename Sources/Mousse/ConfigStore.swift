@@ -10,6 +10,12 @@ final class ConfigStore: ObservableObject {
 
     @Published var config: AppConfig {
         didSet {
+            // `didSet` fires on every assignment, including one that changes nothing — and SwiftUI
+            // bindings write identical values constantly (a slider re-asserting its current step,
+            // MenuBarExtra re-asserting its insertion state). Without this guard each of those
+            // costs a disk write plus a full engine reload, and any binding whose write is itself
+            // triggered by the resulting republish spins into a feedback loop.
+            guard config != oldValue else { return }
             save()
             EventTapEngine.shared.reload(config)
         }

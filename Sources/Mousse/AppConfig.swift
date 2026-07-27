@@ -39,7 +39,9 @@ struct ButtonMapping: Codable, Identifiable, Equatable, Sendable {
 
 /// The whole persisted configuration. Plain Codable value stored as JSON — no keychain,
 /// no license, survives rebuilds.
-struct AppConfig: Codable, Sendable {
+/// `Equatable` so `ConfigStore` can skip the save + engine reload when an assignment changes
+/// nothing — see the guard in its `didSet`.
+struct AppConfig: Codable, Sendable, Equatable {
     var enabled: Bool = true
     var reverseScroll: Bool = false
     var scrollMode: ScrollMode = .smooth
