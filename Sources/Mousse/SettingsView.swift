@@ -3,7 +3,14 @@ import SwiftUI
 /// The Settings window (⌘,). Three tabs: General, Buttons, Scroll.
 struct SettingsView: View {
     @EnvironmentObject var store: ConfigStore
-    @State private var launchAtLogin = LoginItem.isEnabled
+
+    // Deliberately NOT seeded from `LoginItem.isEnabled`. A `@State` default expression re-runs
+    // every time the view struct is built, and `Settings { SettingsView() }` rebuilds it on every
+    // App-body pass — including while the window has never been opened. That put a synchronous
+    // SMAppService XPC round-trip inside every SwiftUI graph update on the main thread, for a value
+    // SwiftUI then throws away (the first install wins). Read the real status in `.task` instead:
+    // once, when the window actually appears.
+    @State private var launchAtLogin = false
 
     var body: some View {
         TabView {
@@ -14,16 +21,21 @@ struct SettingsView: View {
         }
         .frame(width: 480, height: 360)
         .padding()
+        .task { launchAtLogin = LoginItem.isEnabled }
     }
 
     private var generalTab: some View {
         Form {
             Toggle("Enable Mousse", isOn: $store.config.enabled)
-            Toggle("Launch at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { _, newValue in
+            // Side effect lives in the binding's setter, not in `onChange`. `onChange` fires for
+            // any write to the state, so the `.task` load and the resync below would both bounce
+            // straight back into SMAppService, asking it to register the state it just reported.
+            Toggle("Launch at login", isOn: Binding(
+                get: { launchAtLogin },
+                set: { newValue in
                     LoginItem.setEnabled(newValue)
-                    launchAtLogin = LoginItem.isEnabled // resync to the real status
-                }
+                    launchAtLogin = LoginItem.isEnabled // resync: registration can fail
+                }))
             LabeledContent("Accessibility") {
                 if AccessibilityPermission.isTrusted {
                     Label("Granted", systemImage: "checkmark.circle.fill").foregroundStyle(.green)

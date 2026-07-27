@@ -41,4 +41,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         EventTapEngine.shared.start(config: ConfigStore.shared.config)
     }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // The config write is debounced; a change made in the last half second is still in flight.
+        ConfigStore.shared.flushPendingSave()
+    }
 }
