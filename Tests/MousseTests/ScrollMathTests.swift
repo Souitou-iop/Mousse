@@ -296,6 +296,34 @@ final class ScrollModelTests: XCTestCase {
         }
     }
 
+    /// A distance too small to out-coast `stopSpeed` used to solve a v0 of exactly `stopSpeed`,
+    /// which the failable initializer rejects — and the distance-based one force-unwraps it.
+    /// It must degenerate into a zero-length coast, never trap.
+    func testDragSegmentTinyDistanceDoesNotTrap() {
+        for distance in [0.0, 1e-12, 1e-6, 0.01] {
+            let d = DragSegment(distance: distance, a: 30, b: 0.7, stopSpeed: 1000)
+            XCTAssertGreaterThan(d.v0, 1000, "v0 must stay strictly above stopSpeed")
+            XCTAssertTrue(d.distance.isFinite)
+            XCTAssertTrue(d.duration.isFinite)
+            XCTAssertGreaterThanOrEqual(d.distance, 0)
+        }
+    }
+
+    /// Same degenerate input reached through the plan: a near-zero drag-only segment must not turn
+    /// `scale` infinite, because `distance(at:)` would then evaluate 0 × ∞ = NaN and the animator
+    /// traps converting that to Int32.
+    func testPlanStaysFiniteForDegenerateDistances() {
+        for distance in [1e-9, 1e-4, 0.5, 2.0] {
+            // A large initial speed forces the drag-only branch (the coast already overshoots).
+            let p = HybridPlan(distance: distance, initialSpeed: 20_000, profile: .quick(screenSpan: 1080))
+            XCTAssertTrue(p.duration.isFinite, "duration for distance \(distance)")
+            for t in [0.0, p.duration * 0.5, p.duration, p.duration * 2] {
+                XCTAssertTrue(p.distance(at: t).isFinite, "distance(at: \(t)) for \(distance)")
+                XCTAssertTrue(p.speed(at: t).isFinite, "speed(at: \(t)) for \(distance)")
+            }
+        }
+    }
+
     /// Slower initial speeds coast shorter — the physical sanity check. Regular's steeper
     /// exponent (b=1.05, a=15) must also coast shorter than High's (b=0.7, a=40) at high speed.
     func testDragSlowerCoastsShorter() throws {

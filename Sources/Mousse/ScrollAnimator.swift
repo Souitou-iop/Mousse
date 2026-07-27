@@ -150,6 +150,17 @@ final class ScrollAnimator: NSObject {
         return silence >= ScrollTuning.tickIntervalMax && speed > 150
     }
 
+    /// A fresh tick landed while the glide was coasting: hand the momentum stream back to a
+    /// gesture. Only flags a pending `momentum ended` if that stream actually emitted its `began` —
+    /// `mode` flips to `.momentum` one frame before the first momentum event is posted, and a tick
+    /// landing in that gap would otherwise close a stream the app never saw open. Caller holds `lock`.
+    private func interruptMomentumLocked() {
+        guard mode == .momentum else { return }
+        momentumInterrupted = phaseStarted
+        mode = .gesture
+        phaseStarted = false
+    }
+
     /// Caller must hold `lock`.
     private func clearPlanLocked() {
         plan = nil
@@ -172,7 +183,7 @@ final class ScrollAnimator: NSObject {
             omega = omegaStep
             phaselessStream = false
             clearPlanLocked()
-            if mode == .momentum { momentumInterrupted = true; mode = .gesture; phaseStarted = false }
+            interruptMomentumLocked()
             // Reversing direction: drop the opposing remainder AND velocity so the flip is immediate.
             if lineV != 0, (lineV > 0) != (remV > 0) { remV = 0; carryV = 0; velV = 0 }
             if lineH != 0, (lineH > 0) != (remH > 0) { remH = 0; carryH = 0; velH = 0 }
@@ -210,7 +221,7 @@ final class ScrollAnimator: NSObject {
         remV = 0; remH = 0; velV = 0; velH = 0
         // A tick mid-coast "catches" the glide, like touching a coasting trackpad: close the momentum
         // stream (posted by the link thread) and reopen a gesture. Velocity carries over — no stutter.
-        if mode == .momentum { momentumInterrupted = true; mode = .gesture; phaseStarted = false }
+        interruptMomentumLocked()
 
         // Tick rate → px for this notch; chained fast swipes multiply it ( fast scroll).
         let analysis = tickAnalyzer.feed(now: now, direction: Int(sign) * (axisIsV ? 1 : 2),
@@ -271,13 +282,14 @@ final class ScrollAnimator: NSObject {
         lineUnitPx = max(0.5, 10 * gain)
         omega = omegaSmooth
         clearPlanLocked()
-        if mode == .momentum { momentumInterrupted = true; mode = .gesture; phaseStarted = false }
+        interruptMomentumLocked()
         if pxV != 0, (pxV > 0) != (remV > 0) { remV = 0; carryV = 0; velV = 0 }
         if pxH != 0, (pxH > 0) != (remH > 0) { remH = 0; carryH = 0; velH = 0 }
         // Tighter clamp than the wheel paths: when the user stops a free-spinning wheel by hand,
         // whatever is queued here still drains — keep that "extra glide" bounded to ~a screenful.
         remV = min(max(remV + pxV * gain, -ScrollAnimator.pixelMaxRemaining), ScrollAnimator.pixelMaxRemaining)
-        remH = min(max(remH + pxH * gain, -ScrollAnimator.pixelMaxRemaining), ScrollAnimator.pixelMaxRemaining)        // Pixel input never coasts: a hi-res mouse delivers each physical notch as a BURST of events
+        remH = min(max(remH + pxH * gain, -ScrollAnimator.pixelMaxRemaining), ScrollAnimator.pixelMaxRemaining)
+        // Pixel input never coasts: a hi-res mouse delivers each physical notch as a BURST of events
         // a few ms apart, so inter-event gaps can't tell a flick from one slow notch. The spring's
         // own tail already smooths the end of a fast hi-res swipe.
         lastMotionTime = now
@@ -633,6 +645,18 @@ final class ScrollAnimator: NSObject {
                 remH += dH - capped; dH = capped
             }
         }
+
+        // Last line of defence before the integer conversions below: `Int32(_:)` on a NaN or an
+        // out-of-range Double is a hard trap, i.e. the whole app dies mid-scroll. Every known path
+        // into here is finite (the plan and spring both clamp), but this is a real-time thread
+        // draining numbers derived from foreign event fields and pow()-based curves, so a single
+        // future tuning slip should degrade to a dropped frame rather than a crash.
+        if !dV.isFinite { dV = 0 }
+        if !dH.isFinite { dH = 0 }
+        if !remV.isFinite || !velV.isFinite { remV = 0; velV = 0 }
+        if !remH.isFinite || !velH.isFinite { remH = 0; velH = 0 }
+        if !carryV.isFinite { carryV = 0 }
+        if !carryH.isFinite { carryH = 0 }
 
         // Hand the open gesture stream off to momentum when the glide enters its coast.
         var closeGesture = false

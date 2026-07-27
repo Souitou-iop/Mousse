@@ -254,6 +254,10 @@ struct SpeedBezier {
 
     /// `v0` in normalized units: (px/s) · duration / distance. 0 → pure ease-in from rest.
     init(normalizedInitialSpeed v0: Double, smoothing: Double) {
+        // A non-finite incoming speed (a glide sampled at exactly t = 0, or normalized against a
+        // vanishing distance) would leave p1y = ∞/∞ = NaN and poison every sample of the curve.
+        // Falling back to rest is the right degradation: no speed to smooth into.
+        let v0 = v0.isFinite ? v0 : 0
         // Direction of the current speed in normalized coords: dx ∝ 1, dy ∝ v0.
         let norm = (1 + v0 * v0).squareRoot()
         p1x = smoothing * (1 / norm)
@@ -267,7 +271,13 @@ struct SpeedBezier {
     func slope(atT t: Double) -> Double {
         let dx = 2 * p1x + 2 * t * (1 - 2 * p1x)
         let dy = 2 * p1y + 2 * t * (1 - 2 * p1y)
-        return dx == 0 ? .infinity : dy / dx
+        // dx vanishes only at t == 0 with p1x == 0, i.e. a profile with no speed smoothing
+        // (Snappy, Precise, Quick — three of the five). The true limit of dy/dx as t → 0 is
+        // (1 − 2·p1y)/(1 − 2·p1x) = 1 there, NOT infinity: p1x == 0 implies p1y == 0, since both
+        // are the same `smoothing` factor. Returning infinity made `HybridPlan.speed(at: 0)`
+        // infinite, and that value is fed straight back as the next notch's initial speed.
+        guard dx != 0 else { return (1 - 2 * p1y) / (1 - 2 * p1x) }
+        return dy / dx
     }
 
     /// Analytic t-from-x for the quadratic (p1x < 0.5 keeps x monotonic), clamped to [0, 1].
@@ -303,9 +313,18 @@ struct DragSegment {
 
     /// From a target distance: solve the v0 whose full decay covers exactly `distance` px
     /// (fallback when the incoming speed already out-coasts the requested distance).
+    ///
+    /// The solved v0 is nudged strictly above `stopSpeed` before delegating: for a vanishing
+    /// distance it lands exactly ON stopSpeed, which the failable initializer rejects — and this
+    /// initializer force-unwraps it. Today every caller passes a distance of at least a few px so
+    /// it never triggers, but that is a property of the tuning constants, not of this code, and a
+    /// profile with a smaller sensitivity floor or a higher stop speed would turn it into a crash.
+    /// Clamping degenerates into a zero-length coast instead.
     init(distance: Double, a: Double, b: Double, stopSpeed: Double) {
-        let v0 = pow(distance * a * (2 - b) + pow(stopSpeed, 2 - b), 1 / (2 - b))
-        self.init(initialSpeed: v0, a: a, b: b, stopSpeed: stopSpeed)!
+        let solved = pow(max(distance, 0) * a * (2 - b) + pow(stopSpeed, 2 - b), 1 / (2 - b))
+        let floor = stopSpeed.nextUp
+        self.init(initialSpeed: solved.isFinite ? max(solved, floor) : floor,
+                  a: a, b: b, stopSpeed: stopSpeed)!
     }
 
     func speed(at t: Double) -> Double {
@@ -404,7 +423,10 @@ struct HybridPlan {
             transitionDistance = 0
             drag = dragSeg
             duration = dragSeg.duration
-            scale = distance / dragSeg.distance
+            // Guarded like the bezier branch above: a degenerate (near-zero) coast would make this
+            // infinite, and `distance(at:)` then evaluates 0 × ∞ = NaN, which propagates into the
+            // animator's pixel accumulator and traps the Int32 conversion in `step`.
+            scale = dragSeg.distance > 0 ? distance / dragSeg.distance : 1
         }
     }
 
