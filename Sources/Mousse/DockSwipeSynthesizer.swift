@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import QuartzCore
 
 /// Synthesizes the private "dock swipe" events that drive the real WindowServer Space-slide
 /// transition (what a three-finger trackpad swipe produces), so Space-drag can FOLLOW the pointer
@@ -21,6 +22,17 @@ final class DockSwipeSynthesizer {
     // Per-gesture state — tap thread only.
     private var originOffset = 0.0 // cumulative progress; the OS animates the transition from this
     private var lastDelta = 0.0    // release direction + exit speed come from the final movement
+
+    // Movement coalescing. A drag delivers one event per mouse report — up to 1000 a second on a
+    // high-polling mouse — and each `post` builds two CGEvents with ~17 field writes and hands
+    // them to WindowServer, which can only render the transition at refresh rate anyway. Batching
+    // to ~120 Hz cuts that by up to 8× on the event-tap thread for identical on-screen motion.
+    // The window is deliberately close to a 125 Hz mouse's native 8 ms report interval, which is
+    // what the `lastDelta * 100` exit-momentum constant below was tuned against; coalescing makes
+    // that flick strength consistent across report rates instead of report-rate dependent.
+    private var pendingDelta = 0.0
+    private var lastPostTime = 0.0
+    private let minPostInterval = 1.0 / 120.0
 
     // Re-send bookkeeping — main queue only (see `scheduleEndResends`).
     private var resendGeneration = 0
@@ -58,17 +70,31 @@ final class DockSwipeSynthesizer {
         case .began:
             originOffset = delta
             lastDelta = delta
+            pendingDelta = 0
+            lastPostTime = CACurrentMediaTime()
             DispatchQueue.main.async { self.resendGeneration += 1 } // kill pending end re-sends
         case .changed:
             guard delta != 0 else { return }
-            originOffset += delta
-            lastDelta = delta
+            pendingDelta += delta
+            let now = CACurrentMediaTime()
+            guard now - lastPostTime >= minPostInterval else { return } // keep accumulating
+            lastPostTime = now
+            originOffset += pendingDelta
+            lastDelta = pendingDelta
+            pendingDelta = 0
         case .ended:
+            // Flush whatever the last coalescing window still holds, so the release lands at the
+            // pointer's real position and the exit direction reflects the final movement.
+            if pendingDelta != 0 {
+                originOffset += pendingDelta
+                lastDelta = pendingDelta
+                pendingDelta = 0
+            }
             // Released while moving back toward the start → cancel, so the OS snaps back instead
             // of completing the switch (same "undo" a real trackpad swipe reversal gets).
             if (lastDelta > 0) != (originOffset > 0) { phase = .cancelled }
         case .cancelled:
-            break
+            pendingDelta = 0
         }
         let exitSpeed = (phase == .ended || phase == .cancelled) ? lastDelta * 100 : 0
 

@@ -26,8 +26,9 @@ final class MagnifySynthesizer {
 
     private let lock = NSLock()
     private var active = false
-    private var generation = 0          // invalidates stale end-timeouts
     private let endTimeout = 0.25       // s of wheel silence before the pinch ends
+    private var lastFeed = 0.0          // CACurrentMediaTime of the most recent tick
+    private var endScheduled = false    // an end-check is already in flight — don't queue another
 
     private let phaseBegan: Int64 = 1   // IOHIDEventPhaseBits
     private let phaseChanged: Int64 = 2
@@ -52,8 +53,9 @@ final class MagnifySynthesizer {
         lock.lock()
         let opening = !active
         active = true
-        generation += 1
-        let gen = generation
+        lastFeed = CACurrentMediaTime()
+        let needsCheck = !endScheduled
+        endScheduled = true
         lock.unlock()
 
         var delta = magnification
@@ -70,23 +72,44 @@ final class MagnifySynthesizer {
             post(phase: phaseChanged, magnification: delta)
         }
 
-        // (Re)arm the end-of-gesture timeout.
-        DispatchQueue.main.asyncAfter(deadline: .now() + endTimeout) { [weak self] in
+        // Arm the end-of-gesture check ONCE per gesture. Re-arming per tick queued one main-queue
+        // timer for every event — and a Cmd+scroll flick on a free-spin or high-res mouse is
+        // hundreds of events a second, so hundreds of 0.25 s blocks would be in flight at a time.
+        // Instead a single check reschedules itself for whatever silence is still owed.
+        if needsCheck { scheduleEndCheck(after: endTimeout) }
+    }
+
+    /// Main-queue check: end the pinch once the wheel has been quiet for `endTimeout`, otherwise
+    /// re-arm for the remaining silence. Exactly one of these is ever in flight (`endScheduled`).
+    private func scheduleEndCheck(after delay: Double) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self else { return }
             self.lock.lock()
-            let stillCurrent = self.generation == gen && self.active
-            if stillCurrent { self.active = false }
+            // `endNow` (or a teardown) already closed the gesture — nothing owed.
+            guard self.active else {
+                self.endScheduled = false
+                self.lock.unlock()
+                return
+            }
+            let quiet = CACurrentMediaTime() - self.lastFeed
+            guard quiet >= self.endTimeout else {
+                self.lock.unlock()
+                self.scheduleEndCheck(after: self.endTimeout - quiet) // still ticking — wait it out
+                return
+            }
+            self.active = false
+            self.endScheduled = false
             self.lock.unlock()
-            if stillCurrent { self.post(phase: self.phaseEnded, magnification: 0) }
+            self.post(phase: self.phaseEnded, magnification: 0)
         }
     }
 
-    /// Close any open pinch immediately (wake/space-switch teardowns).
+    /// Close any open pinch immediately (wake/space-switch teardowns). Any in-flight end-check
+    /// sees `active == false` and retires itself.
     func endNow() {
         lock.lock()
         let wasActive = active
         active = false
-        generation += 1
         lock.unlock()
         if wasActive { post(phase: phaseEnded, magnification: 0) }
     }

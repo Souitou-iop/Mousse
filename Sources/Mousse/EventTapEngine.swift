@@ -2,6 +2,7 @@ import AppKit
 import CoreGraphics
 import Foundation
 import IOKit.hid
+import QuartzCore
 
 /// Owns the CGEventTap that intercepts mouse buttons and scroll, running on a dedicated
 /// high-priority thread (never the main thread — a stalled main thread would time out the tap).
@@ -10,6 +11,8 @@ final class EventTapEngine {
     static let shared = EventTapEngine()
     private init() {}
 
+    /// Published by the tap thread once `tapCreate` succeeds, read by the main thread (watchdog,
+    /// wake notifications) — so it lives under `lock` like the rest of the shared state.
     private var tap: CFMachPort?
     private var thread: Thread?
     private var watchdog: Timer?
@@ -30,6 +33,13 @@ final class EventTapEngine {
     private var spaceDragReverse = false
     private var spaceDragFollowFinger = true
     private var captureMode = false
+    /// Capture must never outlive the Settings interaction that opened it: while it is on, every
+    /// mouse button passes through unmapped and the Space-drag gesture is bypassed, so a UI path
+    /// that fails to close it (a capture click that lands in another app, a window torn down
+    /// without `onDisappear`) would silently kill every remap until relaunch. Expiring it here
+    /// means no UI bug can strand the engine.
+    private var captureDeadline = 0.0
+    private static let captureMaxDuration = 30.0
     private var excludedBundleIDs: Set<String> = []
 
     /// Terminal emulators are always excluded from smoothing (merged with the user's list).
@@ -157,6 +167,7 @@ final class EventTapEngine {
     /// Re-enable the tap if macOS disabled it (e.g. across sleep/wake). Safe to call from any thread
     /// and idempotent — tapEnable on an already-enabled tap is a no-op.
     @objc func reEnableTap() {
+        lock.lock(); let tap = self.tap; lock.unlock()
         guard let tap else { return }
         if !CGEvent.tapIsEnabled(tap: tap) {
             CGEvent.tapEnable(tap: tap, enable: true)
@@ -178,7 +189,10 @@ final class EventTapEngine {
         captureMode = on
         // Capture bypasses the gesture's button-up handling; abandon any in-flight drag or it
         // would be left stuck `down` (same flag wake/device-change raise).
-        if on { pendingDragCancel = true }
+        if on {
+            pendingDragCancel = true
+            captureDeadline = CACurrentMediaTime() + EventTapEngine.captureMaxDuration
+        }
         lock.unlock()
     }
 
@@ -224,6 +238,7 @@ final class EventTapEngine {
         // tapCreate returns nil until Accessibility is granted. Retry instead of giving up, so the
         // tap comes alive the moment the user flips the toggle — no app restart needed.
         var created: CFMachPort?
+        var attempts = 0
         while created == nil {
             created = CGEvent.tapCreate(tap: .cghidEventTap,
                                         place: .headInsertEventTap,
@@ -232,12 +247,18 @@ final class EventTapEngine {
                                         callback: eventTapCallback,
                                         userInfo: refcon)
             if created == nil {
-                NSLog("Mousse: event tap not created (Accessibility not granted yet?), retrying…")
+                // Accessibility is normally granted seconds after the prompt — but it may never be.
+                // Log the first failure, then at most once a minute: an unconditional 1 Hz NSLog
+                // runs forever and floods the unified log for a user who simply declined.
+                if attempts % 60 == 0 {
+                    NSLog("Mousse: event tap not created (Accessibility not granted yet?), retrying…")
+                }
+                attempts += 1
                 Thread.sleep(forTimeInterval: 1.0)
             }
         }
         let tap = created!
-        self.tap = tap
+        lock.lock(); self.tap = tap; lock.unlock()
         guard let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0) else {
             NSLog("Mousse: failed to create run-loop source for the event tap") // would trap below
             return
@@ -251,13 +272,20 @@ final class EventTapEngine {
     fileprivate func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         // macOS disables a slow/stalled tap — re-enable it (the classic event-tap gotcha).
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            lock.lock(); let tap = self.tap; lock.unlock()
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
             return Unmanaged.passUnretained(event)
         }
 
         lock.lock()
         let on = enabled
-        let capturing = captureMode
+        var capturing = captureMode
+        // Self-heal a capture that the UI never closed (see `captureDeadline`).
+        if capturing, CACurrentMediaTime() > captureDeadline {
+            capturing = false
+            captureMode = false
+            pendingDragCancel = true
+        }
         let maps = mappingsByButton
         let reverse = reverseScroll
         let mode = scrollMode
@@ -340,8 +368,17 @@ final class EventTapEngine {
 
             // Resolve the app under the cursor once (scroll targets the window under the pointer,
             // not the focused app) — for the per-app lists and the Chromium zoom workaround.
-            let cursorID = (!excluded.isEmpty || !vToH.isEmpty || modZoom)
-                ? cursorApp.bundleID(at: event.location) : nil
+            //
+            // This costs a WindowServer round trip, so only pay it when the answer can actually
+            // change what we do. The exclusion list only matters where smoothing would otherwise
+            // run; `excluded` is NEVER empty (the terminal IDs are always merged in), so without
+            // this gate Standard mode and untouched hi-res passthrough — the two paths that do the
+            // least work — were resolving the cursor's app on every event and discarding it.
+            let smoothingPossible = isContinuous
+                ? (smoothHiRes && (mode == .smooth || mode == .smoothStep))
+                : (modQuick || modPrecise || mode == .smooth || mode == .smoothStep)
+            let needsCursorID = modZoom || !vToH.isEmpty || (smoothingPossible && !excluded.isEmpty)
+            let cursorID = needsCursorID ? cursorApp.bundleID(at: event.location) : nil
             // Excluded app: bypass the animator so the wheel event stays a genuine legacy notch.
             // That keeps AppKit's vertical→horizontal transposition alive in horizontal-only views,
             // which our synthetic trackpad-style stream — being a phase-tagged gesture — would
