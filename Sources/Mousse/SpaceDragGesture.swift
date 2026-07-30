@@ -40,6 +40,12 @@ final class SpaceDragGesture {
     private let flickMinDistance = 50.0  // px accumulated since the last switch
     private let flickMinVelocity = 600.0 // px/s at release
     private let flickMaxIdle = 0.08      // s — if the pointer rested longer than this, it's not a flick
+    // Velocity-EMA time constant: the release speed is effectively the average over the last ~22 ms
+    // of drag, REGARDLESS of the mouse's report rate. A fixed per-event weight (the old 0.7/0.3)
+    // made that window report-rate dependent — ~22 ms on the 125 Hz mouse the flick thresholds were
+    // tuned against, but only ~3 ms at 1000 Hz, where a single twitchy report could fake a flick.
+    // 0.0224 = 8 ms / ln(1/0.7), i.e. exactly the old tuning at a 125 Hz report interval.
+    private let velocitySmoothingTau = 0.0224
 
     private enum Axis { case undecided, horizontal, vertical }
 
@@ -133,11 +139,15 @@ final class SpaceDragGesture {
             return true
         }
 
-        // Track drag velocity (EMA) along the active axis for flick detection on release.
+        // Track drag velocity (EMA) along the active axis for flick detection on release,
+        // dt-weighted so the smoothing window is wall-time (see `velocitySmoothingTau`).
         let dt = now - lastDragTime
         lastDragTime = now
         let axisDelta = axis == .horizontal ? deltaX : deltaY
-        if dt > 0, dt < 0.5 { smoothedVel = 0.7 * smoothedVel + 0.3 * (axisDelta / dt) }
+        if dt > 0, dt < 0.5 {
+            let alpha = 1 - exp(-dt / velocitySmoothingTau)
+            smoothedVel += alpha * (axisDelta / dt - smoothedVel)
+        }
 
         if axis == .horizontal {
             if followingFinger {

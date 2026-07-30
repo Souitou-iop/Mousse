@@ -469,7 +469,14 @@ final class ScrollAnimator: NSObject {
         // Toggle `isPaused` on the link's own thread (CADisplayLink isn't documented thread-safe).
         guard let rl else { return }
         CFRunLoopPerformBlock(rl, CFRunLoopMode.commonModes.rawValue) { [weak self] in
-            self?.displayLink?.isPaused = false
+            guard let self else { return }
+            // Read under lock (handleWake/runLoop write it) — same discipline as endGestureNow's
+            // block. Un-pausing a link handleWake just invalidated is harmless; racing the read
+            // itself is not.
+            self.lock.lock()
+            let link = self.displayLink
+            self.lock.unlock()
+            link?.isPaused = false
         }
         CFRunLoopWakeUp(rl)
     }

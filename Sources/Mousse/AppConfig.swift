@@ -118,6 +118,15 @@ extension AppConfig {
         excludedBundleIDs  = field([String].self, .excludedBundleIDs) ?? excludedBundleIDs
         verticalToHorizontalBundleIDs = field([String].self, .verticalToHorizontalBundleIDs) ?? verticalToHorizontalBundleIDs
         mappings           = field([Lossy<ButtonMapping>].self, .mappings)?.compactMap(\.value) ?? mappings
+
+        // Range-clamp the numeric fields to the same bounds the Settings UI enforces. Only a
+        // hand-edited config can stray (the UI can't), but the failure modes are silent and odd:
+        // scrollLines 0 makes Smooth-step scroll nothing and a negative value reverses it, while
+        // an out-of-range scrollSpeed extrapolates the sensitivity anchors linearly without limit.
+        // (JSONDecoder rejects NaN/Inf on its own, so finiteness needs no check here.)
+        scrollSpeed        = min(max(scrollSpeed, 0.05), 1.5)
+        scrollLines        = min(max(scrollLines, 1), 10)
+        spaceDragThreshold = min(max(spaceDragThreshold, 100), 400)
     }
 
     // Custom encode because `smoothScroll` is a decode-only legacy key with no backing property.

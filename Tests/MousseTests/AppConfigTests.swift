@@ -142,4 +142,24 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.enabled, AppConfig().enabled)
         XCTAssertEqual(decoded.mappings.count, AppConfig.defaultMappings.count)
     }
+
+    /// Hand-edited out-of-range numbers are clamped to the UI's own bounds on decode:
+    /// scrollLines 0 would make Smooth-step scroll nothing (negative would reverse it), and an
+    /// out-of-range scrollSpeed extrapolates the sensitivity curve without limit.
+    func testOutOfRangeValuesAreClamped() throws {
+        let json = #"{"scrollSpeed":99,"scrollLines":-2,"spaceDragThreshold":5}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.scrollSpeed, 1.5, accuracy: 1e-9)
+        XCTAssertEqual(decoded.scrollLines, 1)
+        XCTAssertEqual(decoded.spaceDragThreshold, 100, accuracy: 1e-9)
+    }
+
+    /// In-range values pass through the clamp untouched (the bounds match the UI's).
+    func testInRangeValuesSurviveClamp() throws {
+        let json = #"{"scrollSpeed":0.05,"scrollLines":10,"spaceDragThreshold":400}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.scrollSpeed, 0.05, accuracy: 1e-9)
+        XCTAssertEqual(decoded.scrollLines, 10)
+        XCTAssertEqual(decoded.spaceDragThreshold, 400, accuracy: 1e-9)
+    }
 }

@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import QuartzCore
 
 /// Resolves which app owns the window under the mouse pointer — the app that will RECEIVE a scroll
 /// event (macOS routes scrolling to the window under the cursor, not the focused app), so the
@@ -30,7 +31,9 @@ final class CursorAppResolver {
     /// Bundle ID of the app owning the topmost normal window containing `point`
     /// (CG global coordinates, as `CGEvent.location` reports). `nil` when nothing matches.
     func bundleID(at point: CGPoint) -> String? {
-        let now = CFAbsoluteTimeGetCurrent()
+        // Monotonic clock (like the rest of the codebase): CFAbsoluteTimeGetCurrent is wall time
+        // and jumps with NTP/timezone changes, which could hold or bust these caches arbitrarily.
+        let now = CACurrentMediaTime()
         if now - cachedAt < cacheWindow,
            abs(point.x - cachedPoint.x) < cacheRadius, abs(point.y - cachedPoint.y) < cacheRadius {
             return cachedBundleID
@@ -67,7 +70,7 @@ final class CursorAppResolver {
     }
 
     private func bundleID(for pid: pid_t) -> String? {
-        let now = CFAbsoluteTimeGetCurrent()
+        let now = CACurrentMediaTime()
         if now - pidCacheStamp > pidCacheLifetime || bundleIDByPID.count >= pidCacheLimit {
             bundleIDByPID.removeAll(keepingCapacity: true)
             pidCacheStamp = now

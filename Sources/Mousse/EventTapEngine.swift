@@ -66,6 +66,13 @@ final class EventTapEngine {
     private var contLineCarryV = 0.0
     private var contLineCarryH = 0.0
 
+    /// Buttons whose DOWN we swallowed; the matching up must be swallowed too, no matter how the
+    /// mapping/capture/enabled state changed mid-press. Deciding the up from the *current* state
+    /// desyncs the pair — e.g. a capture click over another app's window adds the mapping between
+    /// down and up, and swallowing that up leaves the other app holding a stuck button-down.
+    /// Only touched on the tap thread.
+    private var swallowedDownButtons: Set<Int> = []
+
     /// Smooth scrolling + drag-to-switch-Spaces; only ever touched on the tap thread.
     private let scrollAnimator = ScrollAnimator()
     private let magnifier = MagnifySynthesizer()
@@ -306,13 +313,30 @@ final class EventTapEngine {
 
         if dragCancel { spaceDrag.cancel() } // tap thread — safe to touch the gesture's state
 
-        // During capture, let button events reach the Settings UI untouched.
+        // During capture, let button downs/drags reach the Settings UI untouched. Ups are NOT
+        // exempted: they go through the pairing below (an up whose down was swallowed must be
+        // swallowed even mid-capture), and the capture UI only listens for downs anyway.
         if capturing {
             switch type {
-            case .otherMouseDown, .otherMouseUp, .otherMouseDragged:
+            case .otherMouseDown, .otherMouseDragged:
                 return Unmanaged.passUnretained(event)
             default: break
             }
+        }
+
+        // Button-up pairing runs even while disabled or capturing: swallow an up iff its down was
+        // swallowed (see `swallowedDownButtons`), so no mid-press state change can strand an app
+        // with a stuck button or feed it a stray unpaired up.
+        if type == .otherMouseUp {
+            let button = Int(event.getIntegerValueField(.mouseEventButtonNumber)) + 1
+            let downWasSwallowed = swallowedDownButtons.remove(button) != nil
+            let up = spaceDrag.handleButtonUp(button)
+            if up.consumed {
+                // A plain click (no drag) on the gesture button still triggers its remap.
+                if up.wasClick, on, let action = maps[button] { action.post() }
+                return nil
+            }
+            return downWasSwallowed ? nil : Unmanaged.passUnretained(event)
         }
 
         guard on else { return Unmanaged.passUnretained(event) }
@@ -322,19 +346,8 @@ final class EventTapEngine {
             let button = Int(event.getIntegerValueField(.mouseEventButtonNumber)) + 1
             // The Space-drag gesture owns its button: swallow the down and decide click-vs-drag
             // on release (so a plain click can still fire the button's mapped action).
-            if spaceDrag.handleButtonDown(button) { return nil }
-            if let action = maps[button] { action.post(); return nil }
-            return Unmanaged.passUnretained(event)
-
-        case .otherMouseUp:
-            let button = Int(event.getIntegerValueField(.mouseEventButtonNumber)) + 1
-            let up = spaceDrag.handleButtonUp(button)
-            if up.consumed {
-                // A plain click (no drag) on the gesture button still triggers its remap.
-                if up.wasClick, let action = maps[button] { action.post() }
-                return nil
-            }
-            if maps[button] != nil { return nil } // we swallowed the down; swallow the up too
+            if spaceDrag.handleButtonDown(button) { swallowedDownButtons.insert(button); return nil }
+            if let action = maps[button] { swallowedDownButtons.insert(button); action.post(); return nil }
             return Unmanaged.passUnretained(event)
 
         case .otherMouseDragged:

@@ -11,7 +11,12 @@ import QuartzCore
 /// `endTimeout` (we can't see the Cmd key-up — the tap only listens to mouse events).
 ///
 /// Threading: `feed` runs on the event-tap thread; the end-timeout fires on the main queue.
-/// State is guarded by `lock`; CGEventPost is thread-safe.
+/// State is guarded by `lock`, and every phase event is POSTED while still holding it: deciding
+/// under the lock but posting outside left a window where the main queue's `ended` (decided after
+/// 0.25 s of silence) could land AFTER the `began` of a fresh tick that slipped in between —
+/// closing the new gesture instantly and orphaning its `changed` events. Posting under the lock
+/// makes the emitted stream order match the state transitions. CGEventPost is thread-safe and
+/// takes microseconds, so holding the lock across it is harmless.
 final class MagnifySynthesizer {
 
     /// Field-based gesture synthesis works through macOS 26; macOS 27 stops reading these fields
@@ -56,8 +61,6 @@ final class MagnifySynthesizer {
         lastFeed = CACurrentMediaTime()
         let needsCheck = !endScheduled
         endScheduled = true
-        lock.unlock()
-
         var delta = magnification
         if opening {
             if chromiumBoost {
@@ -71,6 +74,7 @@ final class MagnifySynthesizer {
         } else {
             post(phase: phaseChanged, magnification: delta)
         }
+        lock.unlock()
 
         // Arm the end-of-gesture check ONCE per gesture. Re-arming per tick queued one main-queue
         // timer for every event — and a Cmd+scroll flick on a free-spin or high-res mouse is
@@ -99,8 +103,8 @@ final class MagnifySynthesizer {
             }
             self.active = false
             self.endScheduled = false
+            self.post(phase: self.phaseEnded, magnification: 0) // under lock — see class comment
             self.lock.unlock()
-            self.post(phase: self.phaseEnded, magnification: 0)
         }
     }
 
@@ -110,8 +114,8 @@ final class MagnifySynthesizer {
         lock.lock()
         let wasActive = active
         active = false
+        if wasActive { post(phase: phaseEnded, magnification: 0) } // under lock — see class comment
         lock.unlock()
-        if wasActive { post(phase: phaseEnded, magnification: 0) }
     }
 
     /// Serial queue so the fallback keystroke is synthesized OFF the event-tap thread — same
