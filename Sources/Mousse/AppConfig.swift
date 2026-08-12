@@ -61,6 +61,7 @@ struct ButtonMapping: Codable, Identifiable, Equatable, Sendable {
 /// `Equatable` so `ConfigStore` can skip the save + engine reload when an assignment changes
 /// nothing — see the guard in its `didSet`.
 struct AppConfig: Codable, Sendable, Equatable {
+    var language: AppLanguage = .system
     var enabled: Bool = true
     var reverseScroll: Bool = false
     var scrollMode: ScrollMode = .smooth
@@ -83,6 +84,7 @@ struct AppConfig: Codable, Sendable, Equatable {
                                          // wheel scrolls horizontally): purpose-built for
                                          // horizontal-first browsers like Nimble Commander's Brief
                                          // panels — smoothing stays on, we transpose ourselves
+    var configuredButtons: [Int] = [4, 5] // persists empty button groups in the mapping editor
     var mappings: [ButtonMapping] = AppConfig.defaultMappings
 
     /// Sensible defaults so the app is useful on first launch.
@@ -98,10 +100,10 @@ struct AppConfig: Codable, Sendable, Equatable {
 /// a broken mapping is dropped, the rest survive. Encoding stays synthesized.
 extension AppConfig {
     enum CodingKeys: String, CodingKey {
-        case enabled, reverseScroll, scrollMode, scrollSmoothness, smoothScroll, scrollSpeed, scrollLines
+        case language, enabled, reverseScroll, scrollMode, scrollSmoothness, smoothScroll, scrollSpeed, scrollLines
         case scrollAcceleration, smoothHighRes, doubleClickInterval, holdDuration
         case spaceDragButton, spaceDragThreshold, spaceDragReverse, spaceDragFollowFinger
-        case excludedBundleIDs, verticalToHorizontalBundleIDs, mappings
+        case excludedBundleIDs, verticalToHorizontalBundleIDs, configuredButtons, mappings
     }
 
     /// Contains an element's decode failure to that element instead of failing the whole array.
@@ -117,6 +119,7 @@ extension AppConfig {
         func field<T: Decodable>(_ type: T.Type, _ key: CodingKeys) -> T? {
             (try? c.decodeIfPresent(type, forKey: key)) ?? nil
         }
+        language           = field(AppLanguage.self, .language)      ?? language
         enabled            = field(Bool.self,   .enabled)            ?? enabled
         reverseScroll      = field(Bool.self,   .reverseScroll)      ?? reverseScroll
         // Prefer scrollMode; fall back to the legacy `smoothScroll` bool if that's all we have.
@@ -142,12 +145,19 @@ extension AppConfig {
         spaceDragFollowFinger = field(Bool.self, .spaceDragFollowFinger) ?? spaceDragFollowFinger
         excludedBundleIDs  = field([String].self, .excludedBundleIDs) ?? excludedBundleIDs
         verticalToHorizontalBundleIDs = field([String].self, .verticalToHorizontalBundleIDs) ?? verticalToHorizontalBundleIDs
-        mappings           = field([Lossy<ButtonMapping>].self, .mappings)?.compactMap(\.value) ?? mappings
+        if c.contains(.mappings) {
+            if let decodedMappings = field([Lossy<ButtonMapping>].self, .mappings) {
+                mappings = decodedMappings.compactMap(\.value)
+            }
+        }
+        let savedButtons = field([Int].self, .configuredButtons) ?? []
+        configuredButtons = Array(Set((savedButtons + mappings.map(\.buttonNumber)).filter { $0 >= 3 })).sorted()
     }
 
     // Custom encode because `smoothScroll` is a decode-only legacy key with no backing property.
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(language, forKey: .language)
         try c.encode(enabled, forKey: .enabled)
         try c.encode(reverseScroll, forKey: .reverseScroll)
         try c.encode(scrollMode, forKey: .scrollMode)
@@ -164,6 +174,7 @@ extension AppConfig {
         try c.encode(spaceDragFollowFinger, forKey: .spaceDragFollowFinger)
         try c.encode(excludedBundleIDs, forKey: .excludedBundleIDs)
         try c.encode(verticalToHorizontalBundleIDs, forKey: .verticalToHorizontalBundleIDs)
+        try c.encode(configuredButtons, forKey: .configuredButtons)
         try c.encode(mappings, forKey: .mappings)
     }
 }

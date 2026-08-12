@@ -7,6 +7,8 @@
 "tab.scroll" = "滚动";
 "tab.gestures" = "手势";
 "general.enable" = "启用 Mousse";
+"general.language" = "语言";
+"general.language.system" = "跟随系统";
 "general.launchAtLogin" = "登录时打开";
 "general.accessibility" = "辅助功能";
 "general.granted" = "已授权";
@@ -37,10 +39,10 @@
 "gestures.dragDistance" = "每个 Space 的拖动距离：%d px";
 "gestures.reverse" = "反转拖动方向";
 "gestures.description" = "按住选定按钮并向左或向右拖动以切换 Space。跟随手指会驱动真实的 macOS 滑动动画（类似三指触控板滑动）；关闭后按距离离散地每次跳转一个 Space。垂直拖动会触发 Mission Control（向上）或 App Exposé（向下）。在 macOS 27 及更高版本中，无论如何都会使用离散跳转，直到跟随手指功能完成移植。";
-"buttons.captureActive" = "请单击、双击或长按鼠标按钮…（按 ⎋ 取消）";
-"buttons.capturePrompt" = "捕获鼠标按键触发方式";
-"buttons.noMappings" = "暂无映射";
-"buttons.noMappingsDescription" = "点击上方区域中的侧键开始设置。";
+"buttons.captureActive" = "请按下鼠标按钮…（按 ⎋ 取消）";
+"buttons.capturePrompt" = "捕获鼠标对应操作按键";
+"buttons.noMappings" = "暂无鼠标按钮";
+"buttons.noMappingsDescription" = "请先在上方捕获鼠标按钮。";
 "buttons.pressKeys" = "请按下快捷键…（按 ⎋ 取消）";
 "buttons.presets" = "预设动作";
 "buttons.recordShortcut" = "录制自定义快捷键…";
@@ -53,9 +55,12 @@
 "buttons.trigger.hold" = "长按";
 "buttons.addTrigger" = "添加触发方式";
 "buttons.removeMapping" = "删除此映射";
+"buttons.noTriggers" = "尚未添加触发方式";
+"buttons.removeButton" = "删除此按钮";
+"buttons.removeButtonTitle" = "删除鼠标按钮？";
+"buttons.removeButtonMessage" = "这会删除该按钮及其全部触发方式映射。";
 "buttons.doubleClickInterval" = "双击间隔：%d 毫秒";
 "buttons.holdDuration" = "长按时长：%d 毫秒";
-"buttons.timingDescription" = "仅当同一按钮配置了双击动作时，单击动作才会等待双击间隔。";
 "apps.excluded" = "排除的应用";
 "apps.noExcluded" = "暂无排除的应用";
 "apps.exclude" = "排除";
@@ -68,6 +73,8 @@
 "common.off" = "关闭";
 "common.button" = "按钮 %d";
 "common.add" = "添加";
+"common.cancel" = "取消";
+"common.delete" = "删除";
 "action.spaceLeft" = "向左移动一个 Space";
 "action.spaceRight" = "向右移动一个 Space";
 "action.missionControl" = "Mission Control";

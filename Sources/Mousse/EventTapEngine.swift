@@ -63,9 +63,8 @@ final class EventTapEngine {
     private var spaceDragReverse = false
     private var spaceDragFollowFinger = true
     private var captureKind: CaptureKind = .none
-    private var captureCompletion: ((CaptureOutcome<ButtonCaptureRecognizer.Result>) -> Void)?
+    private var captureCompletion: ((CaptureOutcome<Int>) -> Void)?
     private var keyboardCaptureCompletion: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
-    private let captureRecognizer = ButtonCaptureRecognizer()
     private var suppressedCaptureButton: Int?
     /// Capture must never outlive the Settings interaction that opened it: while it is on, every
     /// mouse button passes through unmapped and the Space-drag gesture is bypassed, so a UI path
@@ -164,7 +163,7 @@ final class EventTapEngine {
     /// The gesture's state is tap-thread-only, so don't touch it here — raise a flag the tap
     /// callback consumes at the top of its next event.
     private func requestInputCancel() {
-        let mouseCancellation: ((CaptureOutcome<ButtonCaptureRecognizer.Result>) -> Void)?
+        let mouseCancellation: ((CaptureOutcome<Int>) -> Void)?
         let keyboardCancellation: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
         lock.lock()
         pendingDragCancel = true
@@ -231,14 +230,14 @@ final class EventTapEngine {
         watchdog = timer
     }
 
-    /// Start learning a button gesture. The event tap owns recognition so captured input can be
-    /// swallowed globally instead of leaking into the app under the pointer.
+    /// Start learning a physical button. The event tap owns capture so the press, drag, and release
+    /// can be swallowed globally instead of leaking into the app under the pointer.
     @discardableResult
     func beginCapture(
-        completion: @escaping (CaptureOutcome<ButtonCaptureRecognizer.Result>) -> Void
+        completion: @escaping (CaptureOutcome<Int>) -> Void
     ) -> CaptureStartStatus {
         guard AccessibilityPermission.isTrusted else { return .accessibilityRequired }
-        var oldMouseCompletion: ((CaptureOutcome<ButtonCaptureRecognizer.Result>) -> Void)?
+        var oldMouseCompletion: ((CaptureOutcome<Int>) -> Void)?
         var oldKeyboardCompletion: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
         lock.lock()
         guard let tap, CGEvent.tapIsEnabled(tap: tap) else {
@@ -250,9 +249,6 @@ final class EventTapEngine {
         captureKind = .mouse
         captureCompletion = completion
         keyboardCaptureCompletion = nil
-        captureRecognizer.doubleClickInterval = doubleClickInterval
-        captureRecognizer.holdDuration = holdDuration
-        captureRecognizer.start()
         pendingDragCancel = true
         pendingTriggerCancel = true
         captureDeadline = CACurrentMediaTime() + EventTapEngine.captureMaxDuration
@@ -268,7 +264,7 @@ final class EventTapEngine {
     }
 
     func cancelCapture() {
-        let mouseCompletion: ((CaptureOutcome<ButtonCaptureRecognizer.Result>) -> Void)?
+        let mouseCompletion: ((CaptureOutcome<Int>) -> Void)?
         let keyboardCompletion: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
         let keyboardTap: CFMachPort?
         lock.lock()
@@ -286,7 +282,7 @@ final class EventTapEngine {
     func beginKeyboardCapture(completion: @escaping (CaptureOutcome<KeyboardCaptureResult>) -> Void)
         -> CaptureStartStatus {
         guard AccessibilityPermission.isTrusted else { return .accessibilityRequired }
-        var oldMouseCompletion: ((CaptureOutcome<ButtonCaptureRecognizer.Result>) -> Void)?
+        var oldMouseCompletion: ((CaptureOutcome<Int>) -> Void)?
         var oldKeyboardCompletion: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
         lock.lock()
         guard tap != nil, let keyboardTap = keyboardCaptureTap else {
@@ -298,7 +294,6 @@ final class EventTapEngine {
         captureKind = .keyboard
         captureCompletion = nil
         keyboardCaptureCompletion = completion
-        captureRecognizer.cancel()
         captureDeadline = CACurrentMediaTime() + EventTapEngine.captureMaxDuration
         let deadline = captureDeadline
         lock.unlock()
@@ -312,7 +307,7 @@ final class EventTapEngine {
 
     /// Update the live snapshot when config changes.
     func reload(_ config: AppConfig) {
-        let captureCancellation: ((CaptureOutcome<ButtonCaptureRecognizer.Result>) -> Void)?
+        let captureCancellation: ((CaptureOutcome<Int>) -> Void)?
         let keyboardCaptureCancellation: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
         lock.lock()
         // Disabling the engine or re-assigning the gesture button hides the button-up of an
@@ -425,21 +420,14 @@ final class EventTapEngine {
     private func handleButtonTriggerTimer() {
         let now = CACurrentMediaTime()
         lock.lock()
-        let plannedCaptureDeadline = captureKind == .mouse ? captureRecognizer.nextDeadline : nil
         let cancel = pendingTriggerCancel
         pendingTriggerCancel = false
-        var captureResult: ButtonCaptureRecognizer.Result?
-        var captureCallback: ((CaptureOutcome<ButtonCaptureRecognizer.Result>) -> Void)?
+        var captureCallback: ((CaptureOutcome<Int>) -> Void)?
         var keyboardCaptureCallback: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
-        var mouseTimedOut = false
         var keyboardTapToDisable: CFMachPort?
         if captureKind == .mouse {
             if now >= captureDeadline {
                 captureCallback = cancelCaptureLocked().0
-                mouseTimedOut = true
-            } else if let result = captureRecognizer.advance(to: now) {
-                captureResult = result
-                captureCallback = finishCaptureLocked(result)
             }
         } else if captureKind == .keyboard, now >= captureDeadline {
             keyboardCaptureCallback = keyboardCaptureCompletion
@@ -448,17 +436,10 @@ final class EventTapEngine {
             keyboardTapToDisable = keyboardCaptureTap
         }
         lock.unlock()
-        if let plannedCaptureDeadline {
-            NSLog("Mousse: capture timer woke at %.6f for deadline %.6f (drift %.3f ms)",
-                  now, plannedCaptureDeadline, (now - plannedCaptureDeadline) * 1000)
-        }
         if let keyboardTapToDisable { CGEvent.tapEnable(tap: keyboardTapToDisable, enable: false) }
         if let captureCallback {
-            let outcome: CaptureOutcome<ButtonCaptureRecognizer.Result> = mouseTimedOut
-                ? .timedOut
-                : .captured(captureResult!)
-            DispatchQueue.main.async { captureCallback(outcome) }
-            NSLog(mouseTimedOut ? "Mousse: mouse capture timed out" : "Mousse: mouse capture completed")
+            DispatchQueue.main.async { captureCallback(.timedOut) }
+            NSLog("Mousse: mouse capture timed out")
         }
         if let keyboardCaptureCallback {
             DispatchQueue.main.async { keyboardCaptureCallback(.timedOut) }
@@ -481,7 +462,7 @@ final class EventTapEngine {
         let timer = buttonTriggerTimer
         let captureTimerDeadline: Double?
         if captureKind == .mouse {
-            captureTimerDeadline = [captureRecognizer.nextDeadline, captureDeadline].compactMap { $0 }.min()
+            captureTimerDeadline = captureDeadline
         } else if captureKind == .keyboard {
             captureTimerDeadline = captureDeadline
         } else {
@@ -574,29 +555,16 @@ final class EventTapEngine {
         // Capture is recognized at the tap head so the physical button never reaches another app.
         if capturing {
             switch type {
-            case .otherMouseDown, .otherMouseUp:
+            case .otherMouseDown:
                 let button = Int(event.getIntegerValueField(.mouseEventButtonNumber)) + 1
-                let now = CACurrentMediaTime()
                 lock.lock()
-                let result = type == .otherMouseDown
-                    ? captureRecognizer.buttonDown(button, at: now)
-                    : captureRecognizer.buttonUp(button, at: now)
-                let nextDeadline = captureRecognizer.nextDeadline
-                let callback = result.flatMap {
-                    finishCaptureLocked($0, suppressedButton: type == .otherMouseDown ? button : nil)
-                }
+                let callback = finishCaptureLocked(button)
                 lock.unlock()
-                if let nextDeadline {
-                    NSLog("Mousse: capture next deadline %.6f scheduled at %.6f",
-                          nextDeadline, now)
-                }
-                if let result, let callback {
-                    DispatchQueue.main.async { callback(.captured(result)) }
-                    NSLog("Mousse: mouse capture completed")
-                }
+                if let callback { DispatchQueue.main.async { callback(.captured(button)) } }
+                NSLog("Mousse: mouse button %d captured", button)
                 scheduleButtonTriggerTimer()
                 return nil
-            case .otherMouseDragged:
+            case .otherMouseUp, .otherMouseDragged:
                 return nil
             default: break
             }
@@ -831,26 +799,18 @@ final class EventTapEngine {
         bundleID.map(excluded.contains) == true
     }
 
-    private func finishCaptureLocked(_ result: ButtonCaptureRecognizer.Result,
-                                     suppressedButton: Int? = nil)
-        -> ((CaptureOutcome<ButtonCaptureRecognizer.Result>) -> Void)? {
+    private func finishCaptureLocked(_ button: Int) -> ((CaptureOutcome<Int>) -> Void)? {
         captureKind = .none
-        captureRecognizer.cancel()
-        if let suppressedButton {
-            suppressedCaptureButton = suppressedButton
-        } else if result.trigger != .click {
-            suppressedCaptureButton = result.buttonNumber
-        }
+        suppressedCaptureButton = button
         let completion = captureCompletion
         captureCompletion = nil
         return completion
     }
 
     private func cancelCaptureLocked()
-        -> (((CaptureOutcome<ButtonCaptureRecognizer.Result>) -> Void)?,
+        -> (((CaptureOutcome<Int>) -> Void)?,
             ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?) {
         captureKind = .none
-        captureRecognizer.cancel()
         let mouseCompletion = captureCompletion
         let keyboardCompletion = keyboardCaptureCompletion
         captureCompletion = nil

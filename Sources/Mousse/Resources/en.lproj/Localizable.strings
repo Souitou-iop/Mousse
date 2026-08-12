@@ -7,6 +7,8 @@
 "tab.scroll" = "Scroll";
 "tab.gestures" = "Gestures";
 "general.enable" = "Enable Mousse";
+"general.language" = "Language";
+"general.language.system" = "System Default";
 "general.launchAtLogin" = "Launch at login";
 "general.accessibility" = "Accessibility";
 "general.granted" = "Granted";
@@ -37,10 +39,10 @@
 "gestures.dragDistance" = "Drag distance per Space: %d px";
 "gestures.reverse" = "Reverse drag direction";
 "gestures.description" = "Hold the chosen button and drag left/right to switch Spaces. Follow-finger drives the real macOS slide (like a three-finger trackpad swipe); turn it off for discrete one-jump-per-distance switching. Vertical drags trigger Mission Control (up) or App Exposé (down). On macOS 27+ discrete jumps are used regardless, until follow-finger is ported.";
-"buttons.captureActive" = "Click, double-click, or hold a mouse button…  (⎋ cancels)";
-"buttons.capturePrompt" = "Capture a mouse-button trigger";
-"buttons.noMappings" = "No mappings";
-"buttons.noMappingsDescription" = "Click the field above with a side button to start.";
+"buttons.captureActive" = "Press a mouse button…  (⎋ cancels)";
+"buttons.capturePrompt" = "Capture a mouse button";
+"buttons.noMappings" = "No mouse buttons";
+"buttons.noMappingsDescription" = "Capture a mouse button above to start.";
 "buttons.pressKeys" = "Press keys…  (⎋ cancels)";
 "buttons.presets" = "Presets";
 "buttons.recordShortcut" = "Record Custom Shortcut…";
@@ -53,9 +55,12 @@
 "buttons.trigger.hold" = "Hold";
 "buttons.addTrigger" = "Add Trigger";
 "buttons.removeMapping" = "Remove this mapping";
+"buttons.noTriggers" = "No triggers added";
+"buttons.removeButton" = "Remove this button";
+"buttons.removeButtonTitle" = "Remove Mouse Button?";
+"buttons.removeButtonMessage" = "This removes the button and all of its trigger mappings.";
 "buttons.doubleClickInterval" = "Double-click interval: %d ms";
 "buttons.holdDuration" = "Hold duration: %d ms";
-"buttons.timingDescription" = "Click actions wait for the double-click interval only when the same button has a Double Click mapping.";
 "apps.excluded" = "Excluded apps";
 "apps.noExcluded" = "No excluded apps";
 "apps.exclude" = "Exclude";
@@ -68,6 +73,8 @@
 "common.off" = "Off";
 "common.button" = "Button %d";
 "common.add" = "Add";
+"common.cancel" = "Cancel";
+"common.delete" = "Delete";
 "action.spaceLeft" = "Move Left a Space";
 "action.spaceRight" = "Move Right a Space";
 "action.missionControl" = "Mission Control";

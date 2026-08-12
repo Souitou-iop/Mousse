@@ -18,6 +18,11 @@ struct SettingsView: View {
 
     private var generalTab: some View {
         Form {
+            Picker(Localized.text("general.language"), selection: $store.config.language) {
+                ForEach(AppLanguage.allCases, id: \.self) { language in
+                    Text(language.label).tag(language)
+                }
+            }
             Toggle(Localized.text("general.enable"), isOn: $store.config.enabled)
             Toggle(Localized.text("general.launchAtLogin"), isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, newValue in

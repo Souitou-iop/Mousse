@@ -1,9 +1,9 @@
 import SwiftUI
 import AppKit
 
-/// Starts event-tap capture and reports both the physical button and recognized trigger gesture.
+/// Starts event-tap capture and reports the first physical mouse button pressed.
 struct ButtonCaptureField: View {
-    var onCapture: (ButtonCaptureRecognizer.Result) -> Void
+    var onCapture: (Int) -> Void
 
     @State private var capturing = false
     @State private var escapeMonitor: Any?

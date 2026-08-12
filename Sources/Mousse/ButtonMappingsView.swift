@@ -3,17 +3,18 @@ import SwiftUI
 /// Button mappings grouped by physical button, with one action per trigger type.
 struct ButtonMappingsView: View {
     @EnvironmentObject var store: ConfigStore
-    @State private var highlightedMappingID: UUID?
+    @State private var highlightedButton: Int?
+    @State private var buttonPendingDeletion: Int?
 
     private var buttons: [Int] {
-        Array(Set(store.config.mappings.map(\.buttonNumber))).sorted()
+        store.config.configuredButtons
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ButtonCaptureField(onCapture: addButton)
 
-            if store.config.mappings.isEmpty {
+            if buttons.isEmpty {
                 ContentUnavailableView(Localized.text("buttons.noMappings"), systemImage: "computermouse",
                                        description: Text(Localized.text("buttons.noMappingsDescription")))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -22,27 +23,52 @@ struct ButtonMappingsView: View {
                     List {
                         ForEach(buttons, id: \.self) { button in
                             Section {
+                                if mappings(for: button).isEmpty {
+                                    Text(Localized.text("buttons.noTriggers"))
+                                        .foregroundStyle(.secondary)
+                                }
                                 ForEach(ButtonTrigger.allCases, id: \.self) { trigger in
                                     if let index = mappingIndex(button: button, trigger: trigger) {
                                         MappingRow(
                                             mapping: $store.config.mappings[index],
-                                            missingTriggers: missingTriggers(for: button),
-                                            highlighted: highlightedMappingID == store.config.mappings[index].id,
-                                            onAddTrigger: { addTrigger($0, to: button) },
                                             onDelete: { store.config.mappings.remove(at: index) }
                                         )
-                                        .id(store.config.mappings[index].id)
                                     }
                                 }
                             } header: {
-                                Label(Localized.format("common.button", button), systemImage: "computermouse.fill")
+                                HStack {
+                                    Label(Localized.format("common.button", button),
+                                          systemImage: "computermouse.fill")
+                                    Spacer()
+                                    if !missingTriggers(for: button).isEmpty {
+                                        Menu {
+                                            ForEach(missingTriggers(for: button), id: \.self) { trigger in
+                                                Button(trigger.label) { addTrigger(trigger, to: button) }
+                                            }
+                                        } label: {
+                                            Image(systemName: "plus.circle")
+                                        }
+                                        .menuStyle(.borderlessButton)
+                                        .fixedSize()
+                                        .help(Localized.text("buttons.addTrigger"))
+                                    }
+                                    Button(Localized.text("common.delete"), role: .destructive) {
+                                        buttonPendingDeletion = button
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .foregroundStyle(.red)
+                                    .help(Localized.text("buttons.removeButton"))
+                                }
                             }
+                            .id(button)
+                            .listRowBackground(highlightedButton == button
+                                               ? Color.accentColor.opacity(0.16) : Color.clear)
                         }
                     }
                     .listStyle(.inset)
-                    .onChange(of: highlightedMappingID) { _, id in
-                        guard let id else { return }
-                        withAnimation { proxy.scrollTo(id, anchor: .center) }
+                    .onChange(of: highlightedButton) { _, button in
+                        guard let button else { return }
+                        withAnimation { proxy.scrollTo(button, anchor: .center) }
                     }
                 }
             }
@@ -50,21 +76,33 @@ struct ButtonMappingsView: View {
             Divider()
             timingControls
         }
+        .alert(Localized.text("buttons.removeButtonTitle"),
+               isPresented: Binding(
+                   get: { buttonPendingDeletion != nil },
+                   set: { if !$0 { buttonPendingDeletion = nil } }
+               )) {
+            Button(Localized.text("common.cancel"), role: .cancel) {
+                buttonPendingDeletion = nil
+            }
+            Button(Localized.text("common.delete"), role: .destructive) {
+                if let buttonPendingDeletion { removeButton(buttonPendingDeletion) }
+            }
+        } message: {
+            Text(Localized.text("buttons.removeButtonMessage"))
+        }
     }
 
     private var timingControls: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Stepper(value: $store.config.doubleClickInterval, in: 0.10...0.50, step: 0.01) {
-                Text(Localized.format("buttons.doubleClickInterval",
-                                      Int((store.config.doubleClickInterval * 1000).rounded())))
-            }
+        HStack(spacing: 16) {
             Stepper(value: $store.config.holdDuration, in: 0.10...0.80, step: 0.01) {
                 Text(Localized.format("buttons.holdDuration",
                                       Int((store.config.holdDuration * 1000).rounded())))
             }
-            Text(Localized.text("buttons.timingDescription"))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Stepper(value: $store.config.doubleClickInterval, in: 0.10...0.50, step: 0.01) {
+                Text(Localized.format("buttons.doubleClickInterval",
+                                      Int((store.config.doubleClickInterval * 1000).rounded())))
+            }
         }
     }
 
@@ -78,16 +116,17 @@ struct ButtonMappingsView: View {
         ButtonTrigger.allCases.filter { mappingIndex(button: button, trigger: $0) == nil }
     }
 
-    private func addButton(_ result: ButtonCaptureRecognizer.Result) {
-        guard result.buttonNumber >= 3 else { return }
-        if let index = mappingIndex(button: result.buttonNumber, trigger: result.trigger) {
-            highlight(store.config.mappings[index].id)
-            return
+    private func mappings(for button: Int) -> [ButtonMapping] {
+        store.config.mappings.filter { $0.buttonNumber == button }
+    }
+
+    private func addButton(_ button: Int) {
+        guard button >= 3 else { return }
+        if !store.config.configuredButtons.contains(button) {
+            store.config.configuredButtons.append(button)
+            store.config.configuredButtons.sort()
         }
-        let mapping = ButtonMapping(buttonNumber: result.buttonNumber, trigger: result.trigger,
-                                    action: .spaceLeft)
-        store.config.mappings.append(mapping)
-        highlight(mapping.id)
+        highlight(button)
     }
 
     private func addTrigger(_ trigger: ButtonTrigger, to button: Int) {
@@ -96,19 +135,22 @@ struct ButtonMappingsView: View {
                                                    action: .spaceLeft))
     }
 
-    private func highlight(_ id: UUID) {
-        highlightedMappingID = id
+    private func removeButton(_ button: Int) {
+        store.config.mappings.removeAll { $0.buttonNumber == button }
+        store.config.configuredButtons.removeAll { $0 == button }
+        buttonPendingDeletion = nil
+    }
+
+    private func highlight(_ button: Int) {
+        highlightedButton = button
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            if highlightedMappingID == id { highlightedMappingID = nil }
+            if highlightedButton == button { highlightedButton = nil }
         }
     }
 }
 
 private struct MappingRow: View {
     @Binding var mapping: ButtonMapping
-    let missingTriggers: [ButtonTrigger]
-    let highlighted: Bool
-    let onAddTrigger: (ButtonTrigger) -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -120,19 +162,6 @@ private struct MappingRow: View {
             ShortcutControl(action: $mapping.action)
             Spacer()
 
-            if !missingTriggers.isEmpty {
-                Menu {
-                    ForEach(missingTriggers, id: \.self) { trigger in
-                        Button(trigger.label) { onAddTrigger(trigger) }
-                    }
-                } label: {
-                    Image(systemName: "plus.circle")
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-                .help(Localized.text("buttons.addTrigger"))
-            }
-
             Button(role: .destructive, action: onDelete) {
                 Image(systemName: "trash")
             }
@@ -140,6 +169,5 @@ private struct MappingRow: View {
             .help(Localized.text("buttons.removeMapping"))
         }
         .padding(.vertical, 2)
-        .listRowBackground(highlighted ? Color.accentColor.opacity(0.16) : Color.clear)
     }
 }

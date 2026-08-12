@@ -16,6 +16,7 @@ final class ConfigStore: ObservableObject {
             // costs a disk write plus a full engine reload, and any binding whose write is itself
             // triggered by the resulting republish spins into a feedback loop.
             guard config != oldValue else { return }
+            Localized.language = config.language
             save()
             EventTapEngine.shared.reload(config)
         }
@@ -46,6 +47,7 @@ final class ConfigStore: ObservableObject {
         } else {
             config = AppConfig()
         }
+        Localized.language = config.language
     }
 
     private func save() {

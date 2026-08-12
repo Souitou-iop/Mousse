@@ -26,6 +26,7 @@ final class AppConfigTests: XCTestCase {
     func testNonDefaultValuesPersist() throws {
         var config = AppConfig()
         config.enabled = false
+        config.language = .simplifiedChinese
         config.reverseScroll = true
         config.scrollMode = .smoothStep
         config.scrollSpeed = 1.3
@@ -40,11 +41,13 @@ final class AppConfigTests: XCTestCase {
         config.excludedBundleIDs = ["info.filesmanager.Files", "com.example.other"]
         config.verticalToHorizontalBundleIDs = ["info.filesmanager.Files"]
         config.scrollSmoothness = .floaty
+        config.configuredButtons = [3, 6]
         config.mappings = [ButtonMapping(buttonNumber: 6, trigger: .doubleClick,
                                          action: .missionControl)]
 
         let decoded = try roundTrip(config)
         XCTAssertEqual(decoded.enabled, false)
+        XCTAssertEqual(decoded.language, .simplifiedChinese)
         XCTAssertEqual(decoded.reverseScroll, true)
         XCTAssertEqual(decoded.scrollMode, .smoothStep)
         XCTAssertEqual(decoded.scrollSpeed, 1.3, accuracy: 1e-9)
@@ -59,6 +62,7 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.excludedBundleIDs, ["info.filesmanager.Files", "com.example.other"])
         XCTAssertEqual(decoded.verticalToHorizontalBundleIDs, ["info.filesmanager.Files"])
         XCTAssertEqual(decoded.scrollSmoothness, .floaty)
+        XCTAssertEqual(decoded.configuredButtons, [3, 6])
         XCTAssertEqual(decoded.mappings, config.mappings)
     }
 
@@ -68,6 +72,7 @@ final class AppConfigTests: XCTestCase {
         let partial = #"{"enabled":false,"reverseScroll":true}"#.data(using: .utf8)!
         let decoded = try JSONDecoder().decode(AppConfig.self, from: partial)
         XCTAssertEqual(decoded.enabled, false)
+        XCTAssertEqual(decoded.language, .system)
         XCTAssertEqual(decoded.reverseScroll, true)
         // Everything absent falls back to defaults.
         XCTAssertEqual(decoded.scrollMode, .smooth)
@@ -113,6 +118,13 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.scrollLines, 7)
     }
 
+    func testUnknownLanguageFallsBackWithoutWipingRest() throws {
+        let json = #"{"language":"klingon","enabled":false}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.language, .system)
+        XCTAssertEqual(decoded.enabled, false)
+    }
+
     func testWrongTypeValueFallsBackWithoutWipingRest() throws {
         let json = #"{"scrollSpeed":"fast","reverseScroll":true}"#.data(using: .utf8)!
         let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
@@ -141,6 +153,46 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.mappings[0].buttonNumber, 6)
         XCTAssertEqual(decoded.mappings[0].trigger, .click)
         XCTAssertEqual(decoded.mappings[0].action, .launchpad)
+    }
+
+    func testLegacyConfigDerivesConfiguredButtonsFromMappings() throws {
+        let mappings = [
+            ButtonMapping(buttonNumber: 6, action: .launchpad),
+            ButtonMapping(buttonNumber: 4, action: .spaceLeft),
+        ]
+        let encodedMappings = try JSONEncoder().encode(mappings)
+        let mappingObjects = try JSONSerialization.jsonObject(with: encodedMappings)
+        let json = try JSONSerialization.data(withJSONObject: ["mappings": mappingObjects])
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.configuredButtons, [4, 6])
+    }
+
+    func testEmptyConfiguredButtonPersists() throws {
+        var config = AppConfig()
+        config.configuredButtons = [4, 7]
+        config.mappings.removeAll { $0.buttonNumber == 7 }
+        XCTAssertEqual(try roundTrip(config).configuredButtons, [4, 5, 7])
+    }
+
+    func testConfiguredButtonsAreNormalizedAndIncludeMappedButtons() throws {
+        let json = #"{"configuredButtons":[7,4,7,2,-1],"mappings":[{"buttonNumber":6,"action":{"launchpad":{}}}]}"#
+            .data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.configuredButtons, [4, 6, 7])
+    }
+
+    func testExplicitlyEmptyMappingsKeepEmptyButtonGroups() throws {
+        let json = #"{"configuredButtons":[8],"mappings":[]}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.configuredButtons, [8])
+        XCTAssertTrue(decoded.mappings.isEmpty)
+    }
+
+    func testInvalidMappingsFieldFallsBackWithoutLosingDefaults() throws {
+        let json = #"{"configuredButtons":[8],"mappings":"broken"}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.configuredButtons, [4, 5, 8])
+        XCTAssertEqual(decoded.mappings, AppConfig.defaultMappings)
     }
 
     func testUnknownMappingTriggerFallsBackToClick() throws {
