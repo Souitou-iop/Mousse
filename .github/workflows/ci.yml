@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Verify toolchain and runner
         shell: bash
@@ -56,7 +56,7 @@ jobs:
           codesign --verify --deep --strict --verbose=2 "$check_dir/Mousse.app"
 
       - name: Upload release archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Mousse-${{ github.sha }}-macOS26-arm64
           path: |
