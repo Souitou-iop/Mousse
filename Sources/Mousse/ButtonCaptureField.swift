@@ -1,78 +1,80 @@
 import SwiftUI
 import AppKit
 
-/// "Click here with a mouse button" field — captures which physical button you press (like ),
-/// so you never have to guess button numbers. Reports the 1-based button number via `onCapture`.
+/// Starts event-tap capture and reports both the physical button and recognized trigger gesture.
 struct ButtonCaptureField: View {
-    var onCapture: (Int) -> Void
+    var onCapture: (ButtonCaptureRecognizer.Result) -> Void
 
     @State private var capturing = false
-    @State private var localMonitor: Any?
-    /// A LOCAL monitor only sees events delivered to this app. If the capture click lands over
-    /// another app's window (the user switched away, or the pointer simply isn't over Settings),
-    /// the local monitor never fires — capture would stay on and every button mapping plus the
-    /// Space-drag gesture stays bypassed. The global monitor covers exactly that case.
-    @State private var globalMonitor: Any?
-    /// Last resort if neither monitor ever fires (no click at all, window torn down without
-    /// `onDisappear`). Shorter than the engine's own capture expiry so the UI resets first.
-    @State private var timeout: DispatchWorkItem?
-    private static let captureTimeout = 20.0
+    @State private var escapeMonitor: Any?
+    @State private var startError: EventTapEngine.CaptureStartStatus?
+    @State private var endMessageKey: String?
 
     var body: some View {
-        Button(action: toggle) {
-            HStack {
-                Image(systemName: capturing ? "cursorarrow.click.badge.clock" : "plus.circle.fill")
-                Text(capturing
-                     ? "Now click the mouse button you want…  (⎋ cancels)"
-                     : "Click here with a mouse button to add a mapping")
+        VStack(spacing: 4) {
+            Button(action: toggle) {
+                HStack {
+                    Image(systemName: capturing ? "cursorarrow.click.badge.clock" : "plus.circle.fill")
+                    Text(capturing
+                         ? Localized.text("buttons.captureActive")
+                         : Localized.text("buttons.capturePrompt"))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
+                .foregroundStyle(capturing ? .orange : .accentColor)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
-            .foregroundStyle(capturing ? .orange : .accentColor)
+            if startError == .accessibilityRequired {
+                Button(Localized.text("capture.openAccessibility")) { AccessibilityPermission.openSettings() }
+                    .font(.caption)
+            } else if startError == .eventTapInitializing {
+                Text(Localized.text("capture.eventTapInitializing"))
+                    .font(.caption).foregroundStyle(.secondary)
+            } else if let endMessageKey {
+                Text(Localized.text(endMessageKey))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
         .onDisappear { stop() }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
+            stop()
+        }
     }
 
     private func toggle() { capturing ? stop() : start() }
 
     private func start() {
-        capturing = true
-        EventTapEngine.shared.setCaptureMode(true) // let the click reach this window
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.otherMouseDown, .keyDown]) { event in
-            if event.type == .keyDown {
-                if event.keyCode == 53 { stop(); return nil } // Esc cancels
-                return event
+        startError = nil
+        endMessageKey = nil
+        let status = EventTapEngine.shared.beginCapture { outcome in
+            guard capturing else { return }
+            finishUI()
+            switch outcome {
+            case let .captured(result): onCapture(result)
+            case .cancelled: endMessageKey = "capture.cancelled"
+            case .timedOut: endMessageKey = "capture.timedOut"
             }
-            capture(event.buttonNumber + 1) // 0-based → 1-based (middle = 3, side = 4/5…)
-            return nil // swallow the captured click
         }
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.otherMouseDown]) { event in
-            // Global events can't be swallowed — the other app already got this click. Recording
-            // the button anyway is what the user asked for, and beats leaving capture stranded.
-            capture(event.buttonNumber + 1)
+        guard status == .started else {
+            startError = status
+            return
         }
-        let expiry = DispatchWorkItem { stop() }
-        timeout = expiry
-        DispatchQueue.main.asyncAfter(deadline: .now() + ButtonCaptureField.captureTimeout,
-                                      execute: expiry)
-    }
-
-    /// Record a captured button and close capture. Guarded so the local and global monitors can't
-    /// both fire for one click and add the mapping twice.
-    private func capture(_ button: Int) {
-        guard capturing else { return }
-        stop()
-        onCapture(button)
+        capturing = true
+        escapeMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.keyCode == 53 { stop(); return nil }
+            return event
+        }
     }
 
     private func stop() {
+        guard capturing else { return }
+        finishUI()
+        endMessageKey = "capture.cancelled"
+        EventTapEngine.shared.cancelCapture()
+    }
+
+    private func finishUI() {
         capturing = false
-        EventTapEngine.shared.setCaptureMode(false)
-        if let localMonitor { NSEvent.removeMonitor(localMonitor) }
-        if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
-        localMonitor = nil
-        globalMonitor = nil
-        timeout?.cancel()
-        timeout = nil
+        if let escapeMonitor { NSEvent.removeMonitor(escapeMonitor) }
+        escapeMonitor = nil
     }
 }

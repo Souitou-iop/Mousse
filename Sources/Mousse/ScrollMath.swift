@@ -43,9 +43,9 @@ enum ScrollSmoothness: String, Codable, Sendable, CaseIterable {
 
     var label: String {
         switch self {
-        case .snappy:   return "Snappy (direct)"
-        case .balanced: return "Balanced"
-        case .floaty:   return "Floaty (trackpad)"
+        case .snappy:   return Localized.text("scroll.smoothness.snappy")
+        case .balanced: return Localized.text("scroll.smoothness.balanced")
+        case .floaty:   return Localized.text("scroll.smoothness.floaty")
         }
     }
 }

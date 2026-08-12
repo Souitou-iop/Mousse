@@ -13,3 +13,6 @@ dist/
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
 DerivedData/
+
+# Local CodeGraph index
+.codegraph/

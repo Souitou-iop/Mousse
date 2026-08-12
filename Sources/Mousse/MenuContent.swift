@@ -5,19 +5,19 @@ struct MenuContent: View {
     @EnvironmentObject var store: ConfigStore
 
     var body: some View {
-        Toggle("Enabled", isOn: $store.config.enabled)
+        Toggle(Localized.text("menu.enabled"), isOn: $store.config.enabled)
 
         Divider()
 
         if !AccessibilityPermission.isTrusted {
-            Button("⚠️ Grant Accessibility…") { AccessibilityPermission.openSettings() }
+            Button(Localized.text("menu.grantAccessibility")) { AccessibilityPermission.openSettings() }
             Divider()
         }
 
-        SettingsLink { Text("Settings…") }
+        SettingsLink { Text(Localized.text("menu.settings")) }
             .keyboardShortcut(",")
 
-        Button("Quit Mousse") { NSApplication.shared.terminate(nil) }
+        Button(Localized.text("menu.quit")) { NSApplication.shared.terminate(nil) }
             .keyboardShortcut("q")
     }
 }

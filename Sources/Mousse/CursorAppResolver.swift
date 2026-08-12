@@ -41,6 +41,22 @@ final class CursorAppResolver {
         return cachedBundleID
     }
 
+    /// MMF-style lookup for discrete actions. `NSWindow` expects Cocoa coordinates while
+    /// `CGEvent.location` uses Quartz coordinates, so flip around the zero screen first. Unlike
+    /// enumerating every window, this path still identifies the owner when macOS redacts the
+    /// general window list because Screen Recording permission was not granted.
+    func navigationBundleID(at quartzPoint: CGPoint) -> String? {
+        guard let zeroScreen = NSScreen.screens.first else { return nil }
+        let cocoaPoint = NSPoint(x: quartzPoint.x, y: zeroScreen.frame.height - quartzPoint.y)
+        let windowNumber = NSWindow.windowNumber(at: cocoaPoint, belowWindowWithWindowNumber: 0)
+        guard windowNumber > 0,
+              let info = CGWindowListCopyWindowInfo(.optionIncludingWindow,
+                                                    CGWindowID(windowNumber)) as? [NSDictionary],
+              let pid = info.first?[kCGWindowOwnerPID as String] as? pid_t
+        else { return nil }
+        return bundleID(for: pid)
+    }
+
     private func resolve(at point: CGPoint) -> String? {
         // Front-to-back on-screen windows; kCGWindowBounds is in the same top-left-origin global
         // space as CGEvent.location, so plain rect containment is the full hit test.

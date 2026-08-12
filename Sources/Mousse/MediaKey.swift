@@ -12,12 +12,12 @@ enum MediaKey: Int, Codable, Hashable, Sendable {
 
     var name: String {
         switch self {
-        case .volumeUp:   return "Volume Up"
-        case .volumeDown: return "Volume Down"
-        case .mute:       return "Mute"
-        case .playPause:  return "Play / Pause"
-        case .next:       return "Next Track"
-        case .previous:   return "Previous Track"
+        case .volumeUp:   return Localized.text("media.volumeUp")
+        case .volumeDown: return Localized.text("media.volumeDown")
+        case .mute:       return Localized.text("media.mute")
+        case .playPause:  return Localized.text("media.playPause")
+        case .next:       return Localized.text("media.next")
+        case .previous:   return Localized.text("media.previous")
         }
     }
 

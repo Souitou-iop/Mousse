@@ -27,16 +27,19 @@ final class RemapActionTests: XCTestCase {
         XCTAssertEqual(try roundTrip(.launchpad), .launchpad)
     }
 
+    func testNavigationRoundTrip() throws {
+        XCTAssertEqual(try roundTrip(.navigateBack), .navigateBack)
+        XCTAssertEqual(try roundTrip(.navigateForward), .navigateForward)
+    }
+
     func testMediaKeyRoundTrip() throws {
         XCTAssertEqual(try roundTrip(.mediaKey(.playPause)), .mediaKey(.playPause))
     }
 
-    func testSpacePresetDisplayNames() {
-        XCTAssertEqual(RemapAction.spaceLeft.displayName, "Move Left a Space")
-        XCTAssertEqual(RemapAction.spaceRight.displayName, "Move Right a Space")
-        XCTAssertEqual(RemapAction.missionControl.displayName, "Mission Control")
-        XCTAssertEqual(RemapAction.appExpose.displayName, "App Exposé")
-        XCTAssertEqual(RemapAction.launchpad.displayName, "Launchpad")
+    func testPresetDisplayNamesAreNonEmptyAndDistinct() {
+        let names = RemapAction.presets.map(\.displayName)
+        XCTAssertTrue(names.allSatisfy { !$0.isEmpty })
+        XCTAssertEqual(Set(names).count, names.count)
     }
 
     /// A custom combo renders modifier glyphs in a stable order (⌃⌥⇧⌘).
@@ -47,8 +50,11 @@ final class RemapActionTests: XCTestCase {
         XCTAssertTrue(name.hasPrefix("⌃⌥⇧⌘"), "unexpected modifier order: \(name)")
     }
 
-    func testPresetsAreDistinct() {
-        let names = RemapAction.presets.map(\.displayName)
-        XCTAssertEqual(Set(names).count, names.count, "preset display names must be unique")
+    func testKeyboardCaptureResultCreatesKeyStroke() {
+        let result = EventTapEngine.KeyboardCaptureResult(
+            keyCode: 0x09, control: true, option: false, command: true, shift: true)
+        XCTAssertEqual(result.action,
+                       .keyStroke(keyCode: 0x09, control: true, option: false,
+                                  command: true, shift: true))
     }
 }

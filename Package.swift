@@ -3,11 +3,13 @@ import PackageDescription
 
 let package = Package(
     name: "Mousse",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)], // macOS 14+ — supports Sonoma and newer
     targets: [
         .executableTarget(
             name: "Mousse",
             path: "Sources/Mousse",
+            resources: [.process("Resources")],
             swiftSettings: [
                 // v1 uses Swift 5 language mode: the CGEventTap C-callback bridging is simpler
                 // without Swift 6 strict-concurrency ceremony. Tighten to .v6 once the engine is stable.

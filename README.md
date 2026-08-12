@@ -1,127 +1,116 @@
 # Mousse
 
-A lightweight, single-process menu-bar mouse utility for macOS 15+ (Sequoia and later).
-It gives a plain USB/Bluetooth mouse the things macOS leaves out: smooth scrolling, button
-remapping, and a drag-to-switch-Spaces gesture — without a background helper, a license server,
-or any system configuration changes.
+面向 macOS 15（Sequoia）及更高版本的轻量级、单进程菜单栏鼠标工具。
+它为普通 USB/Bluetooth 鼠标补上 macOS 未提供的能力：平滑滚动、按键重映射，以及拖动切换 Space，
+不需要后台辅助进程、许可证服务器或修改系统配置。
 
-## Features
+## 功能
 
-### Scroll
+### 滚动
 
-- **Three styles** — _Standard_ (instant wheel, no animation), _Smooth_ (trackpad-style eased
-  momentum), and _Smooth-step_ (Windows-browser feel: each notch eases a fixed number of lines
-  with no coast).
-- **Adjustable speed** and **lines-per-notch** (Smooth-step).
-- **Reverse direction** independent of the system setting.
-- **Smooth high-res mice** — opt-in smoothing for high-resolution mice that have no hardware
-  flywheel (e.g. Keychron M6) and otherwise scroll choppily. Leave it off for free-spin mice
-  like the MX Master 3, whose flywheel is already smooth.
-- Trackpad gestures are never touched — only a physical mouse wheel is affected.
+- **三种样式**：_标准_（滚轮立即响应，无动画）、_平滑_（触控板式缓动惯性）和 _平滑步进_
+  （Windows 浏览器风格，每格缓动固定行数，不保留余速）。
+- 可调节滚动速度和每格行数（平滑步进模式）。
+- 可独立于系统设置反转滚动方向。
+- 可选的高分辨率鼠标平滑，适用于没有硬件飞轮、滚动不连贯的鼠标（例如 Keychron M6）。
+  MX Master 3 等自由滚轮鼠标已有硬件飞轮，建议关闭此选项。
+- 可添加滚动排除应用；指针位于这些应用时，平滑、速度、加速、反向、轴向交换和滚动修饰键均不介入。
+- 不会修改触控板手势，只处理实体鼠标滚轮。
 
-### Buttons
+### 按钮
 
-- Remap any mouse button to a **preset action** (Move Left/Right a Space, Mission Control,
-  App Exposé, Launchpad, media keys) or **record a custom keyboard shortcut** (e.g. ⌘[ / ⌘]
-  for browser back/forward, ⌘W, ⌘⇧4).
+- 将任意鼠标按钮的单击、双击和长按分别映射为预设动作（智能返回/前进、向左/右移动一个 Space、
+  Mission Control、App Exposé、Launchpad、媒体键），或录制自定义键盘快捷键（例如 ⌘W、⌘⇧4）。
+- 智能返回/前进会为适用的 Apple 应用模拟 Navigation Swipe，为 Finder 和部分特殊应用使用
+  `⌘[` / `⌘]` 等原生快捷键，并为 Chromium 等第三方应用发送标准鼠标按钮 4/5。Navigation Swipe 的事件实现
+  参考 Mac Mouse Fix，但不要求本机配备触控板。
+- 捕获时直接执行单击、双击或长按即可创建对应触发方式；捕获事件会被 Mousse 吞掉，不会触发其他应用的侧键功能。
+- 双击间隔和长按时长可调。只有同一按钮配置了双击动作时，单击动作才会等待双击判定窗口。
+  双击间隔范围为 100–500 毫秒，长按时长范围为 100–800 毫秒。
 
-### Gestures
+### 手势
 
-- **Drag to switch Spaces** — hold a chosen button and drag left/right; one Space jump per
-  configurable drag distance.
+- **拖动切换 Space**：按住指定按钮向左/右拖动，可按可配置的拖动距离逐个切换 Space。
 
-### Reliability
+### 可靠性
 
-- Recovers automatically from **sleep/wake** and **display changes** (plugging/unplugging a
-  monitor or changing resolution) — scroll and gestures never silently die.
-- Correctly handles **high-resolution / free-spin mice** (honors speed and reverse without
-  fighting the hardware flywheel).
-- Runs as one Swift process with negligible idle CPU and a small, stable memory footprint.
+- 从睡眠/唤醒和显示器变化（插拔显示器或修改分辨率）中自动恢复，滚动和手势不会悄然失效。
+- 正确处理高分辨率和自由滚轮鼠标，在尊重速度和反向设置的同时避免干扰硬件飞轮。
+- 单个 Swift 进程运行，空闲 CPU 占用极低，内存占用小且稳定。
 
-## Requirements
+## 系统要求
 
-- macOS 15.0 (Sequoia) or later.
-- **Accessibility permission** (System Settings → Privacy & Security → Accessibility) so it can
-  read mouse input.
+- macOS 15.0（Sequoia）或更高版本。
+- **辅助功能权限**（系统设置 → 隐私与安全性 → 辅助功能），用于读取鼠标输入。
 
-## Install
+## 安装
 
-> **Note for testers:** Mousse is currently signed with a **local (non-notarized) certificate**
-> — there is no Apple Developer ID behind it yet — so macOS will block the app on first launch.
-> That warning is expected; the steps below get past it. If you'd rather not trust a pre-built
-> binary, build from source instead (no Gatekeeper steps needed).
+### 方式一：下载预构建应用
 
-### Option 1 — Download the pre-built app (3 steps)
+从 [最新版本](https://github.com/MinhQuang28/Mousse/releases) 下载 `Mousse.zip`，解压后将 `Mousse.app`
+拖入 **应用程序** 文件夹。
 
-**Step 1 — Install.** Download `Mousse.zip` from the
-[latest release](https://github.com/MinhQuang28/Mousse/releases), unzip it, and drag
-`Mousse.app` into your **Applications** folder.
-
-**Step 2 — Unblock.** Clear the Gatekeeper quarantine flag (one-time; a downloaded,
-non-notarized app won't open without it):
+此版本使用本地（未公证）证书签名，首次启动可能被 macOS 阻止。可在系统设置 → 隐私与安全性中选择
+**仍要打开**，或在终端执行：
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Mousse.app
 ```
 
-Not comfortable with Terminal? Instead: double-click the app once (macOS blocks it), then
-System Settings → Privacy & Security → scroll down → **Open Anyway** → open the app again.
+启动 Mousse 后，在提示中授予辅助功能权限（系统设置 → 隐私与安全性 → 辅助功能 → 启用 Mousse）。
+鼠标图标会出现在菜单栏，点击即可配置滚动和按钮。
 
-**Step 3 — Open & grant access.** Launch Mousse from Applications and grant
-**Accessibility** when prompted (System Settings → Privacy & Security → Accessibility →
-enable Mousse). Done — the mouse icon appears in the menu bar; click it to configure
-scrolling and buttons.
+### 方式二：从源码构建
 
-### Option 2 — Build from source
-
-Requires the Xcode (beta) Swift toolchain.
+需要 Xcode（测试版）Swift 工具链：
 
 ```sh
-# Optional but recommended: a stable signing identity so Accessibility is granted once and
-# survives every rebuild (otherwise the app re-prompts after each build).
+# 可选：设置稳定的签名身份，使辅助功能授权在重新构建后仍然有效
 tools/setup-signing-cert.sh
 
-# Build the menu-bar .app into build/Mousse.app
+# 构建菜单栏应用到 build/Mousse.app
 ./build-app.sh
 
-# Run it
+# 运行
 open build/Mousse.app
 ```
 
-## Usage
+## 使用
 
-Launch the app — it lives in the menu bar (no Dock icon). Open **Settings** (⌘,) for four tabs:
-**General** (enable, launch-at-login, Accessibility status), **Buttons**, **Scroll**, and
-**Gestures**.
+启动应用后它会常驻菜单栏（不显示 Dock 图标）。打开 **设置**（⌘,）可看到四个标签页：
+**常规**、**按钮**、**滚动** 和 **手势**。
 
-## Development
+## 开发
 
 ```sh
-# Run the test suite (config codec, button actions, scroll math)
+# 运行测试套件
 swift test
 
-# Package a release: build + zip + sha256 (local only)
+# 打包发布版本：构建、压缩并生成 sha256（仅本地）
 tools/package-release.sh
 
-# Same, and publish the GitHub release + upload the zip
+# 同时创建 GitHub Release 并上传压缩包
 tools/package-release.sh --publish
 ```
 
-### Project layout
+## 项目结构
 
-| Path                          | Purpose                                                      |
-| ----------------------------- | ------------------------------------------------------------ |
-| `Sources/Mousse/`          | App source (event tap, scroll animator, settings UI, config) |
-| `Tests/MousseTests/`       | Unit tests                                                   |
-| `build-app.sh`                | Assemble & sign the `.app` bundle                            |
-| `tools/setup-signing-cert.sh` | Create the stable local signing certificate                  |
-| `tools/package-release.sh`    | Build, zip, hash, and (optionally) publish a release         |
+| 路径 | 用途 |
+| --- | --- |
+| `Sources/Mousse/` | 应用源码（事件监听、滚动动画、设置界面、配置） |
+| `Tests/MousseTests/` | 单元测试 |
+| `build-app.sh` | 组装并签名 `.app` |
+| `tools/setup-signing-cert.sh` | 创建稳定的本地签名证书 |
+| `tools/package-release.sh` | 构建、压缩、校验并可选发布版本 |
 
-## License
+## 许可证
 
-Mousse is **source-available** under the [PolyForm Noncommercial License 1.0.0](LICENSE.md):
+Mousse 以 [PolyForm Noncommercial License 1.0.0](LICENSE.md) 提供源代码：
 
-- ✅ Free for **personal, noncommercial use** — install it, read the source, modify it, build it yourself, share it for free.
-- ❌ **Commercial use is not permitted** — you may not copy this source into your own product, sell it, charge for access to it, or otherwise use it for commercial purposes without a separate license from the author.
+- ✅ 允许个人非商业使用、阅读源码、修改、构建和免费分享。
+- ❌ 禁止商业使用；如需将源码用于商业产品、销售或收费访问，请另行取得作者许可。
 
-Copyright © Ha Minh Quang; no source was copied from it.
+Copyright © Ha Minh Quang。
+
+智能返回/前进中的 Navigation Swipe 行为参考并以 Swift 独立重写自
+[Mac Mouse Fix](https://github.com/noah-nuebling/mac-mouse-fix) 的 `TouchSimulator`，原实现采用 MMF License。

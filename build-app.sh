@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build Mousse and assemble a runnable menu-bar .app bundle (ad-hoc signed).
+# Build Mousse and assemble a runnable, locally signed menu-bar .app bundle.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -33,6 +33,7 @@ echo "==> assembling ${OUT}"
 rm -rf "$OUT"
 mkdir -p "$OUT/Contents/MacOS" "$OUT/Contents/Resources"
 cp "$BIN" "$OUT/Contents/MacOS/${APP_NAME}"
+[ -d "$(dirname "$BIN")/Mousse_Mousse.bundle" ] && cp -R "$(dirname "$BIN")/Mousse_Mousse.bundle" "$OUT/Contents/Resources/"
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$OUT/Contents/Resources/AppIcon.icns"
 
 cat > "$OUT/Contents/Info.plist" <<PLIST
@@ -58,11 +59,10 @@ PLIST
 # Sign with the stable local identity if present (run tools/setup-signing-cert.sh once).
 # A fixed cert keeps the designated requirement constant across rebuilds, so Accessibility
 # is granted ONCE and survives every rebuild. Fall back to ad-hoc if the cert isn't set up.
-SIGN_HASH="$(security find-identity "$HOME/Library/Keychains/login.keychain-db" \
-    | awk '/Mousse Local Signing/ {print $2; exit}')"
-if [ -n "$SIGN_HASH" ]; then
-    echo "==> signing with stable identity ($SIGN_HASH)"
-    codesign --force --sign "$SIGN_HASH" --timestamp=none "$OUT" >/dev/null 2>&1
+if security find-certificate -c "Mousse Local Signing" \
+    "$HOME/Library/Keychains/login.keychain-db" >/dev/null 2>&1; then
+    echo "==> signing with stable identity"
+    codesign --force --sign "Mousse Local Signing" --timestamp=none "$OUT" >/dev/null 2>&1
 else
     echo "==> ad-hoc signing (run tools/setup-signing-cert.sh for a stable signature)"
     codesign --force --sign - --timestamp=none "$OUT" >/dev/null 2>&1

@@ -54,6 +54,7 @@ final class SpaceDragGesture {
     private var lastDragTime = 0.0
 
     var isActive: Bool { down }
+    var hasDragged: Bool { dragged }
 
     /// Abandon any in-flight press/drag WITHOUT firing actions. Needed after sleep/wake or a device
     /// disconnect: the button-up may have happened while we couldn't see it, and a stale `down`

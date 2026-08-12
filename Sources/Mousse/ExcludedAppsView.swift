@@ -1,17 +1,16 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Settings section for the scroll-exclusion list: apps where smoothing is bypassed so the wheel
-/// stays a native legacy notch (needed by horizontal-only views, e.g. Nimble Commander's panels).
+/// Apps where Mousse leaves physical wheel events completely untouched.
 struct ExcludedAppsView: View {
     @EnvironmentObject var store: ConfigStore
 
     var body: some View {
         AppListSection(
-            title: "Excluded apps",
-            emptyLabel: "No excluded apps",
-            addPrompt: "Exclude",
-            footer: "Scroll smoothing is turned off while the pointer is over these apps — the wheel behaves natively there. Reverse and scroll speed still apply. Terminal apps (Terminal, iTerm2, kitty, WezTerm, Ghostty, Alacritty, …) are always excluded: they translate scroll pixels into wheel reports, so a smooth glide would jump many text lines per notch. Warp is not excluded — it renders pixel scrolling natively.",
+            title: Localized.text("apps.excluded"),
+            emptyLabel: Localized.text("apps.noExcluded"),
+            addPrompt: Localized.text("apps.exclude"),
+            footer: Localized.text("apps.excludedDescription"),
             bundleIDs: $store.config.excludedBundleIDs)
     }
 }
@@ -24,10 +23,10 @@ struct TransposedAppsView: View {
 
     var body: some View {
         AppListSection(
-            title: "Vertical → horizontal apps",
-            emptyLabel: "No axis-swap apps",
-            addPrompt: "Add",
-            footer: "While the pointer is over these apps, vertical wheel scrolling scrolls horizontally (and tilt scrolls vertically). Smoothing, reverse and speed all still apply — made for Nimble Commander's Brief mode and other horizontal-first views.",
+            title: Localized.text("apps.axisSwap"),
+            emptyLabel: Localized.text("apps.noAxisSwap"),
+            addPrompt: Localized.text("common.add"),
+            footer: Localized.text("apps.axisSwapDescription"),
             bundleIDs: $store.config.verticalToHorizontalBundleIDs)
     }
 }
@@ -56,10 +55,10 @@ private struct AppListSection: View {
                         Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .help("Remove from this list")
+                    .help(Localized.text("apps.remove"))
                 }
             }
-            Button("Add App…", action: addApp)
+            Button(Localized.text("apps.add"), action: addApp)
             Text(footer)
                 .font(.caption).foregroundStyle(.secondary)
         }

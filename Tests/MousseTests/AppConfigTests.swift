@@ -32,13 +32,16 @@ final class AppConfigTests: XCTestCase {
         config.scrollLines = 7
         config.scrollAcceleration = false
         config.smoothHighRes = true
+        config.doubleClickInterval = 0.42
+        config.holdDuration = 0.75
         config.spaceDragButton = 4
         config.spaceDragThreshold = 250
         config.spaceDragReverse = true
         config.excludedBundleIDs = ["info.filesmanager.Files", "com.example.other"]
         config.verticalToHorizontalBundleIDs = ["info.filesmanager.Files"]
         config.scrollSmoothness = .floaty
-        config.mappings = [ButtonMapping(buttonNumber: 6, action: .missionControl)]
+        config.mappings = [ButtonMapping(buttonNumber: 6, trigger: .doubleClick,
+                                         action: .missionControl)]
 
         let decoded = try roundTrip(config)
         XCTAssertEqual(decoded.enabled, false)
@@ -48,6 +51,8 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.scrollLines, 7)
         XCTAssertEqual(decoded.scrollAcceleration, false)
         XCTAssertEqual(decoded.smoothHighRes, true)
+        XCTAssertEqual(decoded.doubleClickInterval, 0.42, accuracy: 1e-9)
+        XCTAssertEqual(decoded.holdDuration, 0.75, accuracy: 1e-9)
         XCTAssertEqual(decoded.spaceDragButton, 4)
         XCTAssertEqual(decoded.spaceDragThreshold, 250, accuracy: 1e-9)
         XCTAssertEqual(decoded.spaceDragReverse, true)
@@ -123,6 +128,7 @@ final class AppConfigTests: XCTestCase {
         let decoded = try JSONDecoder().decode(AppConfig.self, from: json.data(using: .utf8)!)
         XCTAssertEqual(decoded.mappings.count, 1)
         XCTAssertEqual(decoded.mappings[0].buttonNumber, 4)
+        XCTAssertEqual(decoded.mappings[0].trigger, .click)
         XCTAssertEqual(decoded.mappings[0].action, .spaceLeft)
         XCTAssertEqual(decoded.scrollLines, 7)
     }
@@ -133,7 +139,31 @@ final class AppConfigTests: XCTestCase {
         let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
         XCTAssertEqual(decoded.mappings.count, 1)
         XCTAssertEqual(decoded.mappings[0].buttonNumber, 6)
+        XCTAssertEqual(decoded.mappings[0].trigger, .click)
         XCTAssertEqual(decoded.mappings[0].action, .launchpad)
+    }
+
+    func testUnknownMappingTriggerFallsBackToClick() throws {
+        let json = #"{"mappings":[{"buttonNumber":6,"trigger":"tripleClick","action":{"launchpad":{}}}]}"#
+            .data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.mappings.count, 1)
+        XCTAssertEqual(decoded.mappings[0].trigger, .click)
+        XCTAssertEqual(decoded.mappings[0].action, .launchpad)
+    }
+
+    func testTriggerTimingIsClampedToSupportedRanges() throws {
+        let json = #"{"doubleClickInterval":5,"holdDuration":0.01}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.doubleClickInterval, 0.50, accuracy: 1e-9)
+        XCTAssertEqual(decoded.holdDuration, 0.10, accuracy: 1e-9)
+    }
+
+    func testTriggerTimingAcceptsNewBoundaries() throws {
+        let json = #"{"doubleClickInterval":0.1,"holdDuration":0.8}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.doubleClickInterval, 0.10, accuracy: 1e-9)
+        XCTAssertEqual(decoded.holdDuration, 0.80, accuracy: 1e-9)
     }
 
     /// A structurally wrong file (top level not an object) yields defaults instead of throwing.
@@ -141,5 +171,12 @@ final class AppConfigTests: XCTestCase {
         let decoded = try JSONDecoder().decode(AppConfig.self, from: #"[]"#.data(using: .utf8)!)
         XCTAssertEqual(decoded.enabled, AppConfig().enabled)
         XCTAssertEqual(decoded.mappings.count, AppConfig.defaultMappings.count)
+    }
+
+    func testScrollExclusionMatchHasPriority() {
+        let excluded: Set<String> = ["com.example.Editor"]
+        XCTAssertTrue(EventTapEngine.isScrollExcluded("com.example.Editor", from: excluded))
+        XCTAssertFalse(EventTapEngine.isScrollExcluded("com.example.Browser", from: excluded))
+        XCTAssertFalse(EventTapEngine.isScrollExcluded(nil, from: excluded))
     }
 }

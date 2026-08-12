@@ -8,9 +8,24 @@ enum ScrollMode: String, Codable, Sendable, CaseIterable {
 
     var label: String {
         switch self {
-        case .standard:   return "Standard (instant)"
-        case .smooth:     return "Smooth (trackpad)"
-        case .smoothStep: return "Smooth-step (Windows)"
+        case .standard:   return Localized.text("scroll.mode.standard")
+        case .smooth:     return Localized.text("scroll.mode.smooth")
+        case .smoothStep: return Localized.text("scroll.mode.smoothStep")
+        }
+    }
+}
+
+/// How a physical mouse-button input triggers an action.
+enum ButtonTrigger: String, Codable, Sendable, CaseIterable, Hashable {
+    case click
+    case doubleClick
+    case hold
+
+    var label: String {
+        switch self {
+        case .click:       return Localized.text("buttons.trigger.click")
+        case .doubleClick: return Localized.text("buttons.trigger.doubleClick")
+        case .hold:        return Localized.text("buttons.trigger.hold")
         }
     }
 }
@@ -19,11 +34,14 @@ enum ScrollMode: String, Codable, Sendable, CaseIterable {
 struct ButtonMapping: Codable, Identifiable, Equatable, Sendable {
     var id = UUID()
     var buttonNumber: Int   // 1-based: 1=left, 2=right, 3=middle, 4/5=side buttons, ...
+    var trigger: ButtonTrigger
     var action: RemapAction
 
-    init(id: UUID = UUID(), buttonNumber: Int, action: RemapAction) {
+    init(id: UUID = UUID(), buttonNumber: Int, trigger: ButtonTrigger = .click,
+         action: RemapAction) {
         self.id = id
         self.buttonNumber = buttonNumber
+        self.trigger = trigger
         self.action = action
     }
 
@@ -33,6 +51,7 @@ struct ButtonMapping: Codable, Identifiable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         buttonNumber = try c.decode(Int.self, forKey: .buttonNumber)
+        trigger = (try? c.decodeIfPresent(ButtonTrigger.self, forKey: .trigger)) ?? .click
         action = try c.decode(RemapAction.self, forKey: .action)
     }
 }
@@ -52,14 +71,14 @@ struct AppConfig: Codable, Sendable, Equatable {
     var scrollAcceleration: Bool = true // rapid consecutive notches scroll farther (Smooth mode only)
     var smoothHighRes: Bool = false     // also smooth high-res "continuous" mice (e.g. Keychron M6) that
                                         // lack a flywheel; keep off for MX-Master-style free-spin mice
+    var doubleClickInterval: Double = 0.26
+    var holdDuration: Double = 0.50
     var spaceDragButton: Int = 0        // 0 = off; else button held to drag-switch Spaces
     var spaceDragThreshold: Double = 200 // pixels of horizontal drag per Space switch (discrete mode)
     var spaceDragReverse: Bool = false  // flip drag direction ↔ Space direction
     var spaceDragFollowFinger: Bool = true // drive the real Space-slide (trackpad-like) when the
                                            // OS supports it; off = discrete one-jump-per-distance
-    var excludedBundleIDs: [String] = [] // apps where scroll smoothing is bypassed (wheel stays
-                                         // native, so AppKit's vertical→horizontal transposition for
-                                         // horizontal-only views — e.g. Nimble Commander — still works)
+    var excludedBundleIDs: [String] = [] // apps where every Mousse scroll transform is bypassed
     var verticalToHorizontalBundleIDs: [String] = [] // apps where the scroll axes are SWAPPED (the
                                          // wheel scrolls horizontally): purpose-built for
                                          // horizontal-first browsers like Nimble Commander's Brief
@@ -80,7 +99,7 @@ struct AppConfig: Codable, Sendable, Equatable {
 extension AppConfig {
     enum CodingKeys: String, CodingKey {
         case enabled, reverseScroll, scrollMode, scrollSmoothness, smoothScroll, scrollSpeed, scrollLines
-        case scrollAcceleration, smoothHighRes
+        case scrollAcceleration, smoothHighRes, doubleClickInterval, holdDuration
         case spaceDragButton, spaceDragThreshold, spaceDragReverse, spaceDragFollowFinger
         case excludedBundleIDs, verticalToHorizontalBundleIDs, mappings
     }
@@ -111,6 +130,12 @@ extension AppConfig {
         scrollLines        = field(Int.self,    .scrollLines)        ?? scrollLines
         scrollAcceleration = field(Bool.self,   .scrollAcceleration) ?? scrollAcceleration
         smoothHighRes      = field(Bool.self,   .smoothHighRes)      ?? smoothHighRes
+        if let value = field(Double.self, .doubleClickInterval), value.isFinite {
+            doubleClickInterval = min(max(value, 0.10), 0.50)
+        }
+        if let value = field(Double.self, .holdDuration), value.isFinite {
+            holdDuration = min(max(value, 0.10), 0.80)
+        }
         spaceDragButton    = field(Int.self,    .spaceDragButton)    ?? spaceDragButton
         spaceDragThreshold = field(Double.self, .spaceDragThreshold) ?? spaceDragThreshold
         spaceDragReverse   = field(Bool.self,   .spaceDragReverse)   ?? spaceDragReverse
@@ -131,6 +156,8 @@ extension AppConfig {
         try c.encode(scrollLines, forKey: .scrollLines)
         try c.encode(scrollAcceleration, forKey: .scrollAcceleration)
         try c.encode(smoothHighRes, forKey: .smoothHighRes)
+        try c.encode(doubleClickInterval, forKey: .doubleClickInterval)
+        try c.encode(holdDuration, forKey: .holdDuration)
         try c.encode(spaceDragButton, forKey: .spaceDragButton)
         try c.encode(spaceDragThreshold, forKey: .spaceDragThreshold)
         try c.encode(spaceDragReverse, forKey: .spaceDragReverse)

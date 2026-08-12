@@ -29,7 +29,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the right class for real-time input synthesis; allowing idle system sleep means this never
     /// keeps the Mac awake.
     private var noNapActivity: NSObjectProtocol?
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory) // menu-bar only, no Dock icon
         noNapActivity = ProcessInfo.processInfo.beginActivity(

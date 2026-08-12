@@ -7,6 +7,8 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
     case keyStroke(keyCode: UInt16, control: Bool, option: Bool, command: Bool, shift: Bool)
     case mediaKey(MediaKey)
     case launchpad
+    case navigateBack
+    case navigateForward
 
     // Keystroke presets (macOS default shortcuts)
     static let spaceLeft      = keyStroke(keyCode: 0x7B, control: true, option: false, command: false, shift: false) // Ctrl+←
@@ -16,7 +18,7 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
 
     /// Actions offered in the Settings picker.
     static var presets: [RemapAction] {
-        [.spaceLeft, .spaceRight, .missionControl, .appExpose, .launchpad,
+        [.navigateBack, .navigateForward, .spaceLeft, .spaceRight, .missionControl, .appExpose, .launchpad,
          .mediaKey(.volumeDown), .mediaKey(.volumeUp), .mediaKey(.mute),
          .mediaKey(.playPause), .mediaKey(.previous), .mediaKey(.next)]
     }
@@ -89,6 +91,12 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
             // Launchpad.app was removed in macOS 26+. Trigger it via its symbolic hotkey instead
             // (works where the OS still has Launchpad; harmless no-op otherwise).
             RemapAction.keyStroke(keyCode: 0x83, control: false, option: false, command: false, shift: false).post()
+
+        case .navigateBack:
+            SmartNavigation.post(.back)
+
+        case .navigateForward:
+            SmartNavigation.post(.forward)
         }
     }
 
@@ -96,10 +104,10 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
     var displayName: String {
         switch self {
         case .keyStroke:
-            if self == .spaceLeft      { return "Move Left a Space" }
-            if self == .spaceRight     { return "Move Right a Space" }
-            if self == .missionControl { return "Mission Control" }
-            if self == .appExpose      { return "App Exposé" }
+            if self == .spaceLeft      { return Localized.text("action.spaceLeft") }
+            if self == .spaceRight     { return Localized.text("action.spaceRight") }
+            if self == .missionControl { return Localized.text("action.missionControl") }
+            if self == .appExpose      { return Localized.text("action.appExpose") }
             guard case let .keyStroke(code, control, option, command, shift) = self else { return "—" }
             var s = ""
             if control { s += "⌃" }
@@ -110,7 +118,11 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
         case let .mediaKey(key):
             return key.name
         case .launchpad:
-            return "Launchpad"
+            return Localized.text("action.launchpad")
+        case .navigateBack:
+            return Localized.text("action.navigateBack")
+        case .navigateForward:
+            return Localized.text("action.navigateForward")
         }
     }
 }
