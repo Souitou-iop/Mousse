@@ -3,6 +3,7 @@ import SwiftUI
 /// The dropdown shown from the menu-bar icon.
 struct MenuContent: View {
     @EnvironmentObject var store: ConfigStore
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Toggle(Localized.text("menu.enabled"), isOn: $store.config.enabled)
@@ -14,7 +15,10 @@ struct MenuContent: View {
             Divider()
         }
 
-        SettingsLink { Text(Localized.text("menu.settings")) }
+        Button(Localized.text("menu.settings")) {
+            NSApp.activate(ignoringOtherApps: true)
+            openSettings()
+        }
             .keyboardShortcut(",")
 
         Button(Localized.text("menu.quit")) { NSApplication.shared.terminate(nil) }
