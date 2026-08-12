@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "Mousse",
     defaultLocalization: "en",
-    platforms: [.macOS(.v14)], // macOS 14+ — supports Sonoma and newer
+    platforms: [.macOS("26.0")],
     targets: [
         .executableTarget(
             name: "Mousse",

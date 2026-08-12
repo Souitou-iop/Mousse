@@ -23,11 +23,12 @@ fi
 APP_NAME="Mousse"
 BUNDLE_ID="com.mousse.app"
 VERSION="0.9.2"
+BUILD_TRIPLE="arm64-apple-macosx26.0"
 OUT="build/${APP_NAME}.app"
 
 echo "==> swift build -c release"
-"$SWIFT" build -c release
-BIN="$("$SWIFT" build -c release --show-bin-path)/${APP_NAME}"
+"$SWIFT" build -c release --triple "$BUILD_TRIPLE"
+BIN="$("$SWIFT" build -c release --triple "$BUILD_TRIPLE" --show-bin-path)/${APP_NAME}"
 
 echo "==> assembling ${OUT}"
 rm -rf "$OUT"
@@ -49,7 +50,7 @@ cat > "$OUT/Contents/Info.plist" <<PLIST
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
     <key>CFBundleVersion</key><string>${VERSION}</string>
-    <key>LSMinimumSystemVersion</key><string>14.0</string>
+    <key>LSMinimumSystemVersion</key><string>26.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHumanReadableCopyright</key><string>Mousse</string>
 </dict>

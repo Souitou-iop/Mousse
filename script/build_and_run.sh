@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="Mousse"
+BUILD_TRIPLE="arm64-apple-macosx26.0"
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
 APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 MODE="${1:-run}"
@@ -50,8 +51,8 @@ stage_app() {
     local bin_dir source_binary resource_bundle plist
 
     echo "==> building Debug configuration"
-    "$SWIFT" build -c debug
-    bin_dir="$("$SWIFT" build -c debug --show-bin-path)"
+    "$SWIFT" build -c debug --triple "$BUILD_TRIPLE"
+    bin_dir="$("$SWIFT" build -c debug --triple "$BUILD_TRIPLE" --show-bin-path)"
     source_binary="$bin_dir/$APP_NAME"
     resource_bundle="$bin_dir/Mousse_Mousse.bundle"
 
@@ -77,7 +78,7 @@ stage_app() {
     plutil -insert CFBundleShortVersionString -string "0.9.2" "$plist"
     plutil -insert CFBundleVersion -string "0.9.2" "$plist"
     plutil -insert CFBundleIconFile -string "AppIcon" "$plist"
-    plutil -insert LSMinimumSystemVersion -string "14.0" "$plist"
+    plutil -insert LSMinimumSystemVersion -string "26.0" "$plist"
     plutil -insert LSUIElement -bool true "$plist"
     plutil -insert NSPrincipalClass -string "NSApplication" "$plist"
 

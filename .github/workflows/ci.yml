@@ -1,14 +1,66 @@
-name: CI
+name: Build
 
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: macos-15
+  build:
+    runs-on: macos-26
+    timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Verify toolchain and runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "arm64"
+          xcodebuild -version
+          swift --version
+          test "$(xcrun --sdk macosx --show-sdk-version | cut -d. -f1)" -ge 26
+
       - name: Run tests
-        run: swift test
+        run: swift test --triple arm64-apple-macosx26.0
+
+      - name: Build release archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          export DEVELOPER_DIR="$(xcode-select -p)"
+          tools/package-release.sh
+          shasum -a 256 dist/Mousse.zip > dist/Mousse.zip.sha256
+
+      - name: Validate release archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_dir="$(mktemp -d)"
+          trap 'rm -rf "$check_dir"' EXIT
+          ditto -x -k dist/Mousse.zip "$check_dir"
+          test "$(lipo -archs "$check_dir/Mousse.app/Contents/MacOS/Mousse")" = "arm64"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$check_dir/Mousse.app/Contents/Info.plist")" = "26.0"
+          otool -l "$check_dir/Mousse.app/Contents/MacOS/Mousse" | grep -A 3 LC_BUILD_VERSION | grep -q "minos 26.0"
+          codesign --verify --deep --strict --verbose=2 "$check_dir/Mousse.app"
+
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mousse-${{ github.sha }}-macOS26-arm64
+          path: |
+            dist/Mousse.zip
+            dist/Mousse.zip.sha256
+          if-no-files-found: error
+          retention-days: 14

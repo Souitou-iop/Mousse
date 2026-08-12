@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Mousse — a lean, single-process menu-bar mouse utility for macOS 15+.
+/// Mousse — a lean, single-process menu-bar mouse utility for Apple silicon and macOS 26+.
 /// Original codebase (not derived from any other app); uses only public macOS APIs.
 @main
 struct MousseApp: App {
