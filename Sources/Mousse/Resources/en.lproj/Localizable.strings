@@ -73,8 +73,8 @@
 "action.missionControl" = "Mission Control";
 "action.appExpose" = "App Exposé";
 "action.launchpad" = "Launchpad";
-"action.navigateBack" = "Smart Back";
-"action.navigateForward" = "Smart Forward";
+"action.navigateBack" = "Back";
+"action.navigateForward" = "Forward";
 "media.volumeUp" = "Volume Up";
 "media.volumeDown" = "Volume Down";
 "media.mute" = "Mute";

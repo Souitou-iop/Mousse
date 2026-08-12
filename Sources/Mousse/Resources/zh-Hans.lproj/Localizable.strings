@@ -73,8 +73,8 @@
 "action.missionControl" = "Mission Control";
 "action.appExpose" = "App Exposé";
 "action.launchpad" = "Launchpad";
-"action.navigateBack" = "智能返回";
-"action.navigateForward" = "智能前进";
+"action.navigateBack" = "返回";
+"action.navigateForward" = "前进";
 "media.volumeUp" = "音量加";
 "media.volumeDown" = "音量减";
 "media.mute" = "静音";

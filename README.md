@@ -19,9 +19,9 @@
 
 ### 按钮
 
-- 将任意鼠标按钮的单击、双击和长按分别映射为预设动作（智能返回/前进、向左/右移动一个 Space、
+- 将任意鼠标按钮的单击、双击和长按分别映射为预设动作（返回/前进、向左/右移动一个 Space、
   Mission Control、App Exposé、Launchpad、媒体键），或录制自定义键盘快捷键（例如 ⌘W、⌘⇧4）。
-- 智能返回/前进会为适用的 Apple 应用模拟 Navigation Swipe，为 Finder 和部分特殊应用使用
+- 返回/前进会为适用的 Apple 应用模拟 Navigation Swipe，为 Finder 和部分特殊应用使用
   `⌘[` / `⌘]` 等原生快捷键，并为 Chromium 等第三方应用发送标准鼠标按钮 4/5。Navigation Swipe 的事件实现
   参考 Mac Mouse Fix，但不要求本机配备触控板。
 - 捕获时直接执行单击、双击或长按即可创建对应触发方式；捕获事件会被 Mousse 吞掉，不会触发其他应用的侧键功能。
@@ -112,5 +112,5 @@ Mousse 以 [PolyForm Noncommercial License 1.0.0](LICENSE.md) 提供源代码：
 
 Copyright © Ha Minh Quang。
 
-智能返回/前进中的 Navigation Swipe 行为参考并以 Swift 独立重写自
+返回/前进中的 Navigation Swipe 行为参考并以 Swift 独立重写自
 [Mac Mouse Fix](https://github.com/noah-nuebling/mac-mouse-fix) 的 `TouchSimulator`，原实现采用 MMF License。
