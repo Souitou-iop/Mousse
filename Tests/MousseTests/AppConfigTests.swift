@@ -225,6 +225,22 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.mappings.count, AppConfig.defaultMappings.count)
     }
 
+    func testOutOfRangeValuesAreClamped() throws {
+        let json = #"{"scrollSpeed":99,"scrollLines":-2,"spaceDragThreshold":5}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.scrollSpeed, 1.5, accuracy: 1e-9)
+        XCTAssertEqual(decoded.scrollLines, 1)
+        XCTAssertEqual(decoded.spaceDragThreshold, 100, accuracy: 1e-9)
+    }
+
+    func testInRangeValuesSurviveClamp() throws {
+        let json = #"{"scrollSpeed":0.05,"scrollLines":10,"spaceDragThreshold":400}"#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
+        XCTAssertEqual(decoded.scrollSpeed, 0.05, accuracy: 1e-9)
+        XCTAssertEqual(decoded.scrollLines, 10)
+        XCTAssertEqual(decoded.spaceDragThreshold, 400, accuracy: 1e-9)
+    }
+
     func testScrollExclusionMatchHasPriority() {
         let excluded: Set<String> = ["com.example.Editor"]
         XCTAssertTrue(EventTapEngine.isScrollExcluded("com.example.Editor", from: excluded))

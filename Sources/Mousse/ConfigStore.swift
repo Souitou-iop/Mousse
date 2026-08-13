@@ -16,13 +16,19 @@ final class ConfigStore: ObservableObject {
             // costs a disk write plus a full engine reload, and any binding whose write is itself
             // triggered by the resulting republish spins into a feedback loop.
             guard config != oldValue else { return }
+            // Engine first and unconditionally — this is the change the user feels. Only the disk
+            // write is deferred: dragging one slider walks ~30 distinct values, and each atomic
+            // write (encode, temp file, rename) is main-thread I/O nobody needs mid-drag.
             Localized.language = config.language
-            save()
             EventTapEngine.shared.reload(config)
+            scheduleSave()
         }
     }
 
     private let fileURL: URL
+
+    /// Non-nil exactly while a change is written-pending — `flushPendingSave()` keys off that.
+    private var saveTask: Task<Void, Never>?
 
     private init() {
         let support = FileManager.default
@@ -48,6 +54,26 @@ final class ConfigStore: ObservableObject {
             config = AppConfig()
         }
         Localized.language = config.language
+    }
+
+    /// Coalesce a burst of changes into a single write, half a second after it settles.
+    private func scheduleSave() {
+        saveTask?.cancel()
+        saveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled, let self else { return }
+            self.saveTask = nil
+            self.save()
+        }
+    }
+
+    /// Write a still-pending change out now. Called on quit: a setting the user changed in the last
+    /// half second must not die with the process.
+    func flushPendingSave() {
+        guard saveTask != nil else { return }
+        saveTask?.cancel()
+        saveTask = nil
+        save()
     }
 
     private func save() {

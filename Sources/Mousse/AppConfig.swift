@@ -152,6 +152,10 @@ extension AppConfig {
         }
         let savedButtons = field([Int].self, .configuredButtons) ?? []
         configuredButtons = Array(Set((savedButtons + mappings.map(\.buttonNumber)).filter { $0 >= 3 })).sorted()
+
+        scrollSpeed        = min(max(scrollSpeed, 0.05), 1.5)
+        scrollLines        = min(max(scrollLines, 1), 10)
+        spaceDragThreshold = min(max(spaceDragThreshold, 100), 400)
     }
 
     // Custom encode because `smoothScroll` is a decode-only legacy key with no backing property.

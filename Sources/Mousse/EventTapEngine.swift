@@ -3,6 +3,7 @@ import CoreGraphics
 import Foundation
 import IOKit.hid
 import QuartzCore
+import os
 
 /// Owns the CGEventTap that intercepts mouse buttons and scroll, running on a dedicated
 /// high-priority thread (never the main thread — a stalled main thread would time out the tap).
@@ -47,7 +48,7 @@ final class EventTapEngine {
     private var hidManager: IOHIDManager?
 
     // Snapshot read by the tap callback thread; guarded by `lock`.
-    private let lock = NSLock()
+    private let lock = OSAllocatedUnfairLock()
     private var enabled = true
     private var reverseScroll = false
     private var scrollMode: ScrollMode = .smooth
@@ -87,9 +88,14 @@ final class EventTapEngine {
         "org.alacritty", "co.zeit.hyper", "app.tabby",
     ]
     private var verticalToHorizontalBundleIDs: Set<String> = []
+    private static let chromiumBundlePrefixes = [
+        "com.google.Chrome", "org.chromium.Chromium", "com.operasoftware.Opera",
+        "com.microsoft.edgemac", "com.vivaldi.Vivaldi", "com.brave.Browser",
+    ]
     private var mappingsByButton: [Int: ButtonTriggerRecognizer.Actions] = [:]
     private var pendingDragCancel = false // set on wake/device-change, consumed on the tap thread
     private var pendingTriggerCancel = false
+    private var pendingCursorFlush = false
 
     /// Source for the fresh wheel events we post to reverse Standard-mode scrolling (see below).
     private let scrollSource = CGEventSource(stateID: .hidSystemState)
@@ -147,6 +153,7 @@ final class EventTapEngine {
     @objc func handleContextChange() {
         scrollAnimator.endGestureNow()
         magnifier.endNow()
+        lock.lock(); pendingCursorFlush = true; lock.unlock()
     }
 
     /// A mouse (dis)connected — e.g. changing the report rate re-enumerates it on USB, which orphans
@@ -210,6 +217,7 @@ final class EventTapEngine {
         scrollAnimator.handleWake()
         magnifier.endNow()
         requestInputCancel()
+        lock.lock(); pendingCursorFlush = true; lock.unlock()
     }
 
     /// Re-enable the tap if macOS disabled it (e.g. across sleep/wake). Safe to call from any thread
@@ -527,8 +535,10 @@ final class EventTapEngine {
         let vToH = verticalToHorizontalBundleIDs
         let dragCancel = pendingDragCancel
         let triggerCancel = pendingTriggerCancel
+        let cursorFlush = pendingCursorFlush
         pendingDragCancel = false
         pendingTriggerCancel = false
+        pendingCursorFlush = false
         spaceDrag.button = spaceDragButton
         spaceDrag.threshold = spaceDragThreshold
         spaceDrag.reverse = spaceDragReverse
@@ -536,6 +546,7 @@ final class EventTapEngine {
         lock.unlock()
 
         if dragCancel { spaceDrag.cancel() } // tap thread — safe to touch the gesture's state
+        if cursorFlush { cursorApp.invalidate() }
         if triggerCancel {
             buttonTriggers.cancelAll()
             scheduleButtonTriggerTimer()
@@ -687,10 +698,8 @@ final class EventTapEngine {
                                 + event.getIntegerValueField(.scrollWheelEventDeltaAxis2)
                     mag = Double(notches.signum()) * dir * 60.0 / 800.0
                 }
-                let chromium = ["com.google.Chrome", "org.chromium.Chromium",
-                                "com.operasoftware.Opera", "com.microsoft.edgemac",
-                                "com.vivaldi.Vivaldi", "com.brave.Browser"]
-                    .contains { cursorID?.contains($0) == true }
+                let chromium = EventTapEngine.chromiumBundlePrefixes
+                    .contains { cursorID?.hasPrefix($0) == true }
                 magnifier.feed(magnification: mag, chromiumBoost: chromium)
                 return nil
             }
