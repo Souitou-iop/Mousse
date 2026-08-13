@@ -36,8 +36,13 @@ struct SettingsView: View {
                     Button(Localized.text("general.grant")) { AccessibilityPermission.openSettings() }
                 }
             }
+            LabeledContent(Localized.text("general.version"), value: appVersion)
         }
         .formStyle(.grouped)
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.9.4"
     }
 
     private var buttonsTab: some View {

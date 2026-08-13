@@ -13,6 +13,7 @@
 "general.accessibility" = "辅助功能";
 "general.granted" = "已授权";
 "general.grant" = "授予权限…";
+"general.version" = "版本";
 "scroll.style" = "滚动样式";
 "scroll.smoothness" = "平滑度";
 "scroll.smoothnessDescription" = "灵敏 = 直接响应，仅保留短暂余速（“普通”）。均衡 = 平滑且响应迅速。漂浮 = 类似触控板的长距离惯性（“高”）。";

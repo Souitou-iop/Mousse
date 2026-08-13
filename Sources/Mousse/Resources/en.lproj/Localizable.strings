@@ -13,6 +13,7 @@
 "general.accessibility" = "Accessibility";
 "general.granted" = "Granted";
 "general.grant" = "Grant…";
+"general.version" = "Version";
 "scroll.style" = "Scroll style";
 "scroll.smoothness" = "Smoothness";
 "scroll.smoothnessDescription" = "Snappy = direct with a minimal tail (\"Regular\"). Balanced = smooth but responsive. Floaty = long trackpad-like coast (\"High\").";
