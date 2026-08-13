@@ -11,12 +11,16 @@ import QuartzCore
 final class CursorAppResolver {
 
     // Window lookup via CGWindowListCopyWindowInfo costs a fraction of a millisecond but scroll
-    // ticks arrive at up to display rate — cache the answer briefly. 0.2 s is far shorter than a
-    // human moving the cursor from one app's window into another's and starting to scroll.
+    // ticks arrive at up to display rate — cache the answer. Cursor movement busts the cache via
+    // `cacheRadius`, and the engine calls `invalidate()` on the events that change the window
+    // under a STATIONARY cursor (Space switch, app activation, wake). That covers the common
+    // cases, so the TTL only guards the rare remainder (a window closed/raised under the cursor
+    // with no activation change) and can be generous — 0.2 s here meant re-paying the
+    // WindowServer lookup 5×/s on the tap thread for the whole length of a long scroll.
     private var cachedBundleID: String?
     private var cachedAt = 0.0
     private var cachedPoint = CGPoint.zero
-    private let cacheWindow = 0.2   // s a resolution stays valid
+    private let cacheWindow = 1.0   // s a resolution stays valid absent movement/invalidation
     private let cacheRadius = 16.0  // px the cursor may drift before we re-resolve
 
     // pid → bundle ID never changes for a live process; NSRunningApplication lookup is the pricey
@@ -27,6 +31,13 @@ final class CursorAppResolver {
     private var pidCacheStamp = 0.0
     private let pidCacheLifetime = 300.0 // s — long enough to stay a cache, short enough to self-heal
     private let pidCacheLimit = 64       // hard bound; a flush is cheaper than tracking LRU here
+
+    /// Drop the cached resolution so the next query re-resolves (tap-thread only, like everything
+    /// here — the engine relays main-thread notifications via a pending flag it consumes in the
+    /// tap callback). The pid→bundle-ID memo stays: pid→ID never changes for a live process.
+    func invalidate() {
+        cachedAt = 0
+    }
 
     /// Bundle ID of the app owning the topmost normal window containing `point`
     /// (CG global coordinates, as `CGEvent.location` reports). `nil` when nothing matches.

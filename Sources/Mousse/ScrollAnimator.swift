@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import QuartzCore
+import os
 
 /// Smooth scrolling, tunable via the Smoothness setting
 /// (Snappy / Balanced / Floaty profiles) and the precise/quick scroll modifiers.
@@ -29,7 +30,9 @@ final class ScrollAnimator: NSObject {
     /// Marks our own synthetic scroll events (via `.eventSourceUserData`) so the tap skips them.
     static let syntheticTag: Int64 = 0x534C_4B4D // "SLKM"
 
-    private let lock = NSLock()
+    // Unfair lock (not NSLock): taken on every input event AND every display-link frame — the
+    // same real-time rationale as EventTapEngine's lock. Not recursive; no path here re-enters.
+    private let lock = OSAllocatedUnfairLock()
     private var remV = 0.0     // pixels still to emit, vertical (the running scroll target)
     private var remH = 0.0     // pixels still to emit, horizontal
     private var velV = 0.0     // spring velocity, px/s (same sign as rem while gliding)

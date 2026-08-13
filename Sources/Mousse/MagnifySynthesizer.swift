@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import QuartzCore
+import os
 
 /// Synthesizes trackpad pinch-zoom (magnification) gestures from Cmd+scroll-wheel ticks — a real
 /// pinch, so it zooms anything a trackpad pinch zooms (browsers, Preview, Maps…), unlike Cmd+"+"
@@ -29,7 +30,9 @@ final class MagnifySynthesizer {
     // `feed` is the sole user), so it needs no lock — unlike the pinch state below.
     private var zoomQuantizer = ZoomQuantizer()
 
-    private let lock = NSLock()
+    // Unfair lock (not NSLock): `feed` runs per zoom event on the tap thread — hundreds per
+    // second on a free-spin flick. Not recursive; posting under it stays a few microseconds.
+    private let lock = OSAllocatedUnfairLock()
     private var active = false
     private let endTimeout = 0.25       // s of wheel silence before the pinch ends
     private var lastFeed = 0.0          // CACurrentMediaTime of the most recent tick

@@ -3,6 +3,7 @@ import CoreGraphics
 import Foundation
 import IOKit.hid
 import QuartzCore
+import os
 
 /// Owns the CGEventTap that intercepts mouse buttons and scroll, running on a dedicated
 /// high-priority thread (never the main thread — a stalled main thread would time out the tap).
@@ -18,8 +19,11 @@ final class EventTapEngine {
     private var watchdog: Timer?
     private var hidManager: IOHIDManager?
 
-    // Snapshot read by the tap callback thread; guarded by `lock`.
-    private let lock = NSLock()
+    // Snapshot read by the tap callback thread; guarded by `lock`. Unfair lock (not NSLock):
+    // it's taken on every mouse event — up to 1000 Hz on a high-polling mouse — and os_unfair_lock
+    // skips the objc dispatch NSLock pays. It also donates the waiting tap thread's priority to
+    // the lock's owner, so a main thread caught mid-`reload` releases sooner.
+    private let lock = OSAllocatedUnfairLock()
     private var enabled = true
     private var reverseScroll = false
     private var scrollMode: ScrollMode = .smooth
@@ -54,8 +58,18 @@ final class EventTapEngine {
         "org.alacritty", "co.zeit.hyper", "app.tabby",
     ]
     private var verticalToHorizontalBundleIDs: Set<String> = []
+
+    /// Chromium-family browsers swallow small pinch deltas, so the magnifier front-loads their
+    /// gestures (see `MagnifySynthesizer.feed`). Prefix match so variants (Chrome Beta/Canary,
+    /// Edge Dev…) keep the boost. Static: building this list per event allocated on the zoom
+    /// hot path — a Cmd+scroll flick on a free-spin mouse is hundreds of events a second.
+    private static let chromiumBundlePrefixes = [
+        "com.google.Chrome", "org.chromium.Chromium", "com.operasoftware.Opera",
+        "com.microsoft.edgemac", "com.vivaldi.Vivaldi", "com.brave.Browser",
+    ]
     private var mappingsByButton: [Int: RemapAction] = [:]
     private var pendingDragCancel = false // set on wake/device-change, consumed on the tap thread
+    private var pendingCursorFlush = false // set on Space/app switch, consumed on the tap thread
 
     /// Source for the fresh wheel events we post to reverse Standard-mode scrolling (see below).
     private let scrollSource = CGEventSource(stateID: .hidSystemState)
@@ -117,6 +131,11 @@ final class EventTapEngine {
     @objc func handleContextChange() {
         scrollAnimator.endGestureNow()
         magnifier.endNow()
+        // A Space switch or app activation is exactly when the window under a STATIONARY cursor
+        // changes — flush the resolver's cache (tap-thread state, so raise a flag like
+        // `pendingDragCancel`). This is what lets its TTL be generous instead of re-paying the
+        // WindowServer window-list lookup several times a second during a long scroll.
+        lock.lock(); pendingCursorFlush = true; lock.unlock()
     }
 
     /// A mouse (dis)connected — e.g. changing the report rate re-enumerates it on USB, which orphans
@@ -169,6 +188,9 @@ final class EventTapEngine {
         scrollAnimator.handleWake()
         magnifier.endNow()
         requestDragCancel()
+        // Windows can have moved/closed across the nap or display change — don't trust the
+        // pre-sleep window-under-cursor answer.
+        lock.lock(); pendingCursorFlush = true; lock.unlock()
     }
 
     /// Re-enable the tap if macOS disabled it (e.g. across sleep/wake). Safe to call from any thread
@@ -305,6 +327,8 @@ final class EventTapEngine {
         let vToH = verticalToHorizontalBundleIDs
         let dragCancel = pendingDragCancel
         pendingDragCancel = false
+        let cursorFlush = pendingCursorFlush
+        pendingCursorFlush = false
         spaceDrag.button = spaceDragButton
         spaceDrag.threshold = spaceDragThreshold
         spaceDrag.reverse = spaceDragReverse
@@ -312,6 +336,7 @@ final class EventTapEngine {
         lock.unlock()
 
         if dragCancel { spaceDrag.cancel() } // tap thread — safe to touch the gesture's state
+        if cursorFlush { cursorApp.invalidate() } // tap thread — the resolver's cache lives there
 
         // During capture, let button downs/drags reach the Settings UI untouched. Ups are NOT
         // exempted: they go through the pairing below (an up whose down was swallowed must be
@@ -425,10 +450,9 @@ final class EventTapEngine {
                                 + event.getIntegerValueField(.scrollWheelEventDeltaAxis2)
                     mag = Double(notches.signum()) * dir * 60.0 / 800.0
                 }
-                let chromium = ["com.google.Chrome", "org.chromium.Chromium",
-                                "com.operasoftware.Opera", "com.microsoft.edgemac",
-                                "com.vivaldi.Vivaldi", "com.brave.Browser"]
-                    .contains { cursorID?.contains($0) == true }
+                let chromium = cursorID.map { id in
+                    EventTapEngine.chromiumBundlePrefixes.contains { id.hasPrefix($0) }
+                } == true
                 magnifier.feed(magnification: mag, chromiumBoost: chromium)
                 return nil
             }
