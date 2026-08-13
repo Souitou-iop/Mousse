@@ -77,7 +77,7 @@ scrolling and buttons.
 Requires the Xcode (beta) Swift toolchain.
 
 ```sh
-# Optional but recommended: a stable signing identity so Accessibility is granted once and
+# One-time per machine: a stable signing identity so Accessibility is granted once and
 # survives every rebuild (otherwise the app re-prompts after each build).
 tools/setup-signing-cert.sh
 
@@ -87,6 +87,16 @@ tools/setup-signing-cert.sh
 # Run it
 open build/Mousse.app
 ```
+
+> **Check the signature before trusting a rebuild:** `build-app.sh` looks for the
+> **"Mousse Local Signing"** identity in the login keychain and prints
+> `==> signing with stable identity (…)` when it uses it. If it prints
+> `==> ad-hoc signing` instead, the cert is missing on this machine — run
+> `tools/setup-signing-cert.sh` once and rebuild, or every rebuild will get a fresh
+> ad-hoc signature and macOS may demand Accessibility be re-granted each time.
+> The cert is **per-machine and per-project** (a similar cert from another project,
+> e.g. "HiDisplay Local Signing", does not count). Verify what an installed build is
+> signed with: `codesign -dvv /Applications/Mousse.app 2>&1 | grep Authority`.
 
 ## Usage
 
