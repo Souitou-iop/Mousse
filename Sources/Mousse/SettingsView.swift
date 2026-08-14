@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject var store: ConfigStore
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var configMessage: String?
+    @State private var showingDiagnostics = false
 
     var body: some View {
         TabView {
@@ -17,6 +18,7 @@ struct SettingsView: View {
         }
         .frame(width: 480, height: 480)
         .padding()
+        .background(SettingsWindowPatcher())
     }
 
     private var generalTab: some View {
@@ -40,6 +42,12 @@ struct SettingsView: View {
                 }
             }
             LabeledContent(Localized.text("general.version"), value: appVersion)
+            Section(Localized.text("diagnostics.section")) {
+                LabeledContent(Localized.text("diagnostics.status")) {
+                    DiagnosticsSummaryView()
+                }
+                Button(Localized.text("diagnostics.open")) { showingDiagnostics = true }
+            }
             Section(Localized.text("general.configSection")) {
                 Button(Localized.text("general.exportConfig")) { exportConfig() }
                 Button(Localized.text("general.importConfig")) { importConfig() }
@@ -55,6 +63,10 @@ struct SettingsView: View {
             Button(Localized.text("common.ok"), role: .cancel) {}
         } message: {
             Text(configMessage ?? "")
+        }
+        .sheet(isPresented: $showingDiagnostics) {
+            DiagnosticsView()
+                .environmentObject(store)
         }
     }
 
@@ -181,13 +193,26 @@ struct SettingsView: View {
                 }
                 VStack(alignment: .leading) {
                     Text(Localized.format("scroll.autoScrollSpeedValue", store.config.autoScrollSpeed))
-                    Slider(value: $store.config.autoScrollSpeed, in: 0.25...8.0, step: 0.1) {
+                    Slider(value: $store.config.autoScrollSpeed,
+                           in: AutoScrollSpeedSetting.range,
+                           step: AutoScrollSpeedSetting.step) {
                         Text(Localized.text("scroll.autoScrollSpeed"))
                     } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
                       maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
                 }
                 Text(Localized.text("scroll.autoScrollSpeedDescription"))
                     .font(.caption).foregroundStyle(.secondary)
+                Stepper(value: $store.config.autoScrollClickDelay,
+                        in: AutoScrollClickDelaySetting.range,
+                        step: AutoScrollClickDelaySetting.step) {
+                    Text(Localized.format(
+                        "scroll.autoScrollClickDelayValue",
+                        Int((store.config.autoScrollClickDelay * 1000).rounded())))
+                }
+                Text(Localized.text("scroll.autoScrollClickDelayDescription"))
+                    .font(.caption).foregroundStyle(.secondary)
+                Toggle(Localized.text("scroll.showAutoScrollHUD"),
+                       isOn: $store.config.showAutoScrollHUD)
                 if store.config.scrollMode != .standard {
                     Toggle(Localized.text("scroll.smoothHighRes"), isOn: $store.config.smoothHighRes)
                     Text(Localized.text("scroll.smoothHighResDescription"))
@@ -230,7 +255,6 @@ struct SettingsView: View {
                 .font(.caption).foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
-        .background(SettingsWindowPatcher())
     }
 }
 
@@ -239,14 +263,31 @@ struct SettingsView: View {
 /// light, drops resizability (no zoom button), and tags the window so AppDelegate can watch it.
 private struct SettingsWindowPatcher: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async {
-            guard let window = view.window else { return }
-            window.identifier = NSUserInterfaceItemIdentifier("com.mousse.settings")
-            window.styleMask.insert(.miniaturizable)
-            window.styleMask.remove(.resizable)
-        }
-        return view
+        SettingsWindowProbeView()
     }
-    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        guard let window = nsView.window else { return }
+        SettingsWindowConfiguration.apply(to: window)
+    }
+}
+
+private final class SettingsWindowProbeView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let window else { return }
+        SettingsWindowConfiguration.apply(to: window)
+    }
+}
+
+enum SettingsWindowConfiguration {
+    static let identifier = NSUserInterfaceItemIdentifier("com.mousse.settings")
+
+    static func apply(to window: NSWindow) {
+        window.identifier = identifier
+        window.styleMask.insert(.miniaturizable)
+        window.styleMask.remove(.resizable)
+        window.standardWindowButton(.miniaturizeButton)?.isHidden = false
+        window.standardWindowButton(.miniaturizeButton)?.isEnabled = true
+    }
 }

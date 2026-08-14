@@ -27,19 +27,22 @@ final class AutoScrollController {
     static let deadzone = 6.0
 
     private(set) var isActive = false
-    private var anchor: CGPoint?
+    private(set) var anchor: CGPoint?
+    private(set) var velocity = CGVector.zero
     private var lastTickAt = 0.0
 
     /// Enter/exit the mode. (Re-)entering re-anchors on the next tick.
     func toggle() {
         isActive.toggle()
         anchor = nil
+        velocity = .zero
     }
 
     /// Abandon the mode (sleep/wake, device change, app quit paths).
     func cancel() {
         isActive = false
         anchor = nil
+        velocity = .zero
     }
 
     /// One periodic tick. `speed` is the user's auto-scroll acceleration — scroll px/s per px of
@@ -53,6 +56,7 @@ final class AutoScrollController {
         if anchor == nil {
             anchor = pointer
             lastTickAt = now
+            velocity = .zero
             return (0, 0)
         }
         let dt = min(max(now - lastTickAt, 0), 0.1) // clamp a stalled tick so a pause can't dump a burst
@@ -68,6 +72,7 @@ final class AutoScrollController {
         // Pointer above the anchor (y smaller) → positive offset → scroll up; right → scroll right.
         let offX = pointer.x - anchor!.x
         let offY = anchor!.y - pointer.y
-        return (speedOf(offX) * dt, speedOf(offY) * dt)
+        velocity = CGVector(dx: speedOf(offX), dy: speedOf(offY))
+        return (velocity.dx * dt, velocity.dy * dt)
     }
 }

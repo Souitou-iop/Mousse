@@ -2,6 +2,31 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.17.0] - 2026-08-15
+
+### 新增 / Added
+
+- **诊断中心**：常规设置新增实时诊断面板，可查看辅助功能权限、Mousse 引擎和 event tap 健康度、恢复次数、已连接鼠标、指针下应用、匹配的按钮配置以及最近一次映射动作。
+- **Diagnostics center**: General settings now include a live diagnostics panel for Accessibility permission, Mousse engine and event-tap health, recovery count, connected mice, the app under the pointer, the matched button profile, and the most recent mapped action.
+- **自动滚动指示器**：自动滚动现在会在锚点显示单进程纯图形 HUD，以方向和强度反馈滚动状态；可通过 Esc、点击或真实鼠标滚轮退出，点击和滚轮仍会正常传递。指示器默认开启，可在滚动增强设置中关闭。
+- **Auto-scroll indicator**: auto-scroll now shows a single-process graphical HUD at its anchor, communicating direction and strength. Escape, a click, or a real mouse wheel exits the mode while clicks and wheel input still pass through. The indicator is enabled by default and can be disabled in Scroll Enhancements.
+
+### 改进 / Improved
+
+- **更轻量流畅的 HUD**：指示器改为跟随鼠标方向旋转的紧凑箭头，并按显示器刷新率更新；方向和强度使用时间相关平滑，减少高刷新率屏幕上的跳变和延迟。
+- **Lighter, smoother HUD**: the indicator is now a compact arrow that rotates with pointer direction and updates at the display refresh rate, with time-based smoothing for direction and strength.
+- **自动滚动触发仲裁**：新增 50–500 毫秒独立启动延迟。双击在第二次松开时确认，第二次按住时长按优先，避免自动滚动与双击、长按映射互相误触。
+- **Auto-scroll trigger arbitration**: added a dedicated 50–500 ms activation delay. Double-clicks resolve on the second release, while holding the second press gives hold actions priority, preventing conflicts with auto-scroll.
+
+### 修复 / Fixed
+
+- **自动滚动加速度档位**：加速度使用 0.05 步进，可准确选择 `0.25`、`0.30`、`1`、`2`、`8` 等值并正确持久化。
+- **Auto-scroll acceleration steps**: acceleration now uses 0.05 increments, allowing exact integer and intermediate values with correct persistence.
+- **设置窗口按钮**：设置窗口首次打开即可显示最小化按钮，切换标签页、关闭重开或从 Dock 恢复时保持一致，同时仍不可缩放。
+- **Settings window controls**: the minimize button now appears immediately and remains correct across tab changes, reopening, and Dock restoration while the window stays non-resizable.
+
+[0.17.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.17.0
+
 ## [0.16.2] - 2026-08-14
 
 ### 修复 / Fixed

@@ -70,6 +70,8 @@ final class EventTapEngine {
     private var edgeScrollSpeed = 400.0
     private var autoScrollSpeed = 1.5
     private var autoScrollBaseSpeed = 120.0
+    private var autoScrollClickDelay = AutoScrollClickDelaySetting.defaultValue
+    private var showAutoScrollHUD = true
     // Tap-thread only (like the other gesture state): the detector and the timestamp of the last
     // REAL wheel input, which resets the edge-scroll rest timer (user input takes priority).
     private var edgeScrollDetector = EdgeScrollDetector()
@@ -105,8 +107,14 @@ final class EventTapEngine {
     ]
     private var mappingResolver = ButtonMappingResolver(config: AppConfig())
     private var pendingDragCancel = false // set on wake/device-change, consumed on the tap thread
+    private var pendingAutoScrollCancel = false
     private var pendingTriggerCancel = false
     private var pendingCursorFlush = false
+    private var eventTapRecoveryCount = 0
+    private var lastEventTapRecoveryAt: Date?
+    private var detectedMice: [DetectedMouse] = []
+    private var lastTriggeredAction: LastTriggeredAction?
+    private var autoScrollHUDGeneration: UInt64 = 0
 
     /// Source for the fresh wheel events we post to reverse Standard-mode scrolling (see below).
     private let scrollSource = CGEventSource(stateID: .hidSystemState)
@@ -123,6 +131,7 @@ final class EventTapEngine {
     private let spaceDrag = SpaceDragGesture()
     private let holdScroll = HoldScrollGesture()
     private let autoScroll = AutoScrollController() // tap-thread only, like the other gestures
+    private var autoScrollExitPassThrough = AutoScrollExitPassThroughTracker() // tap-thread only
     private let buttonTriggers = ButtonTriggerRecognizer()
     private var buttonTriggerTimer: CFRunLoopTimer?
     private var eventTapRunLoop: CFRunLoop?
@@ -185,6 +194,7 @@ final class EventTapEngine {
     /// an in-flight smooth gesture just like a Space switch. Re-enable the tap and end the gesture so
     /// the next scroll starts fresh.
     private func handleDeviceChange() {
+        refreshDetectedMice()
         reEnableTap()
         scrollAnimator.endGestureNow()
         requestInputCancel()
@@ -199,6 +209,7 @@ final class EventTapEngine {
         let keyboardCancellation: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
         lock.lock()
         pendingDragCancel = true
+        pendingAutoScrollCancel = true
         pendingTriggerCancel = true
         (mouseCancellation, keyboardCancellation) = cancelCaptureLocked()
         let keyboardTap = keyboardCaptureTap
@@ -225,6 +236,7 @@ final class EventTapEngine {
         }
         IOHIDManagerRegisterDeviceMatchingCallback(mgr, cb, ctx)
         IOHIDManagerRegisterDeviceRemovalCallback(mgr, cb, ctx)
+        hidManager = mgr
         IOHIDManagerScheduleWithRunLoop(mgr, CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue)
         let opened = IOHIDManagerOpen(mgr, IOOptionBits(kIOHIDOptionsTypeNone))
         if opened != kIOReturnSuccess {
@@ -232,7 +244,38 @@ final class EventTapEngine {
             // (Space/app-switch recovery is unaffected). Log so a silent failure is diagnosable.
             NSLog("Mousse: IOHIDManagerOpen failed (0x%X) — report-rate scroll recovery disabled", opened)
         }
-        hidManager = mgr
+        refreshDetectedMice()
+    }
+
+    private func refreshDetectedMice() {
+        guard let hidManager,
+              let devices = IOHIDManagerCopyDevices(hidManager) as? Set<IOHIDDevice> else {
+            lock.lock(); detectedMice = []; lock.unlock()
+            return
+        }
+        let mice = devices.map { device -> DetectedMouse in
+            func string(_ key: CFString) -> String? {
+                IOHIDDeviceGetProperty(device, key) as? String
+            }
+            func number(_ key: CFString) -> Int {
+                (IOHIDDeviceGetProperty(device, key) as? NSNumber)?.intValue ?? 0
+            }
+            let product = string(kIOHIDProductKey as CFString)
+            let manufacturer = string(kIOHIDManufacturerKey as CFString)
+            let name: String
+            if let product, let manufacturer,
+               !product.localizedCaseInsensitiveContains(manufacturer) {
+                name = "\(manufacturer) \(product)"
+            } else {
+                name = product ?? manufacturer ?? "HID Mouse"
+            }
+            let vendorID = number(kIOHIDVendorIDKey as CFString)
+            let productID = number(kIOHIDProductIDKey as CFString)
+            let locationID = number(kIOHIDLocationIDKey as CFString)
+            let serial = string(kIOHIDSerialNumberKey as CFString) ?? ""
+            return DetectedMouse(id: "\(vendorID):\(productID):\(locationID):\(serial)", name: name)
+        }
+        lock.lock(); detectedMice = DetectedMouse.deduplicated(mice); lock.unlock()
     }
 
     /// On wake, re-enable the tap AND rebuild the scroll animator's display link, which macOS
@@ -252,8 +295,48 @@ final class EventTapEngine {
         guard let tap else { return }
         if !CGEvent.tapIsEnabled(tap: tap) {
             CGEvent.tapEnable(tap: tap, enable: true)
+            recordEventTapRecovery()
             NSLog("Mousse: event tap was disabled (sleep/wake?), re-enabled")
         }
+    }
+
+    private func recordEventTapRecovery() {
+        lock.lock()
+        eventTapRecoveryCount += 1
+        lastEventTapRecoveryAt = Date()
+        lock.unlock()
+    }
+
+    func diagnosticsSnapshot(accessibilityTrusted: Bool = AccessibilityPermission.isTrusted,
+                             pointerBundleID: String? = nil,
+                             config: AppConfig? = nil,
+                             now: Date = Date()) -> EngineDiagnosticsSnapshot {
+        lock.lock()
+        let tap = self.tap
+        let engineEnabled = enabled
+        let recoveryCount = eventTapRecoveryCount
+        let lastRecoveryAt = lastEventTapRecoveryAt
+        let detectedMice = self.detectedMice
+        let lastAction = lastTriggeredAction
+        lock.unlock()
+
+        let health = EventTapHealth.resolve(
+            hasTap: tap != nil,
+            tapEnabled: tap.map { CGEvent.tapIsEnabled(tap: $0) } ?? false,
+            lastRecoveryAt: lastRecoveryAt,
+            now: now)
+        return EngineDiagnosticsSnapshot(
+            accessibilityTrusted: accessibilityTrusted,
+            engineEnabled: engineEnabled,
+            eventTapHealth: health,
+            recoveryCount: recoveryCount,
+            lastRecoveryAt: lastRecoveryAt,
+            detectedMice: detectedMice,
+            pointerBundleID: pointerBundleID,
+            matchedProfileBundleID: config.flatMap {
+                DiagnosticProfileResolver.matchedAppBundleID(for: pointerBundleID, in: $0)
+            },
+            lastAction: lastAction)
     }
 
     /// Periodically poll for a silently-disabled tap. 2s is invisible to the user yet costs nothing.
@@ -283,6 +366,7 @@ final class EventTapEngine {
         captureCompletion = completion
         keyboardCaptureCompletion = nil
         pendingDragCancel = true
+        pendingAutoScrollCancel = true
         pendingTriggerCancel = true
         captureDeadline = CACurrentMediaTime() + EventTapEngine.captureMaxDuration
         let deadline = captureDeadline
@@ -348,6 +432,7 @@ final class EventTapEngine {
         // drag into Space switches. Cancel it the same way wake/device-change do.
         if (enabled && !config.enabled) || spaceDragButton != config.spaceDragButton {
             pendingDragCancel = true
+            pendingAutoScrollCancel = true
         }
         pendingTriggerCancel = true
         enabled = config.enabled
@@ -360,6 +445,12 @@ final class EventTapEngine {
         edgeScrollSpeed = config.edgeScrollSpeed
         autoScrollSpeed = config.autoScrollSpeed
         autoScrollBaseSpeed = config.autoScrollBaseSpeed
+        autoScrollClickDelay = config.autoScrollClickDelay
+        let autoScrollHUDVisibilityChanged = showAutoScrollHUD != config.showAutoScrollHUD
+        let shouldHideAutoScrollHUD = showAutoScrollHUD && !config.showAutoScrollHUD
+        if autoScrollHUDVisibilityChanged { autoScrollHUDGeneration &+= 1 }
+        let hudGeneration = autoScrollHUDGeneration
+        showAutoScrollHUD = config.showAutoScrollHUD
         scrollLines = config.scrollLines
         scrollAcceleration = config.scrollAcceleration
         smoothHighRes = config.smoothHighRes
@@ -376,6 +467,11 @@ final class EventTapEngine {
         (captureCancellation, keyboardCaptureCancellation) = cancelCaptureLocked()
         let keyboardTap = keyboardCaptureTap
         lock.unlock()
+        if shouldHideAutoScrollHUD {
+            DispatchQueue.main.async {
+                AutoScrollHUDController.shared.hide(generation: hudGeneration)
+            }
+        }
         if let keyboardTap { CGEvent.tapEnable(tap: keyboardTap, enable: false) }
         if let captureCancellation { DispatchQueue.main.async { captureCancellation(.cancelled) } }
         if let keyboardCaptureCancellation { DispatchQueue.main.async { keyboardCaptureCancellation(.cancelled) } }
@@ -386,10 +482,13 @@ final class EventTapEngine {
 
     private func threadMain() {
         let mask: CGEventMask =
+            (1 << CGEventType.leftMouseDown.rawValue) |
+            (1 << CGEventType.rightMouseDown.rawValue) |
             (1 << CGEventType.otherMouseDown.rawValue) |
             (1 << CGEventType.otherMouseUp.rawValue) |
             (1 << CGEventType.otherMouseDragged.rawValue) |
-            (1 << CGEventType.scrollWheel.rawValue)
+            (1 << CGEventType.scrollWheel.rawValue) |
+            (1 << CGEventType.keyDown.rawValue)
 
         let refcon = Unmanaged.passUnretained(self).toOpaque()
 
@@ -465,7 +564,26 @@ final class EventTapEngine {
     /// other gesture interaction) — no locking needed. The pointer stays free; the mode is driven
     /// by the pointer's offset from the anchor on the periodic tick (see `handleEdgeScrollTick`).
     func toggleAutoScroll() {
-        autoScroll.toggle()
+        if autoScroll.isActive {
+            cancelAutoScroll()
+        } else {
+            lock.lock()
+            autoScrollHUDGeneration &+= 1
+            lock.unlock()
+            autoScroll.toggle()
+        }
+    }
+
+    private func cancelAutoScroll() {
+        guard autoScroll.isActive else { return }
+        autoScroll.cancel()
+        lock.lock()
+        autoScrollHUDGeneration &+= 1
+        let generation = autoScrollHUDGeneration
+        lock.unlock()
+        DispatchQueue.main.async {
+            AutoScrollHUDController.shared.hide(generation: generation)
+        }
     }
 
     /// Edge-scroll + auto-scroll tick (tap thread, ~30 Hz). Auto-scroll scrolls continuously
@@ -476,14 +594,20 @@ final class EventTapEngine {
         let engineEnabled = enabled
         let autoSpeed = autoScrollSpeed
         let autoBaseSpeed = autoScrollBaseSpeed
+        let showHUD = showAutoScrollHUD
         let edgeEnabled = edgeScrollEnabled
         let edgeSpeed = edgeScrollSpeed
+        let pendingAutoCancel = pendingAutoScrollCancel
+        let hudGeneration = autoScrollHUDGeneration
+        pendingAutoScrollCancel = false
         lock.unlock()
+
+        if pendingAutoCancel { cancelAutoScroll() }
 
         // The menu-bar switch is the master kill switch. Periodic modes do not receive another
         // physical event to cancel themselves, so stop them on their own run-loop tick.
         guard engineEnabled else {
-            autoScroll.cancel()
+            cancelAutoScroll()
             edgeScrollDetector.reset()
             return
         }
@@ -499,6 +623,11 @@ final class EventTapEngine {
                     // Ease through the animator (hi-res path, gain 1.0 at the default slider) so
                     // the mode scrolls as smoothly as the wheel — not per-tick pixel jumps.
                     scrollAnimator.addPixels(pxV: dy, pxH: dx, speed: 0.5)
+                }
+                if showHUD, let anchor = autoScroll.anchor {
+                    AutoScrollHUDController.shared.enqueueUpdate(
+                        anchor: anchor, speed: autoSpeed,
+                        baseSpeed: autoBaseSpeed, generation: hudGeneration)
                 }
             }
         }
@@ -574,6 +703,16 @@ final class EventTapEngine {
         post(output)
     }
 
+    static func buttonClickPolicy(actions: ButtonTriggerRecognizer.Actions,
+                                  isDragButton: Bool,
+                                  autoScrollClickDelay: Double)
+        -> ButtonTriggerRecognizer.ClickPolicy {
+        if actions.click == .autoScroll {
+            return .confirmed(delay: autoScrollClickDelay)
+        }
+        return isDragButton ? .deferredUntilRelease : .automatic
+    }
+
     private func scheduleButtonTriggerTimer() {
         lock.lock()
         let timer = buttonTriggerTimer
@@ -610,6 +749,11 @@ final class EventTapEngine {
     }
 
     private func post(_ output: ButtonTriggerRecognizer.Output) {
+        if let last = LastTriggeredAction.latest(in: output, at: Date()) {
+            lock.lock()
+            lastTriggeredAction = last
+            lock.unlock()
+        }
         output.triggered.forEach { $0.action.post() }
         scheduleButtonTriggerTimer()
     }
@@ -619,7 +763,10 @@ final class EventTapEngine {
         // macOS disables a slow/stalled tap — re-enable it (the classic event-tap gotcha).
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             lock.lock(); let tap = self.tap; lock.unlock()
-            if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            if let tap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+                recordEventTapRecovery()
+            }
             return Unmanaged.passUnretained(event)
         }
 
@@ -646,12 +793,15 @@ final class EventTapEngine {
         let smoothHiRes = smoothHighRes
         let doubleInterval = doubleClickInterval
         let holdTime = holdDuration
+        let autoClickDelay = autoScrollClickDelay
         let excluded = excludedBundleIDs
         let vToH = verticalToHorizontalBundleIDs
         let dragCancel = pendingDragCancel
+        let autoScrollCancel = pendingAutoScrollCancel
         let triggerCancel = pendingTriggerCancel
         let cursorFlush = pendingCursorFlush
         pendingDragCancel = false
+        pendingAutoScrollCancel = false
         pendingTriggerCancel = false
         pendingCursorFlush = false
         spaceDrag.button = spaceDragButton
@@ -677,8 +827,11 @@ final class EventTapEngine {
         if dragCancel {
             spaceDrag.cancel()
             holdScroll.cancel()
-            autoScroll.cancel()
         } // tap thread — safe to touch the gesture states
+        if autoScrollCancel || dragCancel {
+            cancelAutoScroll()
+            autoScrollExitPassThrough.reset()
+        }
         if cursorFlush { cursorApp.invalidate() }
         if triggerCancel {
             buttonTriggers.cancelAll()
@@ -686,6 +839,39 @@ final class EventTapEngine {
         }
         buttonTriggers.doubleClickInterval = doubleInterval
         buttonTriggers.holdDuration = holdTime
+
+        if type == .otherMouseUp || type == .otherMouseDragged {
+            let button = Int(event.getIntegerValueField(.mouseEventButtonNumber)) + 1
+            if autoScrollExitPassThrough.shouldPass(type: type, button: button) {
+                return Unmanaged.passUnretained(event)
+            }
+        }
+
+        let exitDecision = AutoScrollExitPolicy.decision(
+            isActive: autoScroll.isActive,
+            type: type,
+            keyCode: type == .keyDown
+                ? UInt16(event.getIntegerValueField(.keyboardEventKeycode)) : nil,
+            scrollPhase: type == .scrollWheel
+                ? event.getIntegerValueField(scrollPhaseField) : 0,
+            momentumPhase: type == .scrollWheel
+                ? event.getIntegerValueField(scrollMomentumPhaseField) : 0)
+        switch exitDecision {
+        case .cancelAndConsume:
+            cancelAutoScroll()
+            return nil
+        case .cancelAndPassThrough:
+            cancelAutoScroll()
+            if type == .otherMouseDown {
+                let button = Int(event.getIntegerValueField(.mouseEventButtonNumber)) + 1
+                autoScrollExitPassThrough.begin(button: button)
+            }
+            return Unmanaged.passUnretained(event)
+        case .cancelAndContinue:
+            cancelAutoScroll()
+        case .none:
+            break
+        }
 
         if let suppressed = suppressedCaptureButton,
            type == .otherMouseDown || type == .otherMouseUp || type == .otherMouseDragged {
@@ -726,8 +912,11 @@ final class EventTapEngine {
                 return Unmanaged.passUnretained(event)
             }
             let isDragButton = button == spaceDrag.button
+            let clickPolicy = Self.buttonClickPolicy(
+                actions: actions, isDragButton: isDragButton,
+                autoScrollClickDelay: autoClickDelay)
             let output = buttonTriggers.buttonDown(button, at: CACurrentMediaTime(), actions: actions,
-                                                   deferImmediateClick: isDragButton)
+                                                   clickPolicy: clickPolicy)
             post(output)
             if output.triggered.contains(where: { $0.button == button }), isDragButton {
                 spaceDrag.cancel()

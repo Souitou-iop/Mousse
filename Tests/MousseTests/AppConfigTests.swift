@@ -19,6 +19,8 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.scrollLines, 3)
         XCTAssertEqual(decoded.scrollAcceleration, true)
         XCTAssertEqual(decoded.smoothHighRes, false)
+        XCTAssertEqual(decoded.showAutoScrollHUD, true)
+        XCTAssertEqual(decoded.autoScrollClickDelay, 0.20, accuracy: 1e-9)
         XCTAssertEqual(decoded.reverseScroll, false)
         XCTAssertEqual(decoded.mappings.count, AppConfig.defaultMappings.count)
     }
@@ -62,6 +64,8 @@ final class AppConfigTests: XCTestCase {
         config.scrollLines = 7
         config.scrollAcceleration = false
         config.smoothHighRes = true
+        config.showAutoScrollHUD = false
+        config.autoScrollClickDelay = 0.35
         config.doubleClickInterval = 0.42
         config.holdDuration = 0.75
         config.spaceDragButton = 4
@@ -83,6 +87,8 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.scrollLines, 7)
         XCTAssertEqual(decoded.scrollAcceleration, false)
         XCTAssertEqual(decoded.smoothHighRes, true)
+        XCTAssertEqual(decoded.showAutoScrollHUD, false)
+        XCTAssertEqual(decoded.autoScrollClickDelay, 0.35, accuracy: 1e-9)
         XCTAssertEqual(decoded.doubleClickInterval, 0.42, accuracy: 1e-9)
         XCTAssertEqual(decoded.holdDuration, 0.75, accuracy: 1e-9)
         XCTAssertEqual(decoded.spaceDragButton, 4)
@@ -278,6 +284,38 @@ final class AppConfigTests: XCTestCase {
         let high = try JSONDecoder().decode(AppConfig.self,
             from: #"{"autoScrollSpeed":9.0}"#.data(using: .utf8)!)
         XCTAssertEqual(high.autoScrollSpeed, 8.0, accuracy: 1e-9)
+    }
+
+    func testAutoScrollSpeedStepIncludesRequestedValuesAndRoundTrips() throws {
+        for value in [0.25, 0.30, 0.95, 1.0, 2.0, 8.0] {
+            XCTAssertTrue(AutoScrollSpeedSetting.range.contains(value))
+            let stepIndex = (value - AutoScrollSpeedSetting.range.lowerBound)
+                / AutoScrollSpeedSetting.step
+            XCTAssertEqual(stepIndex, stepIndex.rounded(), accuracy: 1e-9)
+
+            var config = AppConfig()
+            config.autoScrollSpeed = value
+            XCTAssertEqual(try roundTrip(config).autoScrollSpeed, value, accuracy: 1e-9)
+        }
+    }
+
+    func testAutoScrollClickDelayDefaultsClampsAndRoundTrips() throws {
+        let legacy = try JSONDecoder().decode(
+            AppConfig.self, from: #"{}"#.data(using: .utf8)!)
+        XCTAssertEqual(legacy.autoScrollClickDelay, 0.20, accuracy: 1e-9)
+
+        let low = try JSONDecoder().decode(
+            AppConfig.self, from: #"{"autoScrollClickDelay":0.01}"#.data(using: .utf8)!)
+        XCTAssertEqual(low.autoScrollClickDelay, 0.05, accuracy: 1e-9)
+        let high = try JSONDecoder().decode(
+            AppConfig.self, from: #"{"autoScrollClickDelay":0.8}"#.data(using: .utf8)!)
+        XCTAssertEqual(high.autoScrollClickDelay, 0.50, accuracy: 1e-9)
+
+        for value in [0.05, 0.20, 0.50] {
+            var config = AppConfig()
+            config.autoScrollClickDelay = value
+            XCTAssertEqual(try roundTrip(config).autoScrollClickDelay, value, accuracy: 1e-9)
+        }
     }
 
     /// Auto-scroll base speed clamps to its UI range on decode.
