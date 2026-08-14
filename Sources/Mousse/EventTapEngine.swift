@@ -120,6 +120,7 @@ final class EventTapEngine {
     private let magnifier = MagnifySynthesizer()
     private let spaceDrag = SpaceDragGesture()
     private let holdScroll = HoldScrollGesture()
+    private let autoScroll = AutoScrollController() // tap-thread only, like the other gestures
     private let buttonTriggers = ButtonTriggerRecognizer()
     private var buttonTriggerTimer: CFRunLoopTimer?
     private var eventTapRunLoop: CFRunLoop?
@@ -475,10 +476,25 @@ final class EventTapEngine {
         CFRunLoopRun()
     }
 
-    /// Edge-scroll tick (tap thread, ~30 Hz): rest the pointer on the screen edge and the page
-    /// scrolls continuously. Posts a synthetic phase-less continuous event (tagged so our own tap
-    /// passes it through) — the same shape a high-res mouse produces.
+    /// Toggle Windows-style auto-scroll mode. Called from RemapAction.post (tap thread, like every
+    /// other gesture interaction) — no locking needed.
+    func toggleAutoScroll() {
+        autoScroll.toggle()
+    }
+
+    /// Edge-scroll + auto-scroll tick (tap thread, ~30 Hz). Auto-scroll mode polls the pointer and
+    /// scrolls with its movement; edge scrolling rests the pointer on the screen edge instead.
+    /// Both post synthetic phase-less continuous events (tagged so our own tap passes them
+    /// through) — the same shape a high-res mouse produces.
     private func handleEdgeScrollTick() {
+        // Auto-scroll first: it is a user-initiated mode and independent of the edge-scroll
+        // setting.
+        if autoScroll.isActive {
+            if let loc = CGEvent(source: nil)?.location {
+                let (dx, dy) = autoScroll.tick(pointer: loc)
+                if dx != 0 || dy != 0 { postScrollDelta(dx: dx, dy: dy) }
+            }
+        }
         lock.lock()
         let enabled = edgeScrollEnabled
         let speed = edgeScrollSpeed
@@ -492,9 +508,15 @@ final class EventTapEngine {
                                             now: CACurrentMediaTime(),
                                             lastRealWheelAt: lastRealWheelAt, speed: speed)
         guard delta != 0 else { return }
+        postScrollDelta(dx: 0, dy: delta)
+    }
+
+    /// Post a synthetic phase-less continuous pixel scroll event, tagged so the tap passes it
+    /// through. Tap-thread only (called from the periodic tick).
+    private func postScrollDelta(dx: Double, dy: Double) {
         guard let event = CGEvent(scrollWheelEvent2Source: scrollSource, units: .pixel,
-                                  wheelCount: 2, wheel1: Int32(delta.rounded()), wheel2: 0,
-                                  wheel3: 0) else { return }
+                                  wheelCount: 2, wheel1: Int32(dy.rounded()),
+                                  wheel2: Int32(dx.rounded()), wheel3: 0) else { return }
         event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
         event.setIntegerValueField(.eventSourceUserData, value: ScrollAnimator.syntheticTag)
         event.post(tap: .cghidEventTap)
@@ -631,6 +653,7 @@ final class EventTapEngine {
         if dragCancel {
             spaceDrag.cancel()
             holdScroll.cancel()
+            autoScroll.cancel() // a mode left on across sleep/device-change would be confusing
         } // tap thread — safe to touch the gesture states
         if cursorFlush { cursorApp.invalidate() }
         if triggerCancel {

@@ -92,6 +92,7 @@
 "action.navigateBack" = "返回";
 "action.navigateForward" = "前进";
 "action.holdScrollVolume" = "按住滚动滚轮调整音量";
+"action.autoScroll" = "自动滚动（移动指针滚动页面）";
 "action.smartZoom" = "智能缩放";
 "action.clickMiddle" = "模拟中键点击";
 "action.placeholder" = "选择操作…";

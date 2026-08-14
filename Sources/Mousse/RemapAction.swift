@@ -13,6 +13,7 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
     case smartZoom
     case clickButton(buttonNumber: Int) // simulate a click of another button (e.g. the middle button)
     case scrollOutput(ScrollOutput)     // while the button is held, wheel input drives this output
+    case autoScroll                     // toggle Windows-style auto-scroll mode (move the pointer to scroll)
 
     // Keystroke presets (macOS default shortcuts)
     static let spaceLeft      = keyStroke(keyCode: 0x7B, control: true, option: false, command: false, shift: false) // Ctrl+←
@@ -34,7 +35,7 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
     /// Actions offered in the Settings picker.
     static var presets: [RemapAction] {
         [.navigateBack, .navigateForward, .spaceLeft, .spaceRight, .missionControl, .appExpose, .launchpad,
-         .smartZoom, .clickButton(buttonNumber: 3), .scrollOutput(.volume),
+         .smartZoom, .clickButton(buttonNumber: 3), .scrollOutput(.volume), .autoScroll,
          .mediaKey(.volumeDown), .mediaKey(.volumeUp), .mediaKey(.mute),
          .mediaKey(.playPause), .mediaKey(.previous), .mediaKey(.next)]
     }
@@ -145,6 +146,11 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
             // HoldScrollGesture). Nothing to post here — reaching this would be a wiring bug.
             switch output { case .volume: break }
 
+        case .autoScroll:
+            // Mode toggle, driven by the engine (tap thread, like button triggers): enter/exit
+            // Windows-style auto-scroll where moving the pointer scrolls the page.
+            EventTapEngine.shared.toggleAutoScroll()
+
         case .navigateBack:
             SmartNavigation.post(.back)
 
@@ -189,6 +195,8 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
             return Localized.format("action.clickButton", buttonNumber)
         case let .scrollOutput(output):
             return output.label
+        case .autoScroll:
+            return Localized.text("action.autoScroll")
         case .navigateBack:
             return Localized.text("action.navigateBack")
         case .navigateForward:

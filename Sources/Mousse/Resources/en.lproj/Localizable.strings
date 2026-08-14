@@ -92,6 +92,7 @@
 "action.navigateBack" = "Back";
 "action.navigateForward" = "Forward";
 "action.holdScrollVolume" = "Hold & Scroll Wheel for Volume";
+"action.autoScroll" = "Auto-Scroll (Move Pointer)";
 "action.smartZoom" = "Smart Zoom";
 "action.clickMiddle" = "Click Middle Button";
 "action.placeholder" = "Select Action…";
