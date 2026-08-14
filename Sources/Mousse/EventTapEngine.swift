@@ -478,27 +478,34 @@ final class EventTapEngine {
 
     /// Toggle Windows-style auto-scroll mode. Called from RemapAction.post (tap thread, like every
     /// other gesture interaction) — no locking needed.
+    ///
+    /// Entering anchors the pointer at its current position (PointerFreeze) and converts every
+    /// VIRTUAL pointer movement into scroll fed to the animator: the pointer never moves, so
+    /// synthetic scroll events keep dispatching to the anchor — nested scroll areas (chat boxes,
+    /// code panels) scroll correctly without per-app adaptation, and scrolling is unlimited.
     func toggleAutoScroll() {
-        autoScroll.toggle()
-    }
-
-    /// Edge-scroll + auto-scroll tick (tap thread, ~30 Hz). Auto-scroll mode polls the pointer and
-    /// scrolls with its movement (fed into ScrollAnimator for display-link-smooth output); edge
-    /// scrolling rests the pointer on the screen edge instead.
-    private func handleEdgeScrollTick() {
-        // Auto-scroll first: it is a user-initiated mode and independent of the edge-scroll
-        // setting.
         if autoScroll.isActive {
-            if let loc = CGEvent(source: nil)?.location {
-                let (dx, dy) = autoScroll.tick(pointer: loc, now: CACurrentMediaTime(),
-                                               screenBounds: screenBounds(at: loc) ?? .zero)
+            PointerFreeze.shared.unfreeze()
+            autoScroll.toggle()
+        } else {
+            let anchor = CGEvent(source: nil)?.location ?? .zero
+            autoScroll.toggle()
+            PointerFreeze.shared.freeze(at: anchor) { [weak self] pos in
+                guard let self, self.autoScroll.isActive else { return }
+                let (dx, dy) = AutoScrollController.scrollDelta(from: anchor, to: pos)
                 if dx != 0 || dy != 0 {
                     // Ease through the animator (hi-res path, gain 1.0 at the default slider) so
-                    // the mode scrolls as smoothly as the wheel — not per-tick pixel jumps.
-                    scrollAnimator.addPixels(pxV: dy, pxH: dx, speed: 0.5)
+                    // the mode scrolls as smoothly as the wheel — not per-event jumps.
+                    self.scrollAnimator.addPixels(pxV: dy, pxH: dx, speed: 0.5)
                 }
             }
         }
+    }
+
+    /// Edge-scroll tick (tap thread, ~30 Hz): rest the pointer on the screen edge and the page
+    /// scrolls continuously. Auto-scroll no longer polls here — it anchors the pointer and is
+    /// driven event-by-event through PointerFreeze.
+    private func handleEdgeScrollTick() {
         lock.lock()
         let enabled = edgeScrollEnabled
         let speed = edgeScrollSpeed
@@ -663,7 +670,10 @@ final class EventTapEngine {
         if dragCancel {
             spaceDrag.cancel()
             holdScroll.cancel()
-            autoScroll.cancel() // a mode left on across sleep/device-change would be confusing
+            if autoScroll.isActive {
+                PointerFreeze.shared.unfreeze() // release the anchored pointer too
+                autoScroll.cancel()
+            }
         } // tap thread — safe to touch the gesture states
         if cursorFlush { cursorApp.invalidate() }
         if triggerCancel {
