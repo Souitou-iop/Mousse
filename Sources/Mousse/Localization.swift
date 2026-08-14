@@ -69,11 +69,25 @@ enum Localized {
     private static var bundle: Bundle {
         let code = resolvedLanguage.bundleCode
         if !code.isEmpty,
-           let path = resourceBundle.path(forResource: code, ofType: "lproj"),
+           let path = localizedBundlePath(for: code),
            let bundle = Bundle(path: path) {
             return bundle
         }
         return resourceBundle
+    }
+
+    /// SwiftPM normalizes `zh-Hans.lproj` to `zh-hans.lproj`, so an exact `Bundle.path` lookup can
+    /// silently miss a language whose canonical spelling differs in case. Match case-insensitively
+    /// instead of trusting the directory name's exact casing.
+    private static func localizedBundlePath(for code: String) -> String? {
+        if let exact = resourceBundle.path(forResource: code, ofType: "lproj") {
+            return exact
+        }
+        let wanted = code.lowercased() + ".lproj"
+        guard let entries = try? FileManager.default
+            .contentsOfDirectory(atPath: resourceBundle.bundlePath) else { return nil }
+        return entries.first { $0.lowercased() == wanted }
+            .map { resourceBundle.bundlePath + "/" + $0 }
     }
 
     static func text(_ key: String) -> String {

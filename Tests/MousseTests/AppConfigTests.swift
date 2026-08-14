@@ -32,6 +32,26 @@ final class AppConfigTests: XCTestCase {
         }
     }
 
+    func testEveryLanguageLabelResolvesInsteadOfReturningTheKey() {
+        for language in AppLanguage.allCases {
+            let key = language == .system ? "general.language.system" : ""
+            let label = language.label
+            if !key.isEmpty {
+                XCTAssertNotEqual(label, key, "\(language) fell back to the raw localization key")
+            }
+            XCTAssertFalse(label.isEmpty, "\(language) label is empty")
+        }
+    }
+
+    func testSystemLanguageFollowsChinesePreferredLocale() {
+        let preferred = Locale.preferredLanguages.first?.lowercased() ?? ""
+        guard preferred.hasPrefix("zh-hans") || preferred.hasPrefix("zh-cn") else { return }
+        Localized.language = .system
+        XCTAssertEqual(Localized.text("general.enable"), "启用 Mousse",
+                       "system language should resolve the zh-hans.lproj bundle")
+        XCTAssertEqual(Localized.text("general.language.system"), "跟随系统")
+    }
+
     func testNonDefaultValuesPersist() throws {
         var config = AppConfig()
         config.enabled = false

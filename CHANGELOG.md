@@ -2,6 +2,15 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.16.1] - 2026-08-14
+
+### 修复 / Fixed
+
+- **语言跟随与切换失效**:SwiftPM 会把 `zh-Hans.lproj` 规范化为 `zh-hans.lproj`,此前按大小写精确查找语言包会匹配失败,导致系统为中文时仍显示英文、手动切换语言也无效。现在语言包按大小写不敏感匹配。
+- **System language and manual switching not working**: SwiftPM normalizes `zh-Hans.lproj` to `zh-hans.lproj`, and the previous case-sensitive lookup missed it, so a Chinese system still showed English and manual language switching had no effect. Language bundles are now matched case-insensitively.
+
+[0.16.1]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.16.1
+
 ## [0.16.0] - 2026-08-14
 
 ### 新增 / Added
