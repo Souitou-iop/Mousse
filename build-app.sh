@@ -20,7 +20,7 @@ fi
 
 APP_NAME="Mousse"
 BUNDLE_ID="com.mousse.app"
-VERSION="0.12.0"
+VERSION="0.12.1"
 BUILD_TRIPLE="arm64-apple-macosx26.0"
 OUT="build/${APP_NAME}.app"
 

@@ -483,16 +483,20 @@ final class EventTapEngine {
     }
 
     /// Edge-scroll + auto-scroll tick (tap thread, ~30 Hz). Auto-scroll mode polls the pointer and
-    /// scrolls with its movement; edge scrolling rests the pointer on the screen edge instead.
-    /// Both post synthetic phase-less continuous events (tagged so our own tap passes them
-    /// through) — the same shape a high-res mouse produces.
+    /// scrolls with its movement (fed into ScrollAnimator for display-link-smooth output); edge
+    /// scrolling rests the pointer on the screen edge instead.
     private func handleEdgeScrollTick() {
         // Auto-scroll first: it is a user-initiated mode and independent of the edge-scroll
         // setting.
         if autoScroll.isActive {
             if let loc = CGEvent(source: nil)?.location {
-                let (dx, dy) = autoScroll.tick(pointer: loc)
-                if dx != 0 || dy != 0 { postScrollDelta(dx: dx, dy: dy) }
+                let (dx, dy) = autoScroll.tick(pointer: loc, now: CACurrentMediaTime(),
+                                               screenBounds: screenBounds(at: loc) ?? .zero)
+                if dx != 0 || dy != 0 {
+                    // Ease through the animator (hi-res path, gain 1.0 at the default slider) so
+                    // the mode scrolls as smoothly as the wheel — not per-tick pixel jumps.
+                    scrollAnimator.addPixels(pxV: dy, pxH: dx, speed: 0.5)
+                }
             }
         }
         lock.lock()
@@ -501,14 +505,20 @@ final class EventTapEngine {
         lock.unlock()
         guard enabled else { return }
         guard let loc = CGEvent(source: nil)?.location else { return }
-        var display: CGDirectDisplayID = 0
-        var count: UInt32 = 0
-        guard CGGetDisplaysWithPoint(loc, 1, &display, &count) == .success, count > 0 else { return }
-        let delta = edgeScrollDetector.tick(pointer: loc, screenBounds: CGDisplayBounds(display),
+        guard let bounds = screenBounds(at: loc) else { return }
+        let delta = edgeScrollDetector.tick(pointer: loc, screenBounds: bounds,
                                             now: CACurrentMediaTime(),
                                             lastRealWheelAt: lastRealWheelAt, speed: speed)
         guard delta != 0 else { return }
         postScrollDelta(dx: 0, dy: delta)
+    }
+
+    /// Bounds of the display under `point` (nil when the lookup misses).
+    private func screenBounds(at point: CGPoint) -> CGRect? {
+        var display: CGDirectDisplayID = 0
+        var count: UInt32 = 0
+        guard CGGetDisplaysWithPoint(point, 1, &display, &count) == .success, count > 0 else { return nil }
+        return CGDisplayBounds(display)
     }
 
     /// Post a synthetic phase-less continuous pixel scroll event, tagged so the tap passes it
