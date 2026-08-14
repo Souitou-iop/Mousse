@@ -131,8 +131,11 @@ struct ButtonMappingsView: View {
 
     private func addTrigger(_ trigger: ButtonTrigger, to button: Int) {
         guard mappingIndex(button: button, trigger: trigger) == nil else { return }
+        // Start unconfigured — the user picks the action explicitly instead of inheriting a
+        // default. The engine ignores `.none` mappings, so the button keeps its normal behavior
+        // until an action is chosen.
         store.config.mappings.append(ButtonMapping(buttonNumber: button, trigger: trigger,
-                                                   action: .spaceLeft))
+                                                    action: .none))
     }
 
     private func removeButton(_ button: Int) {

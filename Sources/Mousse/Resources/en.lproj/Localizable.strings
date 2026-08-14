@@ -39,6 +39,8 @@
 "gestures.followFinger" = "Follow-finger animation";
 "gestures.dragDistance" = "Drag distance per Space: %d px";
 "gestures.reverse" = "Reverse drag direction";
+"gestures.lockPointer" = "Lock mouse pointer during Space drag";
+"gestures.lockPointerDescription" = "Anchors the pointer at the drag origin so it never moves while you switch Spaces. Recommended when the pointer would otherwise drift off the trackpad's reach.";
 "gestures.description" = "Hold the chosen button and drag left/right to switch Spaces. Follow-finger drives the real macOS slide (like a three-finger trackpad swipe); turn it off for discrete one-jump-per-distance switching. Vertical drags trigger Mission Control (up) or App Exposé (down). On macOS 27+ discrete jumps are used regardless, until follow-finger is ported.";
 "buttons.captureActive" = "Press a mouse button…  (⎋ cancels)";
 "buttons.capturePrompt" = "Capture a mouse button";
@@ -83,6 +85,10 @@
 "action.launchpad" = "Launchpad";
 "action.navigateBack" = "Back";
 "action.navigateForward" = "Forward";
+"action.smartZoom" = "Smart Zoom";
+"action.clickMiddle" = "Click Middle Button";
+"action.placeholder" = "Select Action…";
+"action.clickButton" = "Click Button %d";
 "media.volumeUp" = "Volume Up";
 "media.volumeDown" = "Volume Down";
 "media.mute" = "Mute";

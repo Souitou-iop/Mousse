@@ -39,6 +39,8 @@
 "gestures.followFinger" = "跟随手指动画";
 "gestures.dragDistance" = "每个 Space 的拖动距离：%d px";
 "gestures.reverse" = "反转拖动方向";
+"gestures.lockPointer" = "拖移切换 Space 期间锁定鼠标指针";
+"gestures.lockPointerDescription" = "将指针锚定在拖拽起点,切换 Space 时指针不会移动。当指针容易滑出可操作范围时推荐开启。";
 "gestures.description" = "按住选定按钮并向左或向右拖动以切换 Space。跟随手指会驱动真实的 macOS 滑动动画（类似三指触控板滑动）；关闭后按距离离散地每次跳转一个 Space。垂直拖动会触发 Mission Control（向上）或 App Exposé（向下）。在 macOS 27 及更高版本中，无论如何都会使用离散跳转，直到跟随手指功能完成移植。";
 "buttons.captureActive" = "请按下鼠标按钮…（按 ⎋ 取消）";
 "buttons.capturePrompt" = "捕获鼠标对应操作按键";
@@ -78,11 +80,15 @@
 "common.delete" = "删除";
 "action.spaceLeft" = "向左移动一个 Space";
 "action.spaceRight" = "向右移动一个 Space";
-"action.missionControl" = "Mission Control";
-"action.appExpose" = "App Exposé";
-"action.launchpad" = "Launchpad";
+"action.missionControl" = "调度中心";
+"action.appExpose" = "应用程序窗口";
+"action.launchpad" = "启动台";
 "action.navigateBack" = "返回";
 "action.navigateForward" = "前进";
+"action.smartZoom" = "智能缩放";
+"action.clickMiddle" = "模拟中键点击";
+"action.placeholder" = "选择操作…";
+"action.clickButton" = "模拟第 %d 个按钮点击";
 "media.volumeUp" = "音量加";
 "media.volumeDown" = "音量减";
 "media.mute" = "静音";
