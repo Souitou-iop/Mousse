@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 /// Shows a mapping's action and lets the user either pick a preset or record a custom shortcut.
 /// Recording uses a HID event tap so the shortcut is swallowed before any app receives it.
@@ -26,6 +27,7 @@ struct ShortcutControl: View {
                         }
                     }
                     Divider()
+                    Button(Localized.text("buttons.chooseApp")) { chooseApp() }
                     Button(Localized.text("buttons.recordShortcut")) { startRecording() }
                 }
             }
@@ -49,8 +51,20 @@ struct ShortcutControl: View {
         }
     }
 
-    private func startRecording() {
-        startError = nil
+    private func chooseApp() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = Localized.text("buttons.chooseApp")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        action = .openApp(path: url.path,
+                          displayName: FileManager.default.displayName(atPath: url.path))
+    }
+
+    private func startRecording() {        startError = nil
         endMessageKey = nil
         let status = EventTapEngine.shared.beginKeyboardCapture { outcome in
             guard recording else { return }

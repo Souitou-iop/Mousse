@@ -39,14 +39,53 @@ enum SystemActions {
         DispatchQueue.main.async { send?(name as CFString, 0) }
     }
 
-    // MARK: - Symbolic hotkeys (switch Spaces)
+    // MARK: - Symbolic hotkeys (system features)
 
     /// Switch to the Space on the left / right.
-    static func spaceLeft()  { postSHK(shkSpaceLeft,  defaultVKC: 0x7B) } // ← left arrow
-    static func spaceRight() { postSHK(shkSpaceRight, defaultVKC: 0x7C) } // → right arrow
+    static func spaceLeft()  { postSHK(shkSpaceLeft,  defaultVKC: 0x7B, defaultMods: kControlMask) } // ← left arrow
+    static func spaceRight() { postSHK(shkSpaceRight, defaultVKC: 0x7C, defaultMods: kControlMask) } // → right arrow
+
+    /// Open Spotlight / Siri, replaying the user's System Settings shortcut binding.
+    static func spotlight() { postSHK(shkSpotlight, defaultVKC: 0x31, defaultMods: kCGSCommandKeyMask) } // Cmd+Space
+
+    /// Start Siri by opening its launcher app. Newer macOS versions do not register Siri as a
+    /// symbolic hotkey at all (the `AppleSymbolicHotKeys` plist has no Siri entry), so the SHK
+    /// path is only a fallback for older systems that still expose one.
+    static func siri() {
+        let siriURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.siri.launcher")
+            ?? (FileManager.default.fileExists(atPath: "/System/Applications/Siri.app")
+                ? URL(fileURLWithPath: "/System/Applications/Siri.app") : nil)
+        if let siriURL {
+            DispatchQueue.main.async {
+                NSWorkspace.shared.openApplication(at: siriURL, configuration: NSWorkspace.OpenConfiguration())
+            }
+            return
+        }
+        postSHK(shkSiri, defaultVKC: 0x31, defaultMods: kCGSFunctionKeyMask) // Fn+Space fallback
+    }
+
+    /// The macOS app switcher (Cmd+Tab). WindowServer handles it as a chord rather than a symbolic
+    /// hotkey, so replay the key directly instead of going through `postSHK`.
+    static func appSwitcher() {
+        queue.async { postKey(0x30, kCGSCommandKeyMask) }
+    }
+
+    /// Launch an app the user picked, by absolute .app bundle path.
+    static func openApp(path: String) {
+        guard FileManager.default.fileExists(atPath: path) else {
+            NSLog("Mousse: app to open no longer exists: %@", path)
+            return
+        }
+        let url = URL(fileURLWithPath: path)
+        DispatchQueue.main.async {
+            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+        }
+    }
 
     private static let shkSpaceLeft:  Int32 = 79
     private static let shkSpaceRight: Int32 = 81
+    private static let shkSpotlight:  Int32 = 64
+    private static let shkSiri:        Int32 = 176
 
     // MARK: - Launchpad / Apps
 
@@ -112,6 +151,7 @@ enum SystemActions {
 
     private static let kNullKeyEquivalent: UInt16 = 0xFFFF
     private static let kControlMask: UInt32 = 1 << 18 // kCGSControlKeyMask == CGEventFlags.maskControl
+    private static let kCGSCommandKeyMask: UInt32 = 1 << 20 // kCGSCommandKeyMask == CGEventFlags.maskCommand
 
     // Runs SHK reads and the synthesized key off the event-tap thread.
     private static let queue = DispatchQueue(label: "com.mousse.shk", qos: .userInteractive)
@@ -131,11 +171,11 @@ enum SystemActions {
     /// it reads as disabled or bound to a character key we can't replay, do NOTHING: WindowServer
     /// wouldn't consume the keystroke, so posting one would type a real Ctrl+arrow into the focused
     /// app (caret jumps in editors). Never writes any system configuration.
-    private static func postSHK(_ shk: Int32, defaultVKC: UInt16) {
+    private static func postSHK(_ shk: Int32, defaultVKC: UInt16, defaultMods: UInt32) {
         queue.async {
             var keq: UInt16 = 0, vkc: UInt16 = 0, mods: UInt32 = 0
             guard let getSHK, let isEnabled, getSHK(shk, &keq, &vkc, &mods) == 0 else {
-                postKey(defaultVKC, kControlMask) // binding unreadable — assume the default
+                postKey(defaultVKC, defaultMods) // binding unreadable — assume the default
                 return
             }
             guard isEnabled(shk), keq == kNullKeyEquivalent, vkc != kNullKeyEquivalent else {
@@ -151,9 +191,7 @@ enum SystemActions {
     private static func logSkippedSHK() {
         guard !loggedSkippedSHK else { return }
         loggedSkippedSHK = true
-        NSLog("Mousse: skipping Space switch — the \"Move left/right a space\" shortcut is disabled "
-            + "or bound to a character key (enable it in System Settings > Keyboard > Shortcuts > "
-            + "Mission Control)")
+        NSLog("Mousse: skipping system shortcut — the matching System Settings > Keyboard > Shortcuts binding is disabled or bound to a character key")
     }
 
     private static func postKey(_ vkc: UInt16, _ mods: UInt32) {

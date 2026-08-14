@@ -228,7 +228,7 @@ final class AppConfigTests: XCTestCase {
     func testOutOfRangeValuesAreClamped() throws {
         let json = #"{"scrollSpeed":99,"scrollLines":-2,"spaceDragThreshold":5}"#.data(using: .utf8)!
         let decoded = try JSONDecoder().decode(AppConfig.self, from: json)
-        XCTAssertEqual(decoded.scrollSpeed, 1.5, accuracy: 1e-9)
+        XCTAssertEqual(decoded.scrollSpeed, 3.0, accuracy: 1e-9)
         XCTAssertEqual(decoded.scrollLines, 1)
         XCTAssertEqual(decoded.spaceDragThreshold, 100, accuracy: 1e-9)
     }
@@ -245,20 +245,30 @@ final class AppConfigTests: XCTestCase {
     func testAutoScrollSpeedClamps() throws {
         let low = try JSONDecoder().decode(AppConfig.self,
             from: #"{"autoScrollSpeed":0.1}"#.data(using: .utf8)!)
-        XCTAssertEqual(low.autoScrollSpeed, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(low.autoScrollSpeed, 0.25, accuracy: 1e-9)
         let high = try JSONDecoder().decode(AppConfig.self,
             from: #"{"autoScrollSpeed":9.0}"#.data(using: .utf8)!)
-        XCTAssertEqual(high.autoScrollSpeed, 4.0, accuracy: 1e-9)
+        XCTAssertEqual(high.autoScrollSpeed, 8.0, accuracy: 1e-9)
+    }
+
+    /// Auto-scroll base speed clamps to its UI range on decode.
+    func testAutoScrollBaseSpeedClamps() throws {
+        let low = try JSONDecoder().decode(AppConfig.self,
+            from: #"{"autoScrollBaseSpeed":-50}"#.data(using: .utf8)!)
+        XCTAssertEqual(low.autoScrollBaseSpeed, 0, accuracy: 1e-9)
+        let high = try JSONDecoder().decode(AppConfig.self,
+            from: #"{"autoScrollBaseSpeed":5000}"#.data(using: .utf8)!)
+        XCTAssertEqual(high.autoScrollBaseSpeed, 1000, accuracy: 1e-9)
     }
 
     /// Zoom speed clamps to its UI range on decode (a hand-edited value must not extrapolate).
     func testZoomSpeedClamps() throws {
         let low = try JSONDecoder().decode(AppConfig.self,
             from: #"{"zoomSpeed":0.1}"#.data(using: .utf8)!)
-        XCTAssertEqual(low.zoomSpeed, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(low.zoomSpeed, 0.2, accuracy: 1e-9)
         let high = try JSONDecoder().decode(AppConfig.self,
             from: #"{"zoomSpeed":9.0}"#.data(using: .utf8)!)
-        XCTAssertEqual(high.zoomSpeed, 3.0, accuracy: 1e-9)
+        XCTAssertEqual(high.zoomSpeed, 6.0, accuracy: 1e-9)
         let mid = try JSONDecoder().decode(AppConfig.self,
             from: #"{"zoomSpeed":1.7}"#.data(using: .utf8)!)
         XCTAssertEqual(mid.zoomSpeed, 1.7, accuracy: 1e-9)
@@ -269,5 +279,30 @@ final class AppConfigTests: XCTestCase {
         XCTAssertTrue(EventTapEngine.isScrollExcluded("com.example.Editor", from: excluded))
         XCTAssertFalse(EventTapEngine.isScrollExcluded("com.example.Browser", from: excluded))
         XCTAssertFalse(EventTapEngine.isScrollExcluded(nil, from: excluded))
+    }
+
+    // MARK: - Config export/import
+
+    func testConfigTransferRoundTrip() throws {
+        var config = AppConfig()
+        config.enabled = false
+        config.scrollMode = .smoothStep
+        config.configuredButtons = [4, 5, 6]
+        config.mappings = [ButtonMapping(buttonNumber: 6, trigger: .doubleClick, action: .spotlight)]
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try ConfigTransfer.export(config, to: url)
+        XCTAssertEqual(try ConfigTransfer.importConfig(from: url), config)
+    }
+
+    func testConfigImportRejectsMalformedFile() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data("not json".utf8).write(to: url)
+
+        XCTAssertThrowsError(try ConfigTransfer.importConfig(from: url))
     }
 }

@@ -27,6 +27,19 @@ final class RemapActionTests: XCTestCase {
         XCTAssertEqual(try roundTrip(.launchpad), .launchpad)
     }
 
+    func testOpenAppRoundTrip() throws {
+        let action = RemapAction.openApp(path: "/Applications/Safari.app", displayName: "Safari")
+        XCTAssertEqual(try roundTrip(action), action)
+    }
+
+    func testOpenAppDisplayName() {
+        XCTAssertEqual(RemapAction.openApp(path: "/Applications/Safari.app",
+                                           displayName: "Safari").displayName, "Safari")
+        XCTAssertEqual(RemapAction.openApp(path: "/Applications/Safari.app",
+                                           displayName: "").displayName,
+                       Localized.text("action.openApp"))
+    }
+
     func testNavigationRoundTrip() throws {
         XCTAssertEqual(try roundTrip(.navigateBack), .navigateBack)
         XCTAssertEqual(try roundTrip(.navigateForward), .navigateForward)

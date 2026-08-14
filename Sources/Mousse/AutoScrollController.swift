@@ -22,7 +22,7 @@ import Foundation
 final class AutoScrollController {
 
     /// Scroll speed cap — extreme offsets must not fling the page.
-    static let maxSpeed = 2000.0
+    static let maxSpeed = 4000.0
     /// Pointer offset below which scrolling stops (px).
     static let deadzone = 6.0
 
@@ -42,12 +42,13 @@ final class AutoScrollController {
         anchor = nil
     }
 
-    /// One periodic tick. `speed` is the user's auto-scroll sensitivity — scroll px/s per px of
-    /// pointer offset from the anchor. Returns the signed scroll pixels since the last tick
-    /// (positive deltaY = wheel-up / scroll up; positive deltaX = scroll right). Non-zero
-    /// whenever the pointer is outside the dead zone — i.e. scrolling continues automatically
-    /// while the pointer rests.
-    func tick(pointer: CGPoint, now: Double, speed: Double) -> (deltaX: Double, deltaY: Double) {
+    /// One periodic tick. `speed` is the user's auto-scroll acceleration — scroll px/s per px of
+    /// pointer offset from the anchor. `baseSpeed` is the scroll rate applied as soon as the
+    /// pointer leaves the dead zone, so even a small nudge gets a usable speed. Returns the signed
+    /// scroll pixels since the last tick (positive deltaY = wheel-up / scroll up; positive deltaX =
+    /// scroll right). Non-zero whenever the pointer is outside the dead zone — i.e. scrolling
+    /// continues automatically while the pointer rests.
+    func tick(pointer: CGPoint, now: Double, speed: Double, baseSpeed: Double = 0) -> (deltaX: Double, deltaY: Double) {
         guard isActive else { return (0, 0) }
         if anchor == nil {
             anchor = pointer
@@ -59,7 +60,8 @@ final class AutoScrollController {
 
         func speedOf(_ offset: CGFloat) -> Double {
             guard abs(offset) > AutoScrollController.deadzone else { return 0 }
-            let raw = Double(offset) * speed
+            let sign = offset > 0 ? 1.0 : -1.0
+            let raw = sign * baseSpeed + Double(offset) * speed
             return min(max(raw, -AutoScrollController.maxSpeed), AutoScrollController.maxSpeed)
         }
 

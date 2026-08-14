@@ -8,6 +8,10 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
     case keyStroke(keyCode: UInt16, control: Bool, option: Bool, command: Bool, shift: Bool)
     case mediaKey(MediaKey)
     case launchpad
+    case spotlight
+    case siri
+    case appSwitcher
+    case openApp(path: String, displayName: String)
     case navigateBack
     case navigateForward
     case smartZoom
@@ -35,6 +39,7 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
     /// Actions offered in the Settings picker.
     static var presets: [RemapAction] {
         [.navigateBack, .navigateForward, .spaceLeft, .spaceRight, .missionControl, .appExpose, .launchpad,
+         .spotlight, .siri, .appSwitcher,
          .smartZoom, .clickButton(buttonNumber: 3), .scrollOutput(.volume), .autoScroll,
          .mediaKey(.volumeDown), .mediaKey(.volumeUp), .mediaKey(.mute),
          .mediaKey(.playPause), .mediaKey(.previous), .mediaKey(.next)]
@@ -112,6 +117,18 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
             // without hard-coding app paths. See SystemActions.launchpad().
             SystemActions.launchpad()
 
+        case .spotlight:
+            SystemActions.spotlight()
+
+        case .siri:
+            SystemActions.siri()
+
+        case .appSwitcher:
+            SystemActions.appSwitcher()
+
+        case let .openApp(path, _):
+            SystemActions.openApp(path: path)
+
         case .smartZoom:
             // Trackpad-style "smart zoom" toggle (double-tap two fingers): Safari/Preview/etc.
             // zoom to fit. One field-based gesture event (kIOHIDEventTypeZoomToggle); macOS 27
@@ -188,6 +205,14 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
             return key.name
         case .launchpad:
             return Localized.text("action.launchpad")
+        case .spotlight:
+            return Localized.text("action.spotlight")
+        case .siri:
+            return Localized.text("action.siri")
+        case .appSwitcher:
+            return Localized.text("action.appSwitcher")
+        case let .openApp(_, displayName):
+            return displayName.isEmpty ? Localized.text("action.openApp") : displayName
         case .smartZoom:
             return Localized.text("action.smartZoom")
         case let .clickButton(buttonNumber):

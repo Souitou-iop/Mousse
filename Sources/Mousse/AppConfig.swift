@@ -66,14 +66,15 @@ struct AppConfig: Codable, Sendable, Equatable {
     var reverseScroll: Bool = false
     var scrollMode: ScrollMode = .smooth
     var scrollSmoothness: ScrollSmoothness = .balanced // Smooth mode curve profile (derived)
-    var scrollSpeed: Double = 0.5       // 0.05 (slowest) … 1.5 (fast); Smooth mode:  sensitivity
+    var scrollSpeed: Double = 0.5       // 0.05 (slowest) … 3.0 (fast); Smooth mode: sensitivity
                                         // anchors (0=low, 0.5=medium, 1=high); also scales hi-res gain
     var scrollLines: Int = 3            // lines per notch in Smooth-step mode (Windows default = 3)
     var scrollAcceleration: Bool = true // rapid consecutive notches scroll farther (Smooth mode only)
     var zoomSpeed: Double = 1.0         // Cmd+wheel pinch-zoom sensitivity, independent of scrollSpeed
     var edgeScroll: Bool = false        // pointer resting on the screen edge scrolls continuously
     var edgeScrollSpeed: Double = 400.0 // px/s while edge scrolling
-    var autoScrollSpeed: Double = 1.5  // auto-scroll: scroll px/s per px of pointer offset
+    var autoScrollSpeed: Double = 1.5   // auto-scroll: additional scroll px/s per px of pointer offset
+    var autoScrollBaseSpeed: Double = 120.0 // auto-scroll: px/s as soon as the pointer leaves the dead zone
     var smoothHighRes: Bool = false     // also smooth high-res "continuous" mice (e.g. Keychron M6) that
                                         // lack a flywheel; keep off for MX-Master-style free-spin mice
     var doubleClickInterval: Double = 0.26
@@ -108,7 +109,7 @@ extension AppConfig {
     enum CodingKeys: String, CodingKey {
         case language, enabled, reverseScroll, scrollMode, scrollSmoothness, smoothScroll, scrollSpeed, scrollLines
         case scrollAcceleration, smoothHighRes, zoomSpeed, doubleClickInterval, holdDuration
-        case edgeScroll, edgeScrollSpeed, autoScrollSpeed
+        case edgeScroll, edgeScrollSpeed, autoScrollSpeed, autoScrollBaseSpeed
         case spaceDragButton, spaceDragThreshold, spaceDragReverse, spaceDragFollowFinger, spaceDragLockPointer
         case excludedBundleIDs, verticalToHorizontalBundleIDs, configuredButtons, mappings
     }
@@ -143,6 +144,7 @@ extension AppConfig {
         edgeScroll         = field(Bool.self,   .edgeScroll)         ?? edgeScroll
         edgeScrollSpeed    = field(Double.self, .edgeScrollSpeed)    ?? edgeScrollSpeed
         autoScrollSpeed    = field(Double.self, .autoScrollSpeed)    ?? autoScrollSpeed
+        autoScrollBaseSpeed = field(Double.self, .autoScrollBaseSpeed) ?? autoScrollBaseSpeed
         smoothHighRes      = field(Bool.self,   .smoothHighRes)      ?? smoothHighRes
         if let value = field(Double.self, .doubleClickInterval), value.isFinite {
             doubleClickInterval = min(max(value, 0.10), 0.50)
@@ -165,10 +167,11 @@ extension AppConfig {
         let savedButtons = field([Int].self, .configuredButtons) ?? []
         configuredButtons = Array(Set((savedButtons + mappings.map(\.buttonNumber)).filter { $0 >= 3 })).sorted()
 
-        scrollSpeed        = min(max(scrollSpeed, 0.05), 1.5)
-        zoomSpeed          = min(max(zoomSpeed, 0.5), 3.0)
-        edgeScrollSpeed    = min(max(edgeScrollSpeed, 100), 1200)
-        autoScrollSpeed    = min(max(autoScrollSpeed, 0.5), 4.0)
+        scrollSpeed        = min(max(scrollSpeed, 0.05), 3.0)
+        zoomSpeed          = min(max(zoomSpeed, 0.2), 6.0)
+        edgeScrollSpeed    = min(max(edgeScrollSpeed, 50), 2400)
+        autoScrollSpeed    = min(max(autoScrollSpeed, 0.25), 8.0)
+        autoScrollBaseSpeed = min(max(autoScrollBaseSpeed, 0), 1000)
         scrollLines        = min(max(scrollLines, 1), 10)
         spaceDragThreshold = min(max(spaceDragThreshold, 100), 400)
     }
@@ -188,6 +191,7 @@ extension AppConfig {
         try c.encode(edgeScroll, forKey: .edgeScroll)
         try c.encode(edgeScrollSpeed, forKey: .edgeScrollSpeed)
         try c.encode(autoScrollSpeed, forKey: .autoScrollSpeed)
+        try c.encode(autoScrollBaseSpeed, forKey: .autoScrollBaseSpeed)
         try c.encode(smoothHighRes, forKey: .smoothHighRes)
         try c.encode(doubleClickInterval, forKey: .doubleClickInterval)
         try c.encode(holdDuration, forKey: .holdDuration)

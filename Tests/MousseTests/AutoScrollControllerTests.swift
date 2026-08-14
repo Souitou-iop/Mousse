@@ -4,8 +4,8 @@ import XCTest
 final class AutoScrollControllerTests: XCTestCase {
 
     private func tick(_ c: AutoScrollController, _ x: CGFloat, _ y: CGFloat, at now: Double = 10.0,
-                      speed: Double = 1.0) -> (deltaX: Double, deltaY: Double) {
-        c.tick(pointer: CGPoint(x: x, y: y), now: now, speed: speed)
+                      speed: Double = 1.0, baseSpeed: Double = 0) -> (deltaX: Double, deltaY: Double) {
+        c.tick(pointer: CGPoint(x: x, y: y), now: now, speed: speed, baseSpeed: baseSpeed)
     }
 
     /// Toggling enters the mode; toggling again exits it.
@@ -77,6 +77,30 @@ final class AutoScrollControllerTests: XCTestCase {
         _ = tick(c, 100, 80, at: 10.0 + 1.0 / 30.0, speed: 2.0) // 20 px offset × 2
         let d = tick(c, 100, 80, at: 10.0 + 2.0 / 30.0, speed: 2.0)
         XCTAssertEqual(d.deltaY, 40.0 / 30.0, accuracy: 1e-6)
+    }
+
+    /// The base speed applies as soon as the pointer leaves the dead zone, so a small nudge is not
+    /// stuck at nearly zero. It always points in the offset's direction.
+    func testBaseSpeedAppliesJustOutsideDeadzone() {
+        let c = AutoScrollController()
+        c.toggle()
+        _ = tick(c, 100, 100, at: 10.0) // anchor
+        // 7 px above the anchor: without a base speed this is only 7 px/s; with 120 it is 127.
+        let up = tick(c, 100, 93, at: 10.0 + 1.0 / 30.0, speed: 1.0, baseSpeed: 120)
+        XCTAssertEqual(up.deltaY, 127.0 / 30.0, accuracy: 1e-6)
+        // 7 px below: the same base in the opposite direction.
+        let down = tick(c, 100, 107, at: 10.0 + 2.0 / 30.0, speed: 1.0, baseSpeed: 120)
+        XCTAssertEqual(down.deltaY, -127.0 / 30.0, accuracy: 1e-6)
+    }
+
+    /// Base speed and acceleration combine: total = base + offset × gain.
+    func testBaseSpeedCombinesWithAcceleration() {
+        let c = AutoScrollController()
+        c.toggle()
+        _ = tick(c, 100, 100, at: 10.0) // anchor
+        _ = tick(c, 100, 50, at: 10.0 + 1.0 / 30.0, speed: 2.0, baseSpeed: 100)
+        let d = tick(c, 100, 50, at: 10.0 + 2.0 / 30.0, speed: 2.0, baseSpeed: 100)
+        XCTAssertEqual(d.deltaY, 200.0 / 30.0, accuracy: 1e-6) // 100 + 50×2
     }
 
     /// Inside the dead zone no scrolling happens.

@@ -1,6 +1,26 @@
-# 更新日志
+# 更新日志 / Changelog
 
-本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
+本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
+
+## [0.14.0] - 2026-08-14
+
+### 新增 / Added
+
+- **系统级动作**:按钮映射新增"聚焦搜索"(Spotlight)、"Siri"和"应用切换器(⌘+Tab)"三个预设动作。Spotlight 会读取并回放系统当前的快捷键绑定;Siri 在 macOS 26 上直接启动系统 Siri 应用(旧系统无此应用时回退到系统快捷键)。
+- **System actions**: new presets for Spotlight, Siri, and the App Switcher (Cmd+Tab). Spotlight replays the system's current shortcut binding; Siri launches the system Siri app on macOS 26 (falling back to the symbolic-hotkey shortcut on older systems where the app is unavailable).
+- **打开应用**:按钮映射可通过"选择应用…"绑定任意 .app,触发时直接启动;应用名称随配置持久化,可随配置导入/导出。
+- **Open App**: button mappings can now launch any .app chosen from the system picker. The app's display name persists with the configuration and survives export/import.
+- **自动滚动基础速度**:新增"自动滚动基础速度"(0–1000 px/s,默认 120 px/s),指针离开锚点后即使偏移很小也会先按基础速度滚动,不再几乎停滞;原"自动滚动速度"改名为"自动滚动加速度"(0.25×–8×),与基础速度叠加。
+- **Auto-scroll base speed**: a new setting (0–1000 px/s, default 120 px/s) keeps auto-scroll moving immediately once the pointer leaves the dead zone instead of nearly stalling on small offsets. The former speed setting is now labeled "auto-scroll acceleration" (0.25×–8×) and stacks with the base speed.
+- **配置导入/导出**:设置 → 常规新增"配置"分区,可导出全部设置为 JSON 文件,也可从 JSON 文件导入并立即生效。导出格式与本地 `config.json` 一致,便于备份、迁移和未来的 iCloud 同步。
+- **Config export/import**: the General tab now exports the full configuration to JSON and imports it back with immediate effect. The format matches the local `config.json`, making backups, migration, and future iCloud sync straightforward.
+
+### 其他 / Other
+
+- **扩大滚动速度调节范围**:滚动速度 0.05×–3×,缩放速度 0.2×–6×,边缘滚动速度 50–2400 px/s,自动滚动加速度 0.25×–8×;自动滚动输出速度上限由 2000 提高到 4000 px/s。
+- **Expanded speed ranges**: scroll speed 0.05×–3×, zoom speed 0.2×–6×, edge-scroll speed 50–2400 px/s, and auto-scroll acceleration 0.25×–8×; the auto-scroll output cap rose from 2000 to 4000 px/s.
+
+[0.14.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.14.0
 
 ## [0.13.0] - 2026-08-14
 

@@ -1,9 +1,11 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The Settings window (⌘,). Three tabs: General, Buttons, Scroll.
 struct SettingsView: View {
     @EnvironmentObject var store: ConfigStore
     @State private var launchAtLogin = LoginItem.isEnabled
+    @State private var configMessage: String?
 
     var body: some View {
         TabView {
@@ -37,8 +39,58 @@ struct SettingsView: View {
                 }
             }
             LabeledContent(Localized.text("general.version"), value: appVersion)
+            Section(Localized.text("general.configSection")) {
+                Button(Localized.text("general.exportConfig")) { exportConfig() }
+                Button(Localized.text("general.importConfig")) { importConfig() }
+                Text(Localized.text("general.configDescription"))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
+        .alert("Mousse", isPresented: Binding(
+            get: { configMessage != nil },
+            set: { if !$0 { configMessage = nil } }
+        )) {
+            Button(Localized.text("common.ok"), role: .cancel) {}
+        } message: {
+            Text(configMessage ?? "")
+        }
+    }
+
+    private func exportConfig() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = "Mousse-config-\(configTimestamp()).json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try ConfigTransfer.export(store.config, to: url)
+            configMessage = Localized.text("config.exportSuccess")
+        } catch {
+            configMessage = Localized.format("config.exportFailed", error.localizedDescription)
+        }
+    }
+
+    private func importConfig() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            store.config = try ConfigTransfer.importConfig(from: url)
+            configMessage = Localized.text("config.importSuccess")
+        } catch {
+            configMessage = Localized.format("config.importFailed", error.localizedDescription)
+        }
+    }
+
+    private func configTimestamp() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter.string(from: Date())
     }
 
     private var appVersion: String {
@@ -80,7 +132,7 @@ struct SettingsView: View {
                         // Floor of 0.05 (not 0.2): high-res "continuous" mice natively scroll fast,
                         // and their gain is speed/0.5 — a 0.2 floor still meant 40% of native, too
                         // fast for slow scrollers. 0.05 → 10% of native. Finer step at the low end.
-                        Slider(value: $store.config.scrollSpeed, in: 0.05...1.5, step: 0.05) {
+                        Slider(value: $store.config.scrollSpeed, in: 0.05...3.0, step: 0.05) {
                             Text(Localized.text("scroll.speed"))
                         } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
                           maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
@@ -92,7 +144,7 @@ struct SettingsView: View {
                     Text(Localized.format("scroll.zoomSpeedValue", store.config.zoomSpeed))
                     // Cmd+wheel pinch-zoom sensitivity — independent of the scroll-speed slider so
                     // a fast scroll feel doesn't force an aggressive zoom.
-                    Slider(value: $store.config.zoomSpeed, in: 0.5...3.0, step: 0.1) {
+                    Slider(value: $store.config.zoomSpeed, in: 0.2...6.0, step: 0.1) {
                         Text(Localized.text("scroll.zoomSpeed"))
                     } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
                       maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
@@ -106,7 +158,7 @@ struct SettingsView: View {
                 if store.config.edgeScroll {
                     VStack(alignment: .leading) {
                         Text(Localized.format("scroll.edgeScrollSpeedValue", Int(store.config.edgeScrollSpeed)))
-                        Slider(value: $store.config.edgeScrollSpeed, in: 100...1200, step: 50) {
+                        Slider(value: $store.config.edgeScrollSpeed, in: 50...2400, step: 50) {
                             Text(Localized.text("scroll.edgeScrollSpeed"))
                         } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
                           maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
@@ -115,8 +167,16 @@ struct SettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading) {
+                    Text(Localized.format("scroll.autoScrollBaseSpeedValue",
+                                          Int(store.config.autoScrollBaseSpeed)))
+                    Slider(value: $store.config.autoScrollBaseSpeed, in: 0...1000, step: 10) {
+                        Text(Localized.text("scroll.autoScrollBaseSpeed"))
+                    } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
+                      maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
+                }
+                VStack(alignment: .leading) {
                     Text(Localized.format("scroll.autoScrollSpeedValue", store.config.autoScrollSpeed))
-                    Slider(value: $store.config.autoScrollSpeed, in: 0.5...4.0, step: 0.1) {
+                    Slider(value: $store.config.autoScrollSpeed, in: 0.25...8.0, step: 0.1) {
                         Text(Localized.text("scroll.autoScrollSpeed"))
                     } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
                       maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
