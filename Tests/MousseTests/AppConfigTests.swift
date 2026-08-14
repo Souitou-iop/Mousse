@@ -335,6 +335,30 @@ final class AppConfigTests: XCTestCase {
         XCTAssertThrowsError(try ConfigTransfer.importConfig(from: url))
     }
 
+    func testConfigImportRejectsNonObjectTopLevel() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data("[]".utf8).write(to: url)
+
+        XCTAssertThrowsError(try ConfigTransfer.importConfig(from: url)) { error in
+            XCTAssertEqual(error as? ConfigTransferError, .invalidTopLevel)
+        }
+    }
+
+    func testConfigImportRejectsDuplicateAppProfiles() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let json = #"{"perAppMappings":[{"bundleID":"com.apple.Safari"},{"bundleID":"com.apple.Safari"}]}"#
+        try Data(json.utf8).write(to: url)
+
+        XCTAssertThrowsError(try ConfigTransfer.importConfig(from: url)) { error in
+            XCTAssertEqual(error as? ConfigTransferError,
+                           .duplicateAppProfile("com.apple.Safari"))
+        }
+    }
+
     // MARK: - Per-app mappings
 
     func testPerAppMappingsRoundTrip() throws {

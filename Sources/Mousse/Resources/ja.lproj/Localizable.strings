@@ -23,6 +23,8 @@
 "config.importSuccess" = "設定を読み込み、すぐに適用しました。";
 "config.exportFailed" = "設定を書き出せませんでした：%@";
 "config.importFailed" = "設定を読み込めませんでした：%@";
+"config.importInvalidTopLevel" = "設定ファイルの最上位は JSON オブジェクトである必要があります。";
+"config.importDuplicateAppProfile" = "設定ファイルに %@ のプロファイルが複数含まれています。";
 "scroll.styleSection" = "スクロールスタイル";
 "scroll.speedSection" = "速度と方向";
 "scroll.enhancementsSection" = "拡張";

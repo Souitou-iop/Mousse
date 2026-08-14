@@ -23,6 +23,8 @@
 "config.importSuccess" = "Configuración importada y aplicada.";
 "config.exportFailed" = "No se pudo exportar la configuración: %@";
 "config.importFailed" = "No se pudo importar la configuración: %@";
+"config.importInvalidTopLevel" = "La configuración debe ser un objeto JSON.";
+"config.importDuplicateAppProfile" = "La configuración contiene más de un perfil para %@.";
 "scroll.styleSection" = "Estilo de desplazamiento";
 "scroll.speedSection" = "Velocidad y dirección";
 "scroll.enhancementsSection" = "Mejoras";

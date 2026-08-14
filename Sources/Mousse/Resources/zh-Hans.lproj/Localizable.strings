@@ -23,6 +23,8 @@
 "config.importSuccess" = "配置已导入并立即生效。";
 "config.exportFailed" = "导出配置失败：%@";
 "config.importFailed" = "导入配置失败：%@";
+"config.importInvalidTopLevel" = "配置文件的顶层必须是 JSON 对象。";
+"config.importDuplicateAppProfile" = "配置文件中包含多个 %@ 的应用配置。";
 "scroll.styleSection" = "滚动样式";
 "scroll.speedSection" = "速度与方向";
 "scroll.enhancementsSection" = "增强";
@@ -34,7 +36,8 @@
 "scroll.style" = "滚动样式";
 "scroll.smoothness" = "平滑度";
 "scroll.smoothnessDescription" = "灵敏 = 直接响应，仅保留短暂余速（“普通”）。均衡 = 平滑且响应迅速。漂浮 = 类似触控板的长距离惯性（“高”）。";
-"scroll.speedValue" = "滚动速度：%.2f×";"scroll.speed" = "滚动速度";
+"scroll.speedValue" = "滚动速度：%.2f×";
+"scroll.speed" = "滚动速度";
 "scroll.slow" = "慢";
 "scroll.fast" = "快";
 "scroll.acceleration" = "滚动加速度";

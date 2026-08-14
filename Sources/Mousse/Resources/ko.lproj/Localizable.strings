@@ -23,6 +23,8 @@
 "config.importSuccess" = "구성을 가져와 즉시 적용했습니다.";
 "config.exportFailed" = "구성을 내보낼 수 없습니다: %@";
 "config.importFailed" = "구성을 가져올 수 없습니다: %@";
+"config.importInvalidTopLevel" = "구성 파일의 최상위 값은 JSON 객체여야 합니다.";
+"config.importDuplicateAppProfile" = "구성 파일에 %@ 프로필이 두 개 이상 있습니다.";
 "scroll.styleSection" = "스크롤 스타일";
 "scroll.speedSection" = "속도 및 방향";
 "scroll.enhancementsSection" = "확장";

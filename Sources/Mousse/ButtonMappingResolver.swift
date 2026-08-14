@@ -16,9 +16,14 @@ struct ButtonMappingResolver {
 
     init(config: AppConfig) {
         global = Self.compile(config.mappings)
-        perApp = Dictionary(uniqueKeysWithValues: config.perAppMappings.map {
-            ($0.bundleID, Self.compile($0.mappings))
-        })
+        // Imported or hand-edited local files may contain duplicate bundle IDs. The strict import
+        // path rejects those, but runtime compilation must still never trap on persisted data.
+        // Match normal assignment semantics: the last profile wins deterministically.
+        var compiled: [String: CompiledButtonMappings] = [:]
+        for app in config.perAppMappings {
+            compiled[app.bundleID] = Self.compile(app.mappings)
+        }
+        perApp = compiled
     }
 
     var hasPerAppMappings: Bool { !perApp.isEmpty }

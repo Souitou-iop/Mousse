@@ -23,6 +23,8 @@
 "config.importSuccess" = "Configuration imported and applied.";
 "config.exportFailed" = "Could not export configuration: %@";
 "config.importFailed" = "Could not import configuration: %@";
+"config.importInvalidTopLevel" = "The configuration must be a JSON object.";
+"config.importDuplicateAppProfile" = "The configuration contains more than one profile for %@.";
 "scroll.styleSection" = "Scroll Style";
 "scroll.speedSection" = "Speed & Direction";
 "scroll.enhancementsSection" = "Enhancements";
@@ -30,7 +32,7 @@
 "scroll.autoScrollSpeedValue" = "Auto-scroll acceleration: %g×";
 "scroll.autoScrollBaseSpeed" = "Auto-scroll base speed";
 "scroll.autoScrollBaseSpeedValue" = "Auto-scroll base speed: %d px/s";
-"scroll.autoScrollSpeedDescription" = "Applies to the "Auto-Scroll (Move Pointer)" button action: the pointer starts scrolling at the base speed once it leaves the anchor, then speeds up as it moves further away.";
+"scroll.autoScrollSpeedDescription" = "Applies to the \"Auto-Scroll (Move Pointer)\" button action: the pointer starts scrolling at the base speed once it leaves the anchor, then speeds up as it moves further away.";
 "scroll.style" = "Scroll style";
 "scroll.smoothness" = "Smoothness";
 "scroll.smoothnessDescription" = "Snappy = direct with a minimal tail (\"Regular\"). Balanced = smooth but responsive. Floaty = long trackpad-like coast (\"High\").";

@@ -472,13 +472,25 @@ final class EventTapEngine {
     /// toward the pointer's offset from its anchor; edge scrolling rests the pointer on the
     /// screen edge instead. Both feed the animator for smooth output.
     private func handleEdgeScrollTick() {
+        lock.lock()
+        let engineEnabled = enabled
+        let autoSpeed = autoScrollSpeed
+        let autoBaseSpeed = autoScrollBaseSpeed
+        let edgeEnabled = edgeScrollEnabled
+        let edgeSpeed = edgeScrollSpeed
+        lock.unlock()
+
+        // The menu-bar switch is the master kill switch. Periodic modes do not receive another
+        // physical event to cancel themselves, so stop them on their own run-loop tick.
+        guard engineEnabled else {
+            autoScroll.cancel()
+            edgeScrollDetector.reset()
+            return
+        }
+
         // Auto-scroll first: it is a user-initiated mode and independent of the edge-scroll
         // setting. The pointer is free — offset from the anchor drives direction AND speed, and
         // scrolling continues while the offset persists (Windows-style).
-        lock.lock()
-        let autoSpeed = autoScrollSpeed
-        let autoBaseSpeed = autoScrollBaseSpeed
-        lock.unlock()
         if autoScroll.isActive {
             if let loc = CGEvent(source: nil)?.location {
                 let (dx, dy) = autoScroll.tick(pointer: loc, now: CACurrentMediaTime(),
@@ -490,16 +502,15 @@ final class EventTapEngine {
                 }
             }
         }
-        lock.lock()
-        let enabled = edgeScrollEnabled
-        let speed = edgeScrollSpeed
-        lock.unlock()
-        guard enabled else { return }
+        guard edgeEnabled else {
+            edgeScrollDetector.reset()
+            return
+        }
         guard let loc = CGEvent(source: nil)?.location else { return }
         guard let bounds = screenBounds(at: loc) else { return }
         let delta = edgeScrollDetector.tick(pointer: loc, screenBounds: bounds,
                                             now: CACurrentMediaTime(),
-                                            lastRealWheelAt: lastRealWheelAt, speed: speed)
+                                            lastRealWheelAt: lastRealWheelAt, speed: edgeSpeed)
         guard delta != 0 else { return }
         postScrollDelta(dx: 0, dy: delta)
     }

@@ -32,13 +32,22 @@ struct InstalledApp {
 
     private static var cache: [String: InstalledApp?] = [:]
 
-    static func lookup(_ bundleID: String) -> InstalledApp? {
+    static func lookup(
+        _ bundleID: String,
+        resolve: @MainActor (String) -> InstalledApp? = resolveInstalledApp
+    ) -> InstalledApp? {
         if let memoized = cache[bundleID] { return memoized }
-        let resolved = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map {
+        let resolved = resolve(bundleID)
+        // Dictionary subscript assignment with nil removes the key. `updateValue` stores the
+        // optional nil as the value, so a failed LaunchServices lookup is cached too.
+        cache.updateValue(resolved, forKey: bundleID)
+        return resolved
+    }
+
+    private static func resolveInstalledApp(_ bundleID: String) -> InstalledApp? {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map {
             InstalledApp(icon: NSWorkspace.shared.icon(forFile: $0.path),
                          name: FileManager.default.displayName(atPath: $0.path))
         }
-        cache[bundleID] = resolved
-        return resolved
     }
 }

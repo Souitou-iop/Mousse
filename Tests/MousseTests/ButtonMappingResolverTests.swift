@@ -79,4 +79,16 @@ final class ButtonMappingResolverTests: XCTestCase {
         XCTAssertNil(other.holdScrollByButton[4])
         XCTAssertEqual(other.holdScrollByButton[5], .volume)
     }
+
+    func testDuplicateAppProfilesUseLastProfileWithoutTrapping() {
+        let config = makeConfig(perApp: [
+            AppMappings(bundleID: "com.apple.Safari",
+                        mappings: [ButtonMapping(buttonNumber: 4, action: .navigateBack)]),
+            AppMappings(bundleID: "com.apple.Safari",
+                        mappings: [ButtonMapping(buttonNumber: 4, action: .navigateForward)]),
+        ])
+
+        let resolved = ButtonMappingResolver(config: config).resolved(for: "com.apple.Safari")
+        XCTAssertEqual(resolved.actionsByButton[4], .init(click: .navigateForward))
+    }
 }

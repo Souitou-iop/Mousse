@@ -2,6 +2,21 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.16.2] - 2026-08-14
+
+### 修复 / Fixed
+
+- **全局禁用后仍持续滚动**：关闭 Mousse 时，周期任务现在会立即取消自动滚动并重置边缘滚动状态，不再继续发送合成滚动事件。
+- **Scrolling continued after globally disabling Mousse**: the periodic task now cancels auto-scroll and resets edge-scroll state as soon as Mousse is disabled, preventing further synthetic scroll events.
+- **重复应用配置导致崩溃**：按钮映射解析器不再因相同 bundle ID 的重复配置触发字典异常；直接编辑的本地配置会确定性地采用最后一项，导入文件则会显示错误并拒绝应用。
+- **Duplicate app profiles caused a crash**: the button mapping resolver no longer traps when profiles share a bundle ID. Hand-edited local configuration deterministically uses the last profile, while imported files are rejected with a clear error.
+- **无效配置被误报为导入成功**：配置导入现在要求顶层为 JSON 对象，并拒绝重复的应用配置，避免 `[]` 等无效内容被解码为默认设置并覆盖现有配置。
+- **Invalid configuration was reported as successfully imported**: imports now require a top-level JSON object and reject duplicate app profiles, preventing inputs such as `[]` from decoding to defaults and replacing existing settings.
+- **缺失应用被重复查询**：Launch Services 找不到应用时也会缓存结果，避免 SwiftUI 重绘期间重复执行相同查询。
+- **Missing applications were repeatedly resolved**: failed Launch Services lookups are now cached, avoiding repeated work during SwiftUI redraws.
+
+[0.16.2]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.16.2
+
 ## [0.16.1] - 2026-08-14
 
 ### 修复 / Fixed
