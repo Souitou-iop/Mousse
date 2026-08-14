@@ -23,6 +23,15 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.mappings.count, AppConfig.defaultMappings.count)
     }
 
+    func testEveryLanguageRoundTrips() throws {
+        for language in AppLanguage.allCases {
+            var config = AppConfig()
+            config.language = language
+            XCTAssertEqual(try roundTrip(config).language, language, "\(language) failed round-trip")
+            XCTAssertFalse(language.label.isEmpty)
+        }
+    }
+
     func testNonDefaultValuesPersist() throws {
         var config = AppConfig()
         config.enabled = false

@@ -15,7 +15,7 @@ struct SettingsView: View {
             gesturesTab.tabItem { Label(Localized.text("tab.gestures"), systemImage: "hand.draw") }
             appsTab.tabItem     { Label(Localized.text("tab.apps"), systemImage: "app.badge") }
         }
-        .frame(width: 480, height: 360)
+        .frame(width: 480, height: 480)
         .padding()
     }
 

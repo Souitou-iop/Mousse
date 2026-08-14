@@ -2,6 +2,20 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.16.0] - 2026-08-14
+
+### 新增 / Added
+
+- **日语、韩语、西班牙语**:设置 → 常规 → 语言新增日本語、한국어、Español,系统语言也会自动匹配中/日/韩/西/英五种界面语言。
+- **Japanese, Korean, and Spanish**: Settings → General → Language now offers 日本語, 한국어, and Español. The system language also auto-matches Simplified Chinese, Japanese, Korean, Spanish, or English.
+
+### 其他 / Other
+
+- **设置窗口加高**:设置窗口从 360pt 增高到 480pt,为按钮映射等密集页面留出更多操作空间。
+- **Taller Settings window**: the Settings window grew from 360pt to 480pt tall, giving crowded pages such as button mappings more room.
+
+[0.16.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.16.0
+
 ## [0.15.0] - 2026-08-14
 
 ### 新增 / Added
