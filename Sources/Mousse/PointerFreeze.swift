@@ -23,11 +23,6 @@ final class PointerFreeze {
     private var origin = CGPoint.zero
     private var isFrozen = false
     private var savedSuppression = 0.25
-    /// Optional movement reporter: called with the pre-warp pointer position on every movement
-    /// event while frozen (tap thread). Used by auto-scroll mode to convert "virtual" pointer
-    /// movement into scroll — the pointer itself never leaves the anchor, so the scroll target
-    /// (the app/window under the anchor) stays fixed no matter how far the user "moves".
-    private var onMove: ((CGPoint) -> Void)?
 
     /// Smallest suppression interval that still lets repeated warps actually hold the pointer
     /// still (a 0 interval makes `CGWarpMouseCursorPosition` stop working entirely). MMF tuning.
@@ -62,12 +57,9 @@ final class PointerFreeze {
     }
 
     /// Anchor the pointer at `position` and hold it there until `unfreeze`. Idempotent.
-    /// `onMove`, when given, is invoked on every movement event with the pre-warp position
-    /// (tap thread) — the caller can turn the virtual movement into output of its own.
-    func freeze(at position: CGPoint, onMove: ((CGPoint) -> Void)? = nil) {
+    func freeze(at position: CGPoint) {
         guard !isFrozen, let tap else { return }
         origin = position
-        self.onMove = onMove
         savedSuppression = currentSuppression()
         setSuppression(PointerFreeze.frozenSuppression)
         isFrozen = true
@@ -79,7 +71,6 @@ final class PointerFreeze {
     func unfreeze() {
         guard isFrozen, let tap else { return }
         isFrozen = false
-        onMove = nil
         CGEvent.tapEnable(tap: tap, enable: false)
         CGWarpMouseCursorPosition(origin)
         setSuppression(savedSuppression)
@@ -95,8 +86,6 @@ final class PointerFreeze {
             }
             return
         }
-        // Report the movement BEFORE warping back: the event's location is the pre-warp position.
-        onMove?(event.location)
         CGWarpMouseCursorPosition(origin)
     }
 

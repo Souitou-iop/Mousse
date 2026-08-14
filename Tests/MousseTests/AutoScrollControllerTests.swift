@@ -3,6 +3,11 @@ import XCTest
 
 final class AutoScrollControllerTests: XCTestCase {
 
+    private func tick(_ c: AutoScrollController, _ x: CGFloat, _ y: CGFloat, at now: Double = 10.0)
+        -> (deltaX: Double, deltaY: Double) {
+        c.tick(pointer: CGPoint(x: x, y: y), now: now)
+    }
+
     /// Toggling enters the mode; toggling again exits it.
     func testToggleEntersAndExits() {
         let c = AutoScrollController()
@@ -22,39 +27,105 @@ final class AutoScrollControllerTests: XCTestCase {
         XCTAssertFalse(c.isActive)
     }
 
-    // MARK: - Virtual displacement → scroll deltas
-
-    /// Pointer right → scroll right (positive deltaX); pointer down → scroll down (negative
-    /// deltaY, wheel convention).
-    func testScrollDeltaDirection() {
-        let anchor = CGPoint(x: 100, y: 100)
-        let right = AutoScrollController.scrollDelta(from: anchor, to: CGPoint(x: 140, y: 100))
-        XCTAssertEqual(right.deltaX, 40, accuracy: 1e-9)
-        XCTAssertEqual(right.deltaY, 0, accuracy: 1e-9)
-
-        let down = AutoScrollController.scrollDelta(from: anchor, to: CGPoint(x: 100, y: 140))
-        XCTAssertEqual(down.deltaY, -40, accuracy: 1e-9, "pointer down → scroll down")
-
-        let up = AutoScrollController.scrollDelta(from: anchor, to: CGPoint(x: 100, y: 60))
-        XCTAssertEqual(up.deltaY, 40, accuracy: 1e-9, "pointer up → scroll up")
-
-        let left = AutoScrollController.scrollDelta(from: anchor, to: CGPoint(x: 60, y: 100))
-        XCTAssertEqual(left.deltaX, -40, accuracy: 1e-9)
+    /// The first tick after entering anchors; the anchor position itself produces no scroll.
+    func testFirstTickAnchors() {
+        let c = AutoScrollController()
+        c.toggle()
+        XCTAssertEqual(tick(c, 100, 100).deltaY, 0) // anchors here
+        XCTAssertEqual(tick(c, 100, 100).deltaY, 0) // still on the anchor → dead zone
     }
 
-    /// Displacement is virtual and unbounded — the anchor never moves, so any distance maps 1:1.
-    func testScrollDeltaUnbounded() {
-        let anchor = CGPoint(x: 960, y: 540)
-        // A huge "virtual" movement (far beyond any screen) maps linearly — unlimited scrolling.
-        let far = AutoScrollController.scrollDelta(from: anchor, to: CGPoint(x: 960, y: 540 + 5000))
-        XCTAssertEqual(far.deltaY, -5000, accuracy: 1e-9)
+    // MARK: - Direction & speed from the offset
+
+    /// Pointer above the anchor → scrolls up (positive); below → down (negative).
+    func testVerticalDirectionFollowsOffset() {
+        let c = AutoScrollController()
+        c.toggle()
+        _ = tick(c, 100, 100, at: 10.0) // anchor
+        let up = tick(c, 100, 80, at: 10.0 + 1.0 / 30.0)
+        XCTAssertGreaterThan(up.deltaY, 0, "pointer above anchor → scroll up")
+        let down = tick(c, 100, 130, at: 10.0 + 2.0 / 30.0)
+        XCTAssertLessThan(down.deltaY, 0, "pointer below anchor → scroll down")
     }
 
-    /// Gain is 1:1 by default.
-    func testScrollDeltaGainIsOne() {
-        let anchor = CGPoint(x: 0, y: 0)
-        let d = AutoScrollController.scrollDelta(from: anchor, to: CGPoint(x: 10, y: -10))
-        XCTAssertEqual(d.deltaX, 10, accuracy: 1e-9)
-        XCTAssertEqual(d.deltaY, 10, accuracy: 1e-9)
+    /// Pointer right of the anchor → scrolls right; left → left.
+    func testHorizontalDirectionFollowsOffset() {
+        let c = AutoScrollController()
+        c.toggle()
+        _ = tick(c, 100, 100, at: 10.0) // anchor
+        let right = tick(c, 150, 100, at: 10.0 + 1.0 / 30.0)
+        XCTAssertGreaterThan(right.deltaX, 0, "pointer right of anchor → scroll right")
+        let left = tick(c, 60, 100, at: 10.0 + 2.0 / 30.0)
+        XCTAssertLessThan(left.deltaX, 0, "pointer left of anchor → scroll left")
+    }
+
+    /// Speed grows with the offset: 100 px offset scrolls at 100 px/s.
+    func testSpeedProportionalToOffset() {
+        let c = AutoScrollController()
+        c.toggle()
+        _ = tick(c, 100, 100, at: 10.0) // anchor
+        _ = tick(c, 100, 0, at: 10.0 + 1.0 / 30.0) // 100 px above
+        let d = tick(c, 100, 0, at: 10.0 + 2.0 / 30.0)
+        XCTAssertEqual(d.deltaY, 100.0 / 30.0, accuracy: 1e-6)
+    }
+
+    /// Inside the dead zone no scrolling happens.
+    func testDeadzoneStopsScrolling() {
+        let c = AutoScrollController()
+        c.toggle()
+        _ = tick(c, 100, 100, at: 10.0) // anchor
+        let d = tick(c, 100, 104, at: 10.0 + 1.0 / 30.0) // 4 px offset < deadzone
+        XCTAssertEqual(d.deltaY, 0)
+    }
+
+    /// Extreme offsets are capped at maxSpeed.
+    func testSpeedCapped() {
+        let c = AutoScrollController()
+        c.toggle()
+        _ = tick(c, 100, 100, at: 10.0)
+        _ = tick(c, 100, -100_000, at: 10.0 + 1.0 / 30.0)
+        let d = tick(c, 100, -100_000, at: 10.0 + 2.0 / 30.0)
+        XCTAssertLessThanOrEqual(d.deltaY, AutoScrollController.maxSpeed / 30.0 + 1e-9)
+        XCTAssertGreaterThan(d.deltaY, 0)
+    }
+
+    // MARK: - Continuous scrolling (the Windows behavior)
+
+    /// The scroll CONTINUES while the pointer rests outside the dead zone — the user moves the
+    /// mouse once, the page keeps scrolling (this is the core of Windows auto-scroll).
+    func testScrollingContinuesWhilePointerRests() {
+        let c = AutoScrollController()
+        c.toggle()
+        _ = tick(c, 100, 100, at: 10.0) // anchor
+        _ = tick(c, 100, 60, at: 10.0 + 1.0 / 30.0)  // move 40 px up, then rest
+        var last = 0.0
+        for i in 2...20 { // pointer does NOT move; scroll must keep coming
+            let d = tick(c, 100, 60, at: 10.0 + Double(i) / 30.0)
+            XCTAssertGreaterThan(d.deltaY, 0, "must keep scrolling while resting (tick \(i))")
+            XCTAssertEqual(d.deltaY, 40.0 / 30.0, accuracy: 1e-6)
+            last = d.deltaY
+        }
+        XCTAssertGreaterThan(last, 0)
+    }
+
+    /// Moving the pointer back to (or near) the anchor stops the scrolling.
+    func testReturningToAnchorStops() {
+        let c = AutoScrollController()
+        c.toggle()
+        _ = tick(c, 100, 100, at: 10.0) // anchor
+        _ = tick(c, 100, 60, at: 10.0 + 1.0 / 30.0) // scroll up
+        let stop = tick(c, 100, 98, at: 10.0 + 2.0 / 30.0) // back inside the dead zone
+        XCTAssertEqual(stop.deltaY, 0)
+    }
+
+    /// Moving across the anchor reverses direction.
+    func testCrossingAnchorReverses() {
+        let c = AutoScrollController()
+        c.toggle()
+        _ = tick(c, 100, 100, at: 10.0)
+        let up = tick(c, 100, 50, at: 10.0 + 1.0 / 30.0)
+        XCTAssertGreaterThan(up.deltaY, 0)
+        let down = tick(c, 100, 150, at: 10.0 + 2.0 / 30.0)
+        XCTAssertLessThan(down.deltaY, 0)
     }
 }

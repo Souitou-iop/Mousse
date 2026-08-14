@@ -1,44 +1,71 @@
 import CoreGraphics
 import Foundation
 
-/// Windows-style auto-scroll mode, ANCHORED variant: a button trigger (click / double-click /
-/// hold — whichever the user mapped) TOGGLES the mode. While active the pointer is frozen at the
-/// position where the mode was entered (via PointerFreeze) and VIRTUAL pointer movement is turned
-/// into scrolling.
+/// Windows-style auto-scroll mode: a button trigger (click / double-click / hold — whichever the
+/// user mapped) TOGGLES the mode.
 ///
-/// Anchoring solves two problems of free-pointer auto-scroll:
-///   1. The scroll target stays fixed: synthetic scroll events dispatch to the anchor, so nested
-///      scroll areas (an AI chat box in a browser page, a code panel, …) keep receiving the
-///      scroll no matter how far the user "moves" — no per-app adaptation.
-///   2. Unlimited scrolling: the displacement is virtual and unbounded — the user can scroll a
-///      long page without ever running out of pointer travel.
+/// Behavior matches Windows (Chrome/Edge middle-button auto-scroll):
+///   • Entering the mode records the pointer position as the anchor;
+///   • Moving the pointer AWAY from the anchor scrolls continuously in that direction — pointer
+///     above the anchor scrolls up, below scrolls down, left/right likewise;
+///   • The scroll CONTINUES automatically (the user does not have to keep moving the mouse);
+///     the further the pointer is from the anchor, the faster it scrolls;
+///   • Moving the pointer back into the dead zone around the anchor stops scrolling;
+///   • The pointer is fully free — never locked or warped;
+///   • Triggering again exits the mode. The real wheel keeps working while the mode is active.
 ///
-/// The engine feeds every virtual movement into `ScrollAnimator.addPixels`, so output is eased on
-/// the display link like real wheel input.
+/// The pointer's offset from the anchor is polled on the engine's ~30 Hz tick; the returned
+/// deltas are fed into `ScrollAnimator.addPixels` so the output is eased on the display link like
+/// real wheel input.
 ///
 /// State is touched only on the event-tap thread, like the other gestures — no locking.
 final class AutoScrollController {
 
-    /// Virtual pointer pixels → scroll pixels (1:1). Kept as a constant so the feel can be tuned
-    /// in one place without touching the engine.
+    /// Scroll speed per px of pointer offset from the anchor (px/s per px).
     static let gain = 1.0
+    /// Speed cap — extreme offsets must not fling the page.
+    static let maxSpeed = 2000.0
+    /// Pointer offset below which scrolling stops (px).
+    static let deadzone = 6.0
 
     private(set) var isActive = false
+    private var anchor: CGPoint?
+    private var lastTickAt = 0.0
 
-    /// Enter/exit the mode.
+    /// Enter/exit the mode. (Re-)entering re-anchors on the next tick.
     func toggle() {
         isActive.toggle()
+        anchor = nil
     }
 
     /// Abandon the mode (sleep/wake, device change, app quit paths).
     func cancel() {
         isActive = false
+        anchor = nil
     }
 
-    /// Virtual displacement → signed scroll deltas (positive deltaY = wheel-up / scroll up;
-    /// positive deltaX = scroll right). Pointer right → scroll right; pointer down → scroll down.
-    static func scrollDelta(from anchor: CGPoint, to pos: CGPoint) -> (deltaX: Double, deltaY: Double) {
-        ((pos.x - anchor.x) * AutoScrollController.gain,
-         (anchor.y - pos.y) * AutoScrollController.gain)
+    /// One periodic tick. Returns the signed scroll pixels since the last tick (positive deltaY =
+    /// wheel-up / scroll up; positive deltaX = scroll right). Non-zero whenever the pointer is
+    /// outside the dead zone — i.e. scrolling continues automatically while the pointer rests.
+    func tick(pointer: CGPoint, now: Double) -> (deltaX: Double, deltaY: Double) {
+        guard isActive else { return (0, 0) }
+        if anchor == nil {
+            anchor = pointer
+            lastTickAt = now
+            return (0, 0)
+        }
+        let dt = min(max(now - lastTickAt, 0), 0.1) // clamp a stalled tick so a pause can't dump a burst
+        lastTickAt = now
+
+        func speed(_ offset: CGFloat) -> Double {
+            guard abs(offset) > AutoScrollController.deadzone else { return 0 }
+            let raw = Double(offset) * AutoScrollController.gain
+            return min(max(raw, -AutoScrollController.maxSpeed), AutoScrollController.maxSpeed)
+        }
+
+        // Pointer above the anchor (y smaller) → positive offset → scroll up; right → scroll right.
+        let offX = pointer.x - anchor!.x
+        let offY = anchor!.y - pointer.y
+        return (speed(offX) * dt, speed(offY) * dt)
     }
 }
