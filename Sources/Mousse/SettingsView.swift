@@ -51,61 +51,85 @@ struct SettingsView: View {
 
     private var scrollTab: some View {
         Form {
-            Picker(Localized.text("scroll.style"), selection: $store.config.scrollMode) {
-                ForEach(ScrollMode.allCases, id: \.self) { Text($0.label).tag($0) }
-            }
-            if store.config.scrollMode == .smooth {
-                Picker(Localized.text("scroll.smoothness"), selection: $store.config.scrollSmoothness) {
-                    ForEach(ScrollSmoothness.allCases, id: \.self) { Text($0.label).tag($0) }
+            // 滚动样式 — which engine drives the wheel.
+            Section(Localized.text("scroll.styleSection")) {
+                Picker(Localized.text("scroll.style"), selection: $store.config.scrollMode) {
+                    ForEach(ScrollMode.allCases, id: \.self) { Text($0.label).tag($0) }
                 }
-                Text(Localized.text("scroll.smoothnessDescription"))
+                if store.config.scrollMode == .smooth {
+                    Picker(Localized.text("scroll.smoothness"), selection: $store.config.scrollSmoothness) {
+                        ForEach(ScrollSmoothness.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }
+                    Text(Localized.text("scroll.smoothnessDescription"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if store.config.scrollMode == .smoothStep {
+                    Stepper(value: $store.config.scrollLines, in: 1...10) {
+                        Text(Localized.format("scroll.linesPerNotch", store.config.scrollLines))
+                    }
+                }
+                Text(Localized.text("scroll.styleDescription"))
                     .font(.caption).foregroundStyle(.secondary)
+            }
+
+            // 速度与方向 — how fast and which way the wheel scrolls.
+            Section(Localized.text("scroll.speedSection")) {
+                if store.config.scrollMode == .smooth {
+                    VStack(alignment: .leading) {
+                        Text(Localized.format("scroll.speedValue", store.config.scrollSpeed))
+                        // Floor of 0.05 (not 0.2): high-res "continuous" mice natively scroll fast,
+                        // and their gain is speed/0.5 — a 0.2 floor still meant 40% of native, too
+                        // fast for slow scrollers. 0.05 → 10% of native. Finer step at the low end.
+                        Slider(value: $store.config.scrollSpeed, in: 0.05...1.5, step: 0.05) {
+                            Text(Localized.text("scroll.speed"))
+                        } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
+                          maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
+                    }
+                    Toggle(Localized.text("scroll.acceleration"), isOn: $store.config.scrollAcceleration)
+                }
+                Toggle(Localized.text("scroll.reverse"), isOn: $store.config.reverseScroll)
                 VStack(alignment: .leading) {
-                    Text(Localized.format("scroll.speedValue", store.config.scrollSpeed))
-                    // Floor of 0.05 (not 0.2): high-res "continuous" mice natively scroll fast, and
-                    // their gain is speed/0.5 — a 0.2 floor still meant 40% of native, too fast for
-                    // slow scrollers. 0.05 → 10% of native. Finer step for control at the low end.
-                    Slider(value: $store.config.scrollSpeed, in: 0.05...1.5, step: 0.05) {
-                        Text(Localized.text("scroll.speed"))
+                    Text(Localized.format("scroll.zoomSpeedValue", store.config.zoomSpeed))
+                    // Cmd+wheel pinch-zoom sensitivity — independent of the scroll-speed slider so
+                    // a fast scroll feel doesn't force an aggressive zoom.
+                    Slider(value: $store.config.zoomSpeed, in: 0.5...3.0, step: 0.1) {
+                        Text(Localized.text("scroll.zoomSpeed"))
                     } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
                       maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
                 }
-                Toggle(Localized.text("scroll.acceleration"), isOn: $store.config.scrollAcceleration)
             }
-            if store.config.scrollMode == .smoothStep {
-                Stepper(value: $store.config.scrollLines, in: 1...10) {
-                    Text(Localized.format("scroll.linesPerNotch", store.config.scrollLines))
+
+            // 增强 — extra scrolling inputs (edge resting, the auto-scroll button action, hi-res
+            // smoothing).
+            Section(Localized.text("scroll.enhancementsSection")) {
+                Toggle(Localized.text("scroll.edgeScroll"), isOn: $store.config.edgeScroll)
+                if store.config.edgeScroll {
+                    VStack(alignment: .leading) {
+                        Text(Localized.format("scroll.edgeScrollSpeedValue", Int(store.config.edgeScrollSpeed)))
+                        Slider(value: $store.config.edgeScrollSpeed, in: 100...1200, step: 50) {
+                            Text(Localized.text("scroll.edgeScrollSpeed"))
+                        } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
+                          maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
+                    }
+                    Text(Localized.text("scroll.edgeScrollDescription"))
+                        .font(.caption).foregroundStyle(.secondary)
                 }
-            }
-            Toggle(Localized.text("scroll.reverse"), isOn: $store.config.reverseScroll)
-            VStack(alignment: .leading) {
-                Text(Localized.format("scroll.zoomSpeedValue", store.config.zoomSpeed))
-                // Cmd+wheel pinch-zoom sensitivity — independent of the scroll-speed slider so a
-                // fast scroll feel doesn't force an aggressive zoom.
-                Slider(value: $store.config.zoomSpeed, in: 0.5...3.0, step: 0.1) {
-                    Text(Localized.text("scroll.zoomSpeed"))
-                } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
-                  maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
-            }
-            Toggle(Localized.text("scroll.edgeScroll"), isOn: $store.config.edgeScroll)
-            if store.config.edgeScroll {
                 VStack(alignment: .leading) {
-                    Text(Localized.format("scroll.edgeScrollSpeedValue", Int(store.config.edgeScrollSpeed)))
-                    Slider(value: $store.config.edgeScrollSpeed, in: 100...1200, step: 50) {
-                        Text(Localized.text("scroll.edgeScrollSpeed"))
+                    Text(Localized.format("scroll.autoScrollSpeedValue", store.config.autoScrollSpeed))
+                    Slider(value: $store.config.autoScrollSpeed, in: 0.5...4.0, step: 0.1) {
+                        Text(Localized.text("scroll.autoScrollSpeed"))
                     } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
                       maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
                 }
-                Text(Localized.text("scroll.edgeScrollDescription"))
+                Text(Localized.text("scroll.autoScrollSpeedDescription"))
                     .font(.caption).foregroundStyle(.secondary)
+                if store.config.scrollMode != .standard {
+                    Toggle(Localized.text("scroll.smoothHighRes"), isOn: $store.config.smoothHighRes)
+                    Text(Localized.text("scroll.smoothHighResDescription"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
-            if store.config.scrollMode != .standard {
-                Toggle(Localized.text("scroll.smoothHighRes"), isOn: $store.config.smoothHighRes)
-                Text(Localized.text("scroll.smoothHighResDescription"))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            Text(Localized.text("scroll.styleDescription"))
-                .font(.caption).foregroundStyle(.secondary)
+
             Section(Localized.text("scroll.modifiers")) {
                 Text(Localized.text("scroll.modifierDescription"))
                     .font(.caption)

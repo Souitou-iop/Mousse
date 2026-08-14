@@ -21,9 +21,7 @@ import Foundation
 /// State is touched only on the event-tap thread, like the other gestures — no locking.
 final class AutoScrollController {
 
-    /// Scroll speed per px of pointer offset from the anchor (px/s per px).
-    static let gain = 1.0
-    /// Speed cap — extreme offsets must not fling the page.
+    /// Scroll speed cap — extreme offsets must not fling the page.
     static let maxSpeed = 2000.0
     /// Pointer offset below which scrolling stops (px).
     static let deadzone = 6.0
@@ -44,10 +42,12 @@ final class AutoScrollController {
         anchor = nil
     }
 
-    /// One periodic tick. Returns the signed scroll pixels since the last tick (positive deltaY =
-    /// wheel-up / scroll up; positive deltaX = scroll right). Non-zero whenever the pointer is
-    /// outside the dead zone — i.e. scrolling continues automatically while the pointer rests.
-    func tick(pointer: CGPoint, now: Double) -> (deltaX: Double, deltaY: Double) {
+    /// One periodic tick. `speed` is the user's auto-scroll sensitivity — scroll px/s per px of
+    /// pointer offset from the anchor. Returns the signed scroll pixels since the last tick
+    /// (positive deltaY = wheel-up / scroll up; positive deltaX = scroll right). Non-zero
+    /// whenever the pointer is outside the dead zone — i.e. scrolling continues automatically
+    /// while the pointer rests.
+    func tick(pointer: CGPoint, now: Double, speed: Double) -> (deltaX: Double, deltaY: Double) {
         guard isActive else { return (0, 0) }
         if anchor == nil {
             anchor = pointer
@@ -57,15 +57,15 @@ final class AutoScrollController {
         let dt = min(max(now - lastTickAt, 0), 0.1) // clamp a stalled tick so a pause can't dump a burst
         lastTickAt = now
 
-        func speed(_ offset: CGFloat) -> Double {
+        func speedOf(_ offset: CGFloat) -> Double {
             guard abs(offset) > AutoScrollController.deadzone else { return 0 }
-            let raw = Double(offset) * AutoScrollController.gain
+            let raw = Double(offset) * speed
             return min(max(raw, -AutoScrollController.maxSpeed), AutoScrollController.maxSpeed)
         }
 
         // Pointer above the anchor (y smaller) → positive offset → scroll up; right → scroll right.
         let offX = pointer.x - anchor!.x
         let offY = anchor!.y - pointer.y
-        return (speed(offX) * dt, speed(offY) * dt)
+        return (speedOf(offX) * dt, speedOf(offY) * dt)
     }
 }

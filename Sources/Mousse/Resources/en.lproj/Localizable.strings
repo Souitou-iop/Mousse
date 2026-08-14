@@ -14,6 +14,12 @@
 "general.granted" = "Granted";
 "general.grant" = "Grant…";
 "general.version" = "Version";
+"scroll.styleSection" = "Scroll Style";
+"scroll.speedSection" = "Speed & Direction";
+"scroll.enhancementsSection" = "Enhancements";
+"scroll.autoScrollSpeed" = "Auto-scroll speed";
+"scroll.autoScrollSpeedValue" = "Auto-scroll speed: %g×";
+"scroll.autoScrollSpeedDescription" = "Applies to the "Auto-Scroll (Move Pointer)" button action: how fast the page scrolls per pixel the pointer is offset from its anchor.";
 "scroll.style" = "Scroll style";
 "scroll.smoothness" = "Smoothness";
 "scroll.smoothnessDescription" = "Snappy = direct with a minimal tail (\"Regular\"). Balanced = smooth but responsive. Floaty = long trackpad-like coast (\"High\").";

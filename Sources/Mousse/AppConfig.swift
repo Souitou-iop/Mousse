@@ -73,6 +73,7 @@ struct AppConfig: Codable, Sendable, Equatable {
     var zoomSpeed: Double = 1.0         // Cmd+wheel pinch-zoom sensitivity, independent of scrollSpeed
     var edgeScroll: Bool = false        // pointer resting on the screen edge scrolls continuously
     var edgeScrollSpeed: Double = 400.0 // px/s while edge scrolling
+    var autoScrollSpeed: Double = 1.5  // auto-scroll: scroll px/s per px of pointer offset
     var smoothHighRes: Bool = false     // also smooth high-res "continuous" mice (e.g. Keychron M6) that
                                         // lack a flywheel; keep off for MX-Master-style free-spin mice
     var doubleClickInterval: Double = 0.26
@@ -107,7 +108,7 @@ extension AppConfig {
     enum CodingKeys: String, CodingKey {
         case language, enabled, reverseScroll, scrollMode, scrollSmoothness, smoothScroll, scrollSpeed, scrollLines
         case scrollAcceleration, smoothHighRes, zoomSpeed, doubleClickInterval, holdDuration
-        case edgeScroll, edgeScrollSpeed
+        case edgeScroll, edgeScrollSpeed, autoScrollSpeed
         case spaceDragButton, spaceDragThreshold, spaceDragReverse, spaceDragFollowFinger, spaceDragLockPointer
         case excludedBundleIDs, verticalToHorizontalBundleIDs, configuredButtons, mappings
     }
@@ -141,6 +142,7 @@ extension AppConfig {
         zoomSpeed          = field(Double.self, .zoomSpeed)          ?? zoomSpeed
         edgeScroll         = field(Bool.self,   .edgeScroll)         ?? edgeScroll
         edgeScrollSpeed    = field(Double.self, .edgeScrollSpeed)    ?? edgeScrollSpeed
+        autoScrollSpeed    = field(Double.self, .autoScrollSpeed)    ?? autoScrollSpeed
         smoothHighRes      = field(Bool.self,   .smoothHighRes)      ?? smoothHighRes
         if let value = field(Double.self, .doubleClickInterval), value.isFinite {
             doubleClickInterval = min(max(value, 0.10), 0.50)
@@ -166,6 +168,7 @@ extension AppConfig {
         scrollSpeed        = min(max(scrollSpeed, 0.05), 1.5)
         zoomSpeed          = min(max(zoomSpeed, 0.5), 3.0)
         edgeScrollSpeed    = min(max(edgeScrollSpeed, 100), 1200)
+        autoScrollSpeed    = min(max(autoScrollSpeed, 0.5), 4.0)
         scrollLines        = min(max(scrollLines, 1), 10)
         spaceDragThreshold = min(max(spaceDragThreshold, 100), 400)
     }
@@ -184,6 +187,7 @@ extension AppConfig {
         try c.encode(zoomSpeed, forKey: .zoomSpeed)
         try c.encode(edgeScroll, forKey: .edgeScroll)
         try c.encode(edgeScrollSpeed, forKey: .edgeScrollSpeed)
+        try c.encode(autoScrollSpeed, forKey: .autoScrollSpeed)
         try c.encode(smoothHighRes, forKey: .smoothHighRes)
         try c.encode(doubleClickInterval, forKey: .doubleClickInterval)
         try c.encode(holdDuration, forKey: .holdDuration)

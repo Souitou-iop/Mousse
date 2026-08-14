@@ -68,6 +68,7 @@ final class EventTapEngine {
     private var holdScrollByButton: [Int: RemapAction.ScrollOutput] = [:]
     private var edgeScrollEnabled = false
     private var edgeScrollSpeed = 400.0
+    private var autoScrollSpeed = 1.5
     // Tap-thread only (like the other gesture state): the detector and the timestamp of the last
     // REAL wheel input, which resets the edge-scroll rest timer (user input takes priority).
     private var edgeScrollDetector = EdgeScrollDetector()
@@ -356,6 +357,7 @@ final class EventTapEngine {
         zoomSpeed = config.zoomSpeed
         edgeScrollEnabled = config.edgeScroll
         edgeScrollSpeed = config.edgeScrollSpeed
+        autoScrollSpeed = config.autoScrollSpeed
         scrollLines = config.scrollLines
         scrollAcceleration = config.scrollAcceleration
         smoothHighRes = config.smoothHighRes
@@ -490,9 +492,13 @@ final class EventTapEngine {
         // Auto-scroll first: it is a user-initiated mode and independent of the edge-scroll
         // setting. The pointer is free — offset from the anchor drives direction AND speed, and
         // scrolling continues while the offset persists (Windows-style).
+        lock.lock()
+        let autoSpeed = autoScrollSpeed
+        lock.unlock()
         if autoScroll.isActive {
             if let loc = CGEvent(source: nil)?.location {
-                let (dx, dy) = autoScroll.tick(pointer: loc, now: CACurrentMediaTime())
+                let (dx, dy) = autoScroll.tick(pointer: loc, now: CACurrentMediaTime(),
+                                                speed: autoSpeed)
                 if dx != 0 || dy != 0 {
                     // Ease through the animator (hi-res path, gain 1.0 at the default slider) so
                     // the mode scrolls as smoothly as the wheel — not per-tick pixel jumps.

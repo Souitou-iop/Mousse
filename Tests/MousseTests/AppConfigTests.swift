@@ -241,6 +241,16 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.spaceDragThreshold, 400, accuracy: 1e-9)
     }
 
+    /// Auto-scroll speed clamps to its UI range on decode.
+    func testAutoScrollSpeedClamps() throws {
+        let low = try JSONDecoder().decode(AppConfig.self,
+            from: #"{"autoScrollSpeed":0.1}"#.data(using: .utf8)!)
+        XCTAssertEqual(low.autoScrollSpeed, 0.5, accuracy: 1e-9)
+        let high = try JSONDecoder().decode(AppConfig.self,
+            from: #"{"autoScrollSpeed":9.0}"#.data(using: .utf8)!)
+        XCTAssertEqual(high.autoScrollSpeed, 4.0, accuracy: 1e-9)
+    }
+
     /// Zoom speed clamps to its UI range on decode (a hand-edited value must not extrapolate).
     func testZoomSpeedClamps() throws {
         let low = try JSONDecoder().decode(AppConfig.self,

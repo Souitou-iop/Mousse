@@ -3,9 +3,9 @@ import XCTest
 
 final class AutoScrollControllerTests: XCTestCase {
 
-    private func tick(_ c: AutoScrollController, _ x: CGFloat, _ y: CGFloat, at now: Double = 10.0)
-        -> (deltaX: Double, deltaY: Double) {
-        c.tick(pointer: CGPoint(x: x, y: y), now: now)
+    private func tick(_ c: AutoScrollController, _ x: CGFloat, _ y: CGFloat, at now: Double = 10.0,
+                      speed: Double = 1.0) -> (deltaX: Double, deltaY: Double) {
+        c.tick(pointer: CGPoint(x: x, y: y), now: now, speed: speed)
     }
 
     /// Toggling enters the mode; toggling again exits it.
@@ -59,7 +59,7 @@ final class AutoScrollControllerTests: XCTestCase {
         XCTAssertLessThan(left.deltaX, 0, "pointer left of anchor → scroll left")
     }
 
-    /// Speed grows with the offset: 100 px offset scrolls at 100 px/s.
+    /// Speed grows with the offset: 100 px offset scrolls at 100 px/s (gain 1).
     func testSpeedProportionalToOffset() {
         let c = AutoScrollController()
         c.toggle()
@@ -67,6 +67,16 @@ final class AutoScrollControllerTests: XCTestCase {
         _ = tick(c, 100, 0, at: 10.0 + 1.0 / 30.0) // 100 px above
         let d = tick(c, 100, 0, at: 10.0 + 2.0 / 30.0)
         XCTAssertEqual(d.deltaY, 100.0 / 30.0, accuracy: 1e-6)
+    }
+
+    /// The user's speed setting scales the response linearly.
+    func testSpeedSettingScales() {
+        let c = AutoScrollController()
+        c.toggle()
+        _ = tick(c, 100, 100, at: 10.0) // anchor
+        _ = tick(c, 100, 80, at: 10.0 + 1.0 / 30.0, speed: 2.0) // 20 px offset × 2
+        let d = tick(c, 100, 80, at: 10.0 + 2.0 / 30.0, speed: 2.0)
+        XCTAssertEqual(d.deltaY, 40.0 / 30.0, accuracy: 1e-6)
     }
 
     /// Inside the dead zone no scrolling happens.
