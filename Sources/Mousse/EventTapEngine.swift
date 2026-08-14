@@ -63,6 +63,7 @@ final class EventTapEngine {
     private var spaceDragThreshold = 200.0
     private var spaceDragReverse = false
     private var spaceDragFollowFinger = true
+    private var spaceDragLockPointer = true
     private var captureKind: CaptureKind = .none
     private var captureCompletion: ((CaptureOutcome<Int>) -> Void)?
     private var keyboardCaptureCompletion: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
@@ -118,6 +119,13 @@ final class EventTapEngine {
     /// Start the tap thread (idempotent). Apply `config`.
     func start(config: AppConfig) {
         reload(config)
+        // Wire the drag gesture's pointer-freeze hooks to the real implementation. Both the gesture
+        // state and PointerFreeze are tap-thread-only, so these closures only ever run there.
+        spaceDrag.freezePointer = { [weak self] in
+            guard let self else { return }
+            PointerFreeze.shared.freeze(at: self.spaceDrag.pointerLocation())
+        }
+        spaceDrag.unfreezePointer = { PointerFreeze.shared.unfreeze() }
         guard thread == nil else { return }
         let t = Thread { [weak self] in self?.threadMain() }
         t.name = "com.mousse.event-tap"
@@ -339,13 +347,19 @@ final class EventTapEngine {
         spaceDragThreshold = config.spaceDragThreshold
         spaceDragReverse = config.spaceDragReverse
         spaceDragFollowFinger = config.spaceDragFollowFinger
+        spaceDragLockPointer = config.spaceDragLockPointer
         excludedBundleIDs = Set(config.excludedBundleIDs).union(EventTapEngine.terminalBundleIDs)
         verticalToHorizontalBundleIDs = Set(config.verticalToHorizontalBundleIDs)
-        mappingsByButton = Dictionary(grouping: config.mappings, by: \.buttonNumber).mapValues { mappings in
-            ButtonTriggerRecognizer.Actions(
-                click: mappings.first(where: { $0.trigger == .click })?.action,
-                doubleClick: mappings.first(where: { $0.trigger == .doubleClick })?.action,
-                hold: mappings.first(where: { $0.trigger == .hold })?.action)
+        mappingsByButton = Dictionary(grouping: config.mappings, by: \.buttonNumber).compactMapValues { mappings in
+            // `.none` mappings are unconfigured placeholders — exclude them, and drop the whole
+            // button group if nothing is configured yet, so the button keeps its normal behavior
+            // (not swallowed) until the user picks an action.
+            let actions = ButtonTriggerRecognizer.Actions(
+                click: mappings.first(where: { $0.trigger == .click && $0.action != .none })?.action,
+                doubleClick: mappings.first(where: { $0.trigger == .doubleClick && $0.action != .none })?.action,
+                hold: mappings.first(where: { $0.trigger == .hold && $0.action != .none })?.action)
+            return (actions.click != nil || actions.doubleClick != nil || actions.hold != nil)
+                ? actions : nil
         }
         (captureCancellation, keyboardCaptureCancellation) = cancelCaptureLocked()
         let keyboardTap = keyboardCaptureTap
@@ -422,6 +436,7 @@ final class EventTapEngine {
         buttonTriggerTimer = triggerTimer
         eventTapRunLoop = runLoop
         lock.unlock()
+        PointerFreeze.shared.install(on: runLoop)
         CFRunLoopRun()
     }
 
@@ -517,6 +532,12 @@ final class EventTapEngine {
         if event.getIntegerValueField(.eventSourceUserData) == SmartNavigation.syntheticTag {
             return Unmanaged.passUnretained(event)
         }
+        // Our own synthesized button clicks (RemapAction.clickButton) must reach the target app
+        // untouched — re-mapping them would recurse. (Synthetic scroll events are handled inside
+        // the scrollWheel case via the same tag.)
+        if event.getIntegerValueField(.eventSourceUserData) == ScrollAnimator.syntheticTag {
+            return Unmanaged.passUnretained(event)
+        }
 
         lock.lock()
         let on = enabled
@@ -543,6 +564,7 @@ final class EventTapEngine {
         spaceDrag.threshold = spaceDragThreshold
         spaceDrag.reverse = spaceDragReverse
         spaceDrag.followFinger = spaceDragFollowFinger
+        spaceDrag.lockPointer = spaceDragLockPointer
         lock.unlock()
 
         if dragCancel { spaceDrag.cancel() } // tap thread — safe to touch the gesture's state

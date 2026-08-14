@@ -26,6 +26,17 @@ final class SpaceDragGesture {
     var threshold = 200.0   // pixels of horizontal drag per Space switch (discrete mode)
     var reverse = false     // flip which horizontal direction maps to which Space
     var followFinger = true // drive the real Space-slide transition when the OS supports it
+    var lockPointer = true  // anchor the pointer at the drag's origin while dragging (MMF-style)
+
+    // Injected freeze hooks, wired to PointerFreeze by the engine (tap-thread only, like all state
+    // here). The drag itself is driven by event DELTAS, so anchoring the pointer doesn't change the
+    // gesture — the pointer just stops moving. Injectable so tests can verify the freeze lifecycle
+    // without touching the real cursor.
+    var freezePointer: (() -> Void)?
+    var unfreezePointer: (() -> Void)?
+    var pointerLocation: () -> CGPoint = {
+        CGEvent(source: nil)?.location ?? .zero
+    }
 
     private let dockSwipe = DockSwipeSynthesizer()
     private var followingFinger = false // this drag is driving a live dock-swipe transition
@@ -71,6 +82,7 @@ final class SpaceDragGesture {
             // Abort the live transition too, or WindowServer is left holding a half-slid Space.
             dockSwipe.post(delta: 0, type: .horizontal, phase: .cancelled)
         }
+        unfreezePointer?()
         down = false
         dragged = false
         followingFinger = false
@@ -103,6 +115,7 @@ final class SpaceDragGesture {
         } else if dragged {
             flickOnRelease()
         }
+        unfreezePointer?()
         let wasClick = !dragged
         down = false
         followingFinger = false
@@ -126,6 +139,8 @@ final class SpaceDragGesture {
             accX += deltaX; accY += deltaY
             if max(abs(accX), abs(accY)) >= deadzone {
                 dragged = true
+                // Anchor the pointer once the drag is real — a plain click must not freeze it.
+                if lockPointer { freezePointer?() }
                 axis = abs(accX) >= abs(accY) ? .horizontal : .vertical
                 if axis == .horizontal, followFinger, DockSwipeSynthesizer.isSupported {
                     followingFinger = true

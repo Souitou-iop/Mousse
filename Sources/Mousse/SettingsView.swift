@@ -112,10 +112,31 @@ struct SettingsView: View {
                     }
                 }
                 Toggle(Localized.text("gestures.reverse"), isOn: $store.config.spaceDragReverse)
+                Toggle(Localized.text("gestures.lockPointer"), isOn: $store.config.spaceDragLockPointer)
+                Text(Localized.text("gestures.lockPointerDescription"))
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Text(Localized.text("gestures.description"))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
+        .background(SettingsWindowPatcher())
     }
+}
+
+/// The SwiftUI `Settings` scene's window ships with only the close button — no minimize. This
+/// patches its style mask the moment the view attaches to the window: adds the minimize traffic
+/// light, drops resizability (no zoom button), and tags the window so AppDelegate can watch it.
+private struct SettingsWindowPatcher: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            guard let window = view.window else { return }
+            window.identifier = NSUserInterfaceItemIdentifier("com.mousse.settings")
+            window.styleMask.insert(.miniaturizable)
+            window.styleMask.remove(.resizable)
+        }
+        return view
+    }
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }

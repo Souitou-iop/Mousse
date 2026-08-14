@@ -79,6 +79,8 @@ struct AppConfig: Codable, Sendable, Equatable {
     var spaceDragReverse: Bool = false  // flip drag direction ↔ Space direction
     var spaceDragFollowFinger: Bool = true // drive the real Space-slide (trackpad-like) when the
                                            // OS supports it; off = discrete one-jump-per-distance
+    var spaceDragLockPointer: Bool = true // anchor the pointer at the drag's origin while
+                                          // dragging (MMF "lock pointer during drag")
     var excludedBundleIDs: [String] = [] // apps where every Mousse scroll transform is bypassed
     var verticalToHorizontalBundleIDs: [String] = [] // apps where the scroll axes are SWAPPED (the
                                          // wheel scrolls horizontally): purpose-built for
@@ -102,7 +104,7 @@ extension AppConfig {
     enum CodingKeys: String, CodingKey {
         case language, enabled, reverseScroll, scrollMode, scrollSmoothness, smoothScroll, scrollSpeed, scrollLines
         case scrollAcceleration, smoothHighRes, doubleClickInterval, holdDuration
-        case spaceDragButton, spaceDragThreshold, spaceDragReverse, spaceDragFollowFinger
+        case spaceDragButton, spaceDragThreshold, spaceDragReverse, spaceDragFollowFinger, spaceDragLockPointer
         case excludedBundleIDs, verticalToHorizontalBundleIDs, configuredButtons, mappings
     }
 
@@ -143,6 +145,7 @@ extension AppConfig {
         spaceDragThreshold = field(Double.self, .spaceDragThreshold) ?? spaceDragThreshold
         spaceDragReverse   = field(Bool.self,   .spaceDragReverse)   ?? spaceDragReverse
         spaceDragFollowFinger = field(Bool.self, .spaceDragFollowFinger) ?? spaceDragFollowFinger
+        spaceDragLockPointer   = field(Bool.self, .spaceDragLockPointer)   ?? spaceDragLockPointer
         excludedBundleIDs  = field([String].self, .excludedBundleIDs) ?? excludedBundleIDs
         verticalToHorizontalBundleIDs = field([String].self, .verticalToHorizontalBundleIDs) ?? verticalToHorizontalBundleIDs
         if c.contains(.mappings) {
@@ -176,6 +179,7 @@ extension AppConfig {
         try c.encode(spaceDragThreshold, forKey: .spaceDragThreshold)
         try c.encode(spaceDragReverse, forKey: .spaceDragReverse)
         try c.encode(spaceDragFollowFinger, forKey: .spaceDragFollowFinger)
+        try c.encode(spaceDragLockPointer, forKey: .spaceDragLockPointer)
         try c.encode(excludedBundleIDs, forKey: .excludedBundleIDs)
         try c.encode(verticalToHorizontalBundleIDs, forKey: .verticalToHorizontalBundleIDs)
         try c.encode(configuredButtons, forKey: .configuredButtons)
