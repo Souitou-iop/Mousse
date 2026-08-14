@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -46,6 +47,68 @@ enum SystemActions {
 
     private static let shkSpaceLeft:  Int32 = 79
     private static let shkSpaceRight: Int32 = 81
+
+    // MARK: - Launchpad / Apps
+
+    /// Toggle Launchpad.
+    ///
+    /// macOS 26+ replaced Launchpad.app with the "Apps" app: open it directly — ZERO system
+    /// writes, no SHK binding is ever touched. (Trade-off: "open" is not a toggle — pressing the
+    /// button again won't close the grid, Esc does.)
+    ///
+    /// macOS 15 and earlier keep a real Launchpad SHK (usually bound to F4): replay the user's
+    /// binding when there is one (the normal case — no writes). Only when the user disabled the
+    /// shortcut does the MMF-style fallback engage: force-enable the SHK with a keyboard-
+    /// unreachable binding (fn|numpad on a virtual key code far above any real key) and replay
+    /// that. The user's shortcuts and keyboard layout are never changed.
+    static func launchpad() {
+        if ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26 {
+            let appsURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.apps.launcher")
+                ?? (FileManager.default.fileExists(atPath: "/System/Applications/Apps.app")
+                    ? URL(fileURLWithPath: "/System/Applications/Apps.app") : nil)
+            if let apps = appsURL {
+                DispatchQueue.main.async {
+                    NSWorkspace.shared.openApplication(at: apps, configuration: NSWorkspace.OpenConfiguration())
+                }
+                return
+            }
+            // Apps.app unexpectedly absent (pre-release builds) — fall through to the SHK path.
+        }
+        launchpadViaSHK()
+    }
+
+    private static func launchpadViaSHK() {
+        queue.async {
+            var keq: UInt16 = 0, vkc: UInt16 = 0, mods: UInt32 = 0
+            let readable = getSHK?(shkLaunchpad, &keq, &vkc, &mods) == 0
+            let usable = readable && (isEnabled?(shkLaunchpad) ?? false)
+                && vkc != kNullKeyEquivalent && vkc != 0
+            let targetVKC: UInt16, targetMods: UInt32
+            if usable {
+                (targetVKC, targetMods) = (vkc, mods)
+            } else {
+                _ = setSHKEnabled?(shkLaunchpad, true)
+                _ = setSHKValue?(shkLaunchpad, kNullKeyEquivalent,
+                                 outOfReachBase + UInt16(shkLaunchpad),
+                                 kCGSNumericPadKeyMask | kCGSFunctionKeyMask)
+                (targetVKC, targetMods) = (outOfReachBase + UInt16(shkLaunchpad),
+                                           kCGSNumericPadKeyMask | kCGSFunctionKeyMask)
+            }
+            // Post regardless of the SHK write result — a failed write might still work (MMF does
+            // the same), and on the off chance nothing resolves, a bare F4 is the usual default.
+            postKey(targetVKC, targetMods)
+        }
+    }
+
+    private static let shkLaunchpad: Int32 = 160
+    private static let outOfReachBase: UInt16 = 400 // far above any real keyboard key
+    private static let kCGSNumericPadKeyMask: UInt32 = 1 << 21
+    private static let kCGSFunctionKeyMask: UInt32 = 1 << 23
+
+    private typealias SetSHKValueFn = @convention(c) (Int32, UInt16, UInt16, UInt32) -> Int32
+    private typealias SetSHKEnabledFn = @convention(c) (Int32, Bool) -> Int32
+    private static let setSHKValue = lookup("CGSSetSymbolicHotKeyValue", as: SetSHKValueFn.self)
+    private static let setSHKEnabled = lookup("CGSSetSymbolicHotKeyEnabled", as: SetSHKEnabledFn.self)
 
     private static let kNullKeyEquivalent: UInt16 = 0xFFFF
     private static let kControlMask: UInt32 = 1 << 18 // kCGSControlKeyMask == CGEventFlags.maskControl
