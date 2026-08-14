@@ -16,6 +16,9 @@ struct MenuContent: View {
         }
 
         Button(Localized.text("menu.settings")) {
+            // Dock presence while the Settings window is open (minimize/reopen needs it); the
+            // window closing drops it again (see AppDelegate.settingsWindowClosed).
+            NSApp.setActivationPolicy(.regular)
             NSApp.activate(ignoringOtherApps: true)
             openSettings()
         }

@@ -20,7 +20,7 @@ fi
 
 APP_NAME="Mousse"
 BUNDLE_ID="com.mousse.app"
-VERSION="0.9.4"
+VERSION="0.10.0"
 BUILD_TRIPLE="arm64-apple-macosx26.0"
 OUT="build/${APP_NAME}.app"
 
@@ -49,7 +49,6 @@ cat > "$OUT/Contents/Info.plist" <<PLIST
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
     <key>CFBundleVersion</key><string>${VERSION}</string>
     <key>LSMinimumSystemVersion</key><string>26.0</string>
-    <key>LSUIElement</key><true/>
     <key>NSHumanReadableCopyright</key><string>Mousse</string>
 </dict>
 </plist>

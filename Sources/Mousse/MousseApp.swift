@@ -18,8 +18,10 @@ struct MousseApp: App {
     }
 }
 
-/// App lifecycle: run as a menu-bar accessory (no Dock icon), ensure Accessibility,
-/// and bring up the event-tap engine.
+/// App lifecycle: menu-bar accessory by default; switching to a regular app (Dock icon) only while
+/// the Settings window is open — so the window behaves like a normal app window (minimize to Dock,
+/// reopen from the Dock icon) without a permanently visible Dock presence. Also ensures
+/// Accessibility and brings up the event-tap engine.
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Held for the app's lifetime: exempts the process from App Nap and timer coalescing. A napped
@@ -30,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// keeps the Mac awake.
     private var noNapActivity: NSObjectProtocol?
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory) // menu-bar only, no Dock icon
+        NSApp.setActivationPolicy(.accessory) // pure menu-bar app; Dock appears only with Settings
         noNapActivity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
             reason: "Real-time mouse input processing")
@@ -39,6 +41,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AccessibilityPermission.request() // shows the system prompt once
         }
         EventTapEngine.shared.start(config: ConfigStore.shared.config)
+        // When the Settings window closes, drop the Dock presence again.
+        NotificationCenter.default.addObserver(self, selector: #selector(settingsWindowClosed),
+                                               name: NSWindow.willCloseNotification, object: nil)
+    }
+
+    @objc private func settingsWindowClosed(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              window.identifier?.rawValue == "com.mousse.settings" else { return }
+        NSApp.setActivationPolicy(.accessory)
+    }
+
+    /// Clicking the Dock icon reopens the Settings window (this is not a document app and the
+    /// window may have been closed or minimized). SwiftUI exposes the Settings scene via the
+    /// private `showSettingsWindow:` action; fall back to the pre-Ventura spelling if unavailable.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        NSApp.setActivationPolicy(.regular) // the window needs a Dock presence to minimize into
+        if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
