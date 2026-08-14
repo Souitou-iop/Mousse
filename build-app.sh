@@ -4,14 +4,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# Use regular Xcode, fall back to Xcode-beta if needed
-if [ -d "/Applications/Xcode.app/Contents/Developer" ]; then
-    export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
-elif [ -d "/Applications/Xcode-beta.app/Contents/Developer" ]; then
-    export DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer"
-else
-    export DEVELOPER_DIR="${DEVELOPER_DIR:-.}"
+# Respect the active Xcode selected by the user, including an installation on an external disk.
+if [ -z "${DEVELOPER_DIR:-}" ]; then
+    DEVELOPER_DIR="$(xcode-select -p 2>/dev/null || true)"
 fi
+[ -d "$DEVELOPER_DIR" ] || { echo "Error: no valid Xcode developer directory" >&2; exit 1; }
+export DEVELOPER_DIR
 
 # Try to find swift executable
 if [ -f "$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" ]; then

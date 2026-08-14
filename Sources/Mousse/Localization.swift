@@ -17,6 +17,14 @@ enum AppLanguage: String, Codable, Sendable, CaseIterable {
 enum Localized {
     static var language: AppLanguage = .system
 
+    private static var resourceBundle: Bundle {
+        if let url = Bundle.main.url(forResource: "Mousse_Mousse", withExtension: "bundle"),
+           let bundle = Bundle(url: url) {
+            return bundle
+        }
+        return Bundle.module
+    }
+
     private static var usesSimplifiedChinese: Bool {
         switch language {
         case .simplifiedChinese:
@@ -33,11 +41,11 @@ enum Localized {
 
     private static var bundle: Bundle {
         if usesSimplifiedChinese,
-           let path = Bundle.module.path(forResource: "zh-hans", ofType: "lproj"),
+           let path = resourceBundle.path(forResource: "zh-hans", ofType: "lproj"),
            let bundle = Bundle(path: path) {
             return bundle
         }
-        return Bundle.module
+        return resourceBundle
     }
 
     static func text(_ key: String) -> String {

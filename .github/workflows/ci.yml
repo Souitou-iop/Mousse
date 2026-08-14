@@ -48,12 +48,27 @@ jobs:
         run: |
           set -euo pipefail
           check_dir="$(mktemp -d)"
+          check_dir="$(cd "$check_dir" && pwd -P)"
           trap 'rm -rf "$check_dir"' EXIT
           ditto -x -k dist/Mousse.zip "$check_dir"
+          test -d "$check_dir/Mousse.app/Contents/Resources/Mousse_Mousse.bundle"
           test "$(lipo -archs "$check_dir/Mousse.app/Contents/MacOS/Mousse")" = "arm64"
           test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$check_dir/Mousse.app/Contents/Info.plist")" = "26.0"
           otool -l "$check_dir/Mousse.app/Contents/MacOS/Mousse" | grep -A 3 LC_BUILD_VERSION | grep -q "minos 26.0"
           codesign --verify --deep --strict --verbose=2 "$check_dir/Mousse.app"
+
+          app_executable="$check_dir/Mousse.app/Contents/MacOS/Mousse"
+          app_log="$check_dir/launch.log"
+          "$app_executable" >"$app_log" 2>&1 &
+          app_pid=$!
+          sleep 2
+          if kill -0 "$app_pid" 2>/dev/null; then
+            kill "$app_pid"
+            wait "$app_pid" 2>/dev/null || true
+          else
+            wait "$app_pid"
+          fi
+          ! grep -q "could not load resource bundle" "$app_log"
 
       - name: Upload release archive
         uses: actions/upload-artifact@v7
