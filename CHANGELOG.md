@@ -2,6 +2,20 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.15.0] - 2026-08-14
+
+### 新增 / Added
+
+- **每应用按钮映射**:设置新增"应用"页,可为特定应用单独配置按钮→动作映射。未配置的按钮自动回退到全局设置;当前应用按鼠标指针所在的窗口判定。支持每应用独立保留空按钮分组,并能随配置导入/导出。
+- **Per-App button mappings**: a new Apps tab configures button→action mappings per app. Buttons without an app override fall back to the global mapping; the current app is resolved from the window under the mouse pointer. Per-app empty button groups persist and travel with config export/import.
+
+### 修复 / Fixed
+
+- **Safari 前进/后退失效**:与 Finder 相同,Safari 的 Navigation Swipe 在部分系统上会被忽略。现在 Safari 改用其原生历史命令 ⌘[ / ⌘],侧键前进/后退可正常触发。
+- **Safari Back/Forward not working**: like Finder, Safari ignored synthesized Navigation Swipe events on some systems. Safari now uses its native history commands (Cmd+[ / Cmd+]), so side-button Back/Forward works again.
+
+[0.15.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.15.0
+
 ## [0.14.0] - 2026-08-14
 
 ### 新增 / Added

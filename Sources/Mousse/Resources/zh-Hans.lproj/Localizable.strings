@@ -6,6 +6,7 @@
 "tab.buttons" = "按钮";
 "tab.scroll" = "滚动";
 "tab.gestures" = "手势";
+"tab.apps" = "应用";
 "general.enable" = "启用 Mousse";
 "general.language" = "语言";
 "general.language.system" = "跟随系统";
@@ -93,9 +94,15 @@
 "apps.axisSwap" = "垂直滚动改为水平滚动的应用";
 "apps.noAxisSwap" = "暂无轴向交换应用";
 "apps.axisSwapDescription" = "指针位于这些应用上时，垂直滚轮会进行水平滚动（倾斜滚轮则进行垂直滚动）。平滑、反向和速度设置仍然有效，适合 Nimble Commander 的 Brief 模式等以横向内容为主的视图。";
+"apps.perAppSection" = "按应用按钮映射";
+"apps.noPerApp" = "暂无按应用配置";
+"apps.addPerApp" = "添加应用…";
+"apps.edit" = "编辑";
+"apps.perAppDescription" = "为特定应用配置按钮映射。未配置的按钮继续使用全局设置；按鼠标指针所在的窗口判定当前应用。";
 "apps.remove" = "从列表中移除";
 "apps.add" = "添加应用…";
 "common.off" = "关闭";
+"common.back" = "返回";
 "common.button" = "按钮 %d";
 "common.add" = "添加";
 "common.cancel" = "取消";

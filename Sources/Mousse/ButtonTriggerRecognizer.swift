@@ -132,6 +132,12 @@ final class ButtonTriggerRecognizer {
         states.removeValue(forKey: button)
     }
 
+    /// Whether this button currently has recognizer state. Lets the engine swallow the matching
+    /// button-up even if the app under the cursor changed between down and up.
+    func isTracking(_ button: Int) -> Bool {
+        states[button] != nil
+    }
+
     func cancelAll() {
         states.removeAll()
     }

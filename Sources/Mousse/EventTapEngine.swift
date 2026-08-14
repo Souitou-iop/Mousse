@@ -103,7 +103,7 @@ final class EventTapEngine {
         "com.google.Chrome", "org.chromium.Chromium", "com.operasoftware.Opera",
         "com.microsoft.edgemac", "com.vivaldi.Vivaldi", "com.brave.Browser",
     ]
-    private var mappingsByButton: [Int: ButtonTriggerRecognizer.Actions] = [:]
+    private var mappingResolver = ButtonMappingResolver(config: AppConfig())
     private var pendingDragCancel = false // set on wake/device-change, consumed on the tap thread
     private var pendingTriggerCancel = false
     private var pendingCursorFlush = false
@@ -372,26 +372,7 @@ final class EventTapEngine {
         spaceDragLockPointer = config.spaceDragLockPointer
         excludedBundleIDs = Set(config.excludedBundleIDs).union(EventTapEngine.terminalBundleIDs)
         verticalToHorizontalBundleIDs = Set(config.verticalToHorizontalBundleIDs)
-        mappingsByButton = Dictionary(grouping: config.mappings, by: \.buttonNumber).compactMapValues { mappings in
-            // `.none` mappings are unconfigured placeholders — exclude them, and drop the whole
-            // button group if nothing is configured yet, so the button keeps its normal behavior
-            // (not swallowed) until the user picks an action. Hold-and-scroll outputs are handled
-            // by `holdScroll`, not the hold timer — exclude them from `hold` as well.
-            let actions = ButtonTriggerRecognizer.Actions(
-                click: mappings.first(where: { $0.trigger == .click && $0.action != .none })?.action,
-                doubleClick: mappings.first(where: { $0.trigger == .doubleClick && $0.action != .none })?.action,
-                hold: mappings.first(where: { $0.trigger == .hold && $0.action != .none && !$0.action.isScrollOutput })?.action)
-            return (actions.click != nil || actions.doubleClick != nil || actions.hold != nil)
-                ? actions : nil
-        }
-        // Hold-and-scroll buttons: every mapping with trigger == .hold and a `.scrollOutput`
-        // action, keyed by button number — each configured button works independently and no
-        // other button is ever affected.
-        var holdScrollMap: [Int: RemapAction.ScrollOutput] = [:]
-        for m in config.mappings where m.trigger == .hold {
-            if case let .scrollOutput(output) = m.action { holdScrollMap[m.buttonNumber] = output }
-        }
-        holdScrollByButton = holdScrollMap
+        mappingResolver = ButtonMappingResolver(config: config)
         (captureCancellation, keyboardCaptureCancellation) = cancelCaptureLocked()
         let keyboardTap = keyboardCaptureTap
         lock.unlock()
@@ -644,7 +625,7 @@ final class EventTapEngine {
         lock.lock()
         let on = enabled
         let capturing = captureKind == .mouse
-        let maps = mappingsByButton
+        let resolver = mappingResolver
         let reverse = reverseScroll
         let mode = scrollMode
         let smoothness = scrollSmoothness
@@ -667,8 +648,20 @@ final class EventTapEngine {
         spaceDrag.reverse = spaceDragReverse
         spaceDrag.followFinger = spaceDragFollowFinger
         spaceDrag.lockPointer = spaceDragLockPointer
-        holdScroll.mappings = holdScrollByButton
         lock.unlock()
+
+        // Per-app button mappings key off the app whose window is under the cursor, so resolve it
+        // only when an override exists; otherwise every button event would pay a WindowServer
+        // lookup for nothing.
+        let isButtonEvent = type == .otherMouseDown || type == .otherMouseUp || type == .otherMouseDragged
+        let resolved: CompiledButtonMappings
+        if isButtonEvent, resolver.hasPerAppMappings {
+            resolved = resolver.resolved(for: cursorApp.bundleID(at: event.location))
+        } else {
+            resolved = resolver.resolved(for: nil)
+        }
+        let maps = resolved.actionsByButton
+        holdScroll.mappings = resolved.holdScrollByButton
 
         if dragCancel {
             spaceDrag.cancel()
@@ -745,7 +738,7 @@ final class EventTapEngine {
                 }
                 return nil
             }
-            if maps[button] != nil {
+            if maps[button] != nil || buttonTriggers.isTracking(button) {
                 post(buttonTriggers.buttonUp(button, at: CACurrentMediaTime()))
                 return nil
             }

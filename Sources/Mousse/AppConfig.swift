@@ -1,5 +1,11 @@
 import Foundation
 
+/// Contains an element's decode failure to that element instead of failing the whole array.
+private struct Lossy<T: Decodable>: Decodable {
+    let value: T?
+    init(from decoder: Decoder) { value = try? T(from: decoder) }
+}
+
 /// How the mouse wheel scrolls.
 enum ScrollMode: String, Codable, Sendable, CaseIterable {
     case standard    // OS stepped wheel — raw passthrough; each notch jumps instantly
@@ -56,6 +62,33 @@ struct ButtonMapping: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+/// Button mappings scoped to one app. Buttons without an entry here fall back to the global
+/// `AppConfig.mappings`, so per-app config only overrides what the user actually edits.
+struct AppMappings: Codable, Identifiable, Equatable, Sendable {
+    var id = UUID()
+    var bundleID: String
+    var configuredButtons: [Int] = [] // persists empty button groups in this app's editor
+    var mappings: [ButtonMapping] = []
+
+    // Missing keys and per-element decode failures fall back instead of dropping the whole app.
+    init(id: UUID = UUID(), bundleID: String, configuredButtons: [Int] = [],
+         mappings: [ButtonMapping] = []) {
+        self.id = id
+        self.bundleID = bundleID
+        self.configuredButtons = configuredButtons
+        self.mappings = mappings
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        bundleID = try c.decode(String.self, forKey: .bundleID)
+        configuredButtons = (try? c.decodeIfPresent([Int].self, forKey: .configuredButtons)) ?? []
+        mappings = ((try? c.decodeIfPresent([Lossy<ButtonMapping>].self, forKey: .mappings))
+            ?? []).compactMap(\.value)
+    }
+}
+
 /// The whole persisted configuration. Plain Codable value stored as JSON — no keychain,
 /// no license, survives rebuilds.
 /// `Equatable` so `ConfigStore` can skip the save + engine reload when an assignment changes
@@ -93,6 +126,7 @@ struct AppConfig: Codable, Sendable, Equatable {
                                          // panels — smoothing stays on, we transpose ourselves
     var configuredButtons: [Int] = [4, 5] // persists empty button groups in the mapping editor
     var mappings: [ButtonMapping] = AppConfig.defaultMappings
+    var perAppMappings: [AppMappings] = [] // per-app button overrides; global mappings is the fallback
 
     /// Sensible defaults so the app is useful on first launch.
     static let defaultMappings: [ButtonMapping] = [
@@ -112,16 +146,10 @@ extension AppConfig {
         case edgeScroll, edgeScrollSpeed, autoScrollSpeed, autoScrollBaseSpeed
         case spaceDragButton, spaceDragThreshold, spaceDragReverse, spaceDragFollowFinger, spaceDragLockPointer
         case excludedBundleIDs, verticalToHorizontalBundleIDs, configuredButtons, mappings
+        case perAppMappings
     }
 
-    /// Contains an element's decode failure to that element instead of failing the whole array.
-    private struct Lossy<T: Decodable>: Decodable {
-        let value: T?
-        init(from decoder: Decoder) { value = try? T(from: decoder) }
-    }
-
-    init(from decoder: Decoder) throws {
-        self.init()
+    init(from decoder: Decoder) throws {        self.init()
         guard let c = try? decoder.container(keyedBy: CodingKeys.self) else { return }
         // `try?` (not just decodeIfPresent) so a present-but-invalid value also falls back.
         func field<T: Decodable>(_ type: T.Type, _ key: CodingKeys) -> T? {
@@ -164,6 +192,16 @@ extension AppConfig {
                 mappings = decodedMappings.compactMap(\.value)
             }
         }
+        if c.contains(.perAppMappings) {
+            if let decodedApps = field([Lossy<AppMappings>].self, .perAppMappings) {
+                perAppMappings = decodedApps.compactMap(\.value).map { app in
+                    var app = app
+                    app.configuredButtons = Array(Set((app.configuredButtons
+                        + app.mappings.map(\.buttonNumber)).filter { $0 >= 3 })).sorted()
+                    return app
+                }
+            }
+        }
         let savedButtons = field([Int].self, .configuredButtons) ?? []
         configuredButtons = Array(Set((savedButtons + mappings.map(\.buttonNumber)).filter { $0 >= 3 })).sorted()
 
@@ -204,5 +242,6 @@ extension AppConfig {
         try c.encode(verticalToHorizontalBundleIDs, forKey: .verticalToHorizontalBundleIDs)
         try c.encode(configuredButtons, forKey: .configuredButtons)
         try c.encode(mappings, forKey: .mappings)
+        try c.encode(perAppMappings, forKey: .perAppMappings)
     }
 }

@@ -20,6 +20,10 @@ final class SmartNavigationTests: XCTestCase {
         XCTAssertEqual(SmartNavigation.strategy(for: "com.apple.finder"), .commandBracket)
     }
 
+    func testSafariUsesNativeHistoryCommands() {
+        XCTAssertEqual(SmartNavigation.strategy(for: "com.apple.Safari"), .commandBracket)
+    }
+
     func testNavigationTargetFallsBackToFrontmostApplication() {
         XCTAssertEqual(
             SmartNavigation.navigationTarget(windowBundleID: nil,
@@ -32,7 +36,7 @@ final class SmartNavigationTests: XCTestCase {
     }
 
     func testOtherCompatibleAppsUseNavigationSwipe() {
-        XCTAssertEqual(SmartNavigation.strategy(for: "com.apple.Safari"), .navigationSwipe)
+        XCTAssertEqual(SmartNavigation.strategy(for: "com.apple.Music"), .navigationSwipe)
         XCTAssertEqual(SmartNavigation.strategy(for: "com.operasoftware.Opera"), .navigationSwipe)
         XCTAssertEqual(SmartNavigation.strategy(for: "com.binarynights.ForkLift"), .navigationSwipe)
     }

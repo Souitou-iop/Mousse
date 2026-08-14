@@ -6,6 +6,7 @@
 "tab.buttons" = "Buttons";
 "tab.scroll" = "Scroll";
 "tab.gestures" = "Gestures";
+"tab.apps" = "Apps";
 "general.enable" = "Enable Mousse";
 "general.language" = "Language";
 "general.language.system" = "System Default";
@@ -94,9 +95,15 @@
 "apps.axisSwap" = "Vertical → horizontal apps";
 "apps.noAxisSwap" = "No axis-swap apps";
 "apps.axisSwapDescription" = "While the pointer is over these apps, vertical wheel scrolling scrolls horizontally (and tilt scrolls vertically). Smoothing, reverse and speed all still apply — made for Nimble Commander's Brief mode and other horizontal-first views.";
+"apps.perAppSection" = "Per-App Button Mappings";
+"apps.noPerApp" = "No per-app configuration yet";
+"apps.addPerApp" = "Add App…";
+"apps.edit" = "Edit";
+"apps.perAppDescription" = "Configure button mappings for specific apps. Buttons without a mapping here continue using the global settings; the current app is determined by the window under the mouse pointer.";
 "apps.remove" = "Remove from this list";
 "apps.add" = "Add App…";
 "common.off" = "Off";
+"common.back" = "Back";
 "common.button" = "Button %d";
 "common.add" = "Add";
 "common.cancel" = "Cancel";

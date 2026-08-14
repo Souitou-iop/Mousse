@@ -13,6 +13,7 @@ struct SettingsView: View {
             buttonsTab.tabItem  { Label(Localized.text("tab.buttons"), systemImage: "computermouse") }
             scrollTab.tabItem   { Label(Localized.text("tab.scroll"), systemImage: "scroll") }
             gesturesTab.tabItem { Label(Localized.text("tab.gestures"), systemImage: "hand.draw") }
+            appsTab.tabItem     { Label(Localized.text("tab.apps"), systemImage: "app.badge") }
         }
         .frame(width: 480, height: 360)
         .padding()
@@ -99,6 +100,10 @@ struct SettingsView: View {
 
     private var buttonsTab: some View {
         ButtonMappingsView()
+    }
+
+    private var appsTab: some View {
+        PerAppMappingsView()
     }
 
     private var scrollTab: some View {

@@ -305,4 +305,46 @@ final class AppConfigTests: XCTestCase {
 
         XCTAssertThrowsError(try ConfigTransfer.importConfig(from: url))
     }
+
+    // MARK: - Per-app mappings
+
+    func testPerAppMappingsRoundTrip() throws {
+        var config = AppConfig()
+        config.perAppMappings = [AppMappings(
+            bundleID: "com.apple.Safari",
+            configuredButtons: [4, 5],
+            mappings: [ButtonMapping(buttonNumber: 4, action: .navigateBack)])]
+        XCTAssertEqual(try roundTrip(config).perAppMappings, config.perAppMappings)
+    }
+
+    func testMissingPerAppMappingsDefaultsToEmpty() throws {
+        let decoded = try JSONDecoder().decode(AppConfig.self,
+            from: #"{"enabled":false}"#.data(using: .utf8)!)
+        XCTAssertTrue(decoded.perAppMappings.isEmpty)
+    }
+
+    func testInvalidPerAppMappingsFieldFallsBackToEmpty() throws {
+        let json = #"{"perAppMappings":[{"bundleID":"com.apple.Safari","mappings":"broken"},{"bundleID":"com.google.Chrome"}]}"#
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json.data(using: .utf8)!)
+        XCTAssertEqual(decoded.perAppMappings.count, 2)
+        XCTAssertEqual(decoded.perAppMappings[0].bundleID, "com.apple.Safari")
+        XCTAssertTrue(decoded.perAppMappings[0].mappings.isEmpty)
+        XCTAssertEqual(decoded.perAppMappings[1].bundleID, "com.google.Chrome")
+    }
+
+    func testBrokenPerAppMappingElementIsDroppedNotFatal() throws {
+        let good = String(data: try JSONEncoder().encode(ButtonMapping(buttonNumber: 4, action: .navigateBack)),
+                          encoding: .utf8)!
+        let json = #"{"perAppMappings":[{"bundleID":"com.apple.Safari","mappings":[\#(good),{"buttonNumber":5,"action":{"warpDrive":{}}}]}]}"#
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json.data(using: .utf8)!)
+        XCTAssertEqual(decoded.perAppMappings.count, 1)
+        XCTAssertEqual(decoded.perAppMappings[0].mappings.count, 1)
+        XCTAssertEqual(decoded.perAppMappings[0].mappings[0].action, .navigateBack)
+    }
+
+    func testPerAppConfiguredButtonsAreNormalized() throws {
+        let json = #"{"perAppMappings":[{"bundleID":"com.apple.Safari","configuredButtons":[4,2],"mappings":[{"buttonNumber":5,"action":{"navigateForward":{}}}]}]}"#
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json.data(using: .utf8)!)
+        XCTAssertEqual(decoded.perAppMappings[0].configuredButtons, [4, 5])
+    }
 }

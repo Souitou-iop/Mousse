@@ -1,13 +1,31 @@
 import SwiftUI
 
-/// Button mappings grouped by physical button, with one action per trigger type.
+/// Global button mappings grouped by physical button, with one action per trigger type.
 struct ButtonMappingsView: View {
     @EnvironmentObject var store: ConfigStore
+
+    var body: some View {
+        MappingEditor(
+            mappings: $store.config.mappings,
+            configuredButtons: $store.config.configuredButtons,
+            holdDuration: $store.config.holdDuration,
+            doubleClickInterval: $store.config.doubleClickInterval)
+    }
+}
+
+/// Reusable button mapping editor, backed by explicit bindings so both the global page and the
+/// per-app page can edit the same UI without duplicating the capture/grouping logic.
+struct MappingEditor: View {
+    @Binding var mappings: [ButtonMapping]
+    @Binding var configuredButtons: [Int]
+    @Binding var holdDuration: Double
+    @Binding var doubleClickInterval: Double
+
     @State private var highlightedButton: Int?
     @State private var buttonPendingDeletion: Int?
 
     private var buttons: [Int] {
-        store.config.configuredButtons
+        configuredButtons
     }
 
     var body: some View {
@@ -30,8 +48,8 @@ struct ButtonMappingsView: View {
                                 ForEach(ButtonTrigger.allCases, id: \.self) { trigger in
                                     if let index = mappingIndex(button: button, trigger: trigger) {
                                         MappingRow(
-                                            mapping: $store.config.mappings[index],
-                                            onDelete: { store.config.mappings.remove(at: index) }
+                                            mapping: $mappings[index],
+                                            onDelete: { mappings.remove(at: index) }
                                         )
                                     }
                                 }
@@ -94,20 +112,20 @@ struct ButtonMappingsView: View {
 
     private var timingControls: some View {
         HStack(spacing: 16) {
-            Stepper(value: $store.config.holdDuration, in: 0.10...0.80, step: 0.01) {
+            Stepper(value: $holdDuration, in: 0.10...0.80, step: 0.01) {
                 Text(Localized.format("buttons.holdDuration",
-                                      Int((store.config.holdDuration * 1000).rounded())))
+                                      Int((holdDuration * 1000).rounded())))
             }
             Spacer(minLength: 8)
-            Stepper(value: $store.config.doubleClickInterval, in: 0.10...0.50, step: 0.01) {
+            Stepper(value: $doubleClickInterval, in: 0.10...0.50, step: 0.01) {
                 Text(Localized.format("buttons.doubleClickInterval",
-                                      Int((store.config.doubleClickInterval * 1000).rounded())))
+                                      Int((doubleClickInterval * 1000).rounded())))
             }
         }
     }
 
     private func mappingIndex(button: Int, trigger: ButtonTrigger) -> Int? {
-        store.config.mappings.firstIndex {
+        mappings.firstIndex {
             $0.buttonNumber == button && $0.trigger == trigger
         }
     }
@@ -117,14 +135,14 @@ struct ButtonMappingsView: View {
     }
 
     private func mappings(for button: Int) -> [ButtonMapping] {
-        store.config.mappings.filter { $0.buttonNumber == button }
+        mappings.filter { $0.buttonNumber == button }
     }
 
     private func addButton(_ button: Int) {
         guard button >= 3 else { return }
-        if !store.config.configuredButtons.contains(button) {
-            store.config.configuredButtons.append(button)
-            store.config.configuredButtons.sort()
+        if !configuredButtons.contains(button) {
+            configuredButtons.append(button)
+            configuredButtons.sort()
         }
         highlight(button)
     }
@@ -134,13 +152,13 @@ struct ButtonMappingsView: View {
         // Start unconfigured — the user picks the action explicitly instead of inheriting a
         // default. The engine ignores `.none` mappings, so the button keeps its normal behavior
         // until an action is chosen.
-        store.config.mappings.append(ButtonMapping(buttonNumber: button, trigger: trigger,
-                                                    action: .none))
+        mappings.append(ButtonMapping(buttonNumber: button, trigger: trigger,
+                                      action: .none))
     }
 
     private func removeButton(_ button: Int) {
-        store.config.mappings.removeAll { $0.buttonNumber == button }
-        store.config.configuredButtons.removeAll { $0 == button }
+        mappings.removeAll { $0.buttonNumber == button }
+        configuredButtons.removeAll { $0 == button }
         buttonPendingDeletion = nil
     }
 

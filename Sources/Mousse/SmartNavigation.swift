@@ -69,10 +69,11 @@ enum SmartNavigation {
     /// compatible path for Chromium and Electron apps.
     static func strategy(for bundleID: String?) -> Strategy {
         guard let bundleID, !bundleID.isEmpty else { return .mouseButton }
-        // Finder exposes Back/Forward as Command-[ and Command-]. On this OS, WindowServer accepts
-        // a Navigation Swipe posted by Mousse but Finder ignores it, even when the event is emitted
-        // through the same CoreGraphics C sequence as Mac Mouse Fix. Use Finder's native commands.
-        if bundleID == "com.apple.finder" { return .commandBracket }
+        // Finder and Safari expose Back/Forward as Command-[ and Command-]. On this OS, WindowServer
+        // accepts a Navigation Swipe posted by Mousse but these apps ignore it, even when the event
+        // is emitted through the same CoreGraphics C sequence as Mac Mouse Fix. Use their native
+        // history commands.
+        if bundleID == "com.apple.finder" || bundleID == "com.apple.Safari" { return .commandBracket }
         if bundleID.hasPrefix("com.operasoftware.Opera") ||
             bundleID.hasPrefix("com.binarynights.ForkLift") {
             return .navigationSwipe

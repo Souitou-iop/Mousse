@@ -19,6 +19,15 @@ final class ButtonTriggerRecognizerTests: XCTestCase {
         XCTAssertEqual(output.triggered.map(\.action), [click])
     }
 
+    func testIsTrackingFollowsDownAndUp() {
+        let r = recognizer()
+        XCTAssertFalse(r.isTracking(4))
+        _ = r.buttonDown(4, at: 1, actions: .init(click: click))
+        XCTAssertTrue(r.isTracking(4))
+        _ = r.buttonUp(4, at: 1.1)
+        XCTAssertFalse(r.isTracking(4))
+    }
+
     func testClickWaitsWhenDoubleClickExists() {
         let r = recognizer()
         let actions = ButtonTriggerRecognizer.Actions(click: click, doubleClick: doubleClick)
