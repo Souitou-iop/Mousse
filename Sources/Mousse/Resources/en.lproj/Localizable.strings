@@ -91,7 +91,7 @@
 "action.launchpad" = "Launchpad";
 "action.navigateBack" = "Back";
 "action.navigateForward" = "Forward";
-"action.holdScrollVolume" = "Hold & Scroll Volume";
+"action.holdScrollVolume" = "Hold & Scroll Wheel for Volume";
 "action.smartZoom" = "Smart Zoom";
 "action.clickMiddle" = "Click Middle Button";
 "action.placeholder" = "Select Action…";

@@ -2,6 +2,14 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.11.2] - 2026-08-14
+
+### 其他
+
+- "按住滚动调整音量"动作文案改为"按住滚动滚轮调整音量",语义更明确(中英同步)。
+
+[0.11.2]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.11.2
+
 ## [0.11.1] - 2026-08-14
 
 ### 修复
