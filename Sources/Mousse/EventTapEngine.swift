@@ -65,7 +65,7 @@ final class EventTapEngine {
     private var spaceDragReverse = false
     private var spaceDragFollowFinger = true
     private var spaceDragLockPointer = true
-    private var holdScrollOutput: RemapAction.ScrollOutput?
+    private var holdScrollByButton: [Int: RemapAction.ScrollOutput] = [:]
     private var edgeScrollEnabled = false
     private var edgeScrollSpeed = 400.0
     // Tap-thread only (like the other gesture state): the detector and the timestamp of the last
@@ -379,13 +379,14 @@ final class EventTapEngine {
             return (actions.click != nil || actions.doubleClick != nil || actions.hold != nil)
                 ? actions : nil
         }
-        // The hold-and-scroll button (if any): trigger == .hold with a `.scrollOutput` action.
-        if let m = config.mappings.first(where: { $0.trigger == .hold }),
-           case let .scrollOutput(output) = m.action {
-            holdScrollOutput = output
-        } else {
-            holdScrollOutput = nil
+        // Hold-and-scroll buttons: every mapping with trigger == .hold and a `.scrollOutput`
+        // action, keyed by button number — each configured button works independently and no
+        // other button is ever affected.
+        var holdScrollMap: [Int: RemapAction.ScrollOutput] = [:]
+        for m in config.mappings where m.trigger == .hold {
+            if case let .scrollOutput(output) = m.action { holdScrollMap[m.buttonNumber] = output }
         }
+        holdScrollByButton = holdScrollMap
         (captureCancellation, keyboardCaptureCancellation) = cancelCaptureLocked()
         let keyboardTap = keyboardCaptureTap
         lock.unlock()
@@ -624,7 +625,7 @@ final class EventTapEngine {
         spaceDrag.reverse = spaceDragReverse
         spaceDrag.followFinger = spaceDragFollowFinger
         spaceDrag.lockPointer = spaceDragLockPointer
-        holdScroll.output = holdScrollOutput
+        holdScroll.mappings = holdScrollByButton
         lock.unlock()
 
         if dragCancel {
