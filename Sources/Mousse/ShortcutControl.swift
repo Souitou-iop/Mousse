@@ -5,6 +5,9 @@ import AppKit
 /// Recording uses a HID event tap so the shortcut is swallowed before any app receives it.
 struct ShortcutControl: View {
     @Binding var action: RemapAction
+    /// Hold-and-scroll outputs only make sense for the .hold trigger (the engine routes wheel
+    /// input only for those mappings) — hide them from the preset menu otherwise.
+    var showScrollOutputs = false
     @State private var recording = false
     @State private var startError: EventTapEngine.CaptureStartStatus?
     @State private var endMessageKey: String?
@@ -17,7 +20,8 @@ struct ShortcutControl: View {
             } else {
                 Menu(action.displayName) {
                     Section(Localized.text("buttons.presets")) {
-                        ForEach(RemapAction.presets, id: \.self) { preset in
+                        ForEach(RemapAction.presets.filter { showScrollOutputs || !$0.isScrollOutput },
+                                id: \.self) { preset in
                             Button(preset.displayName) { action = preset }
                         }
                     }

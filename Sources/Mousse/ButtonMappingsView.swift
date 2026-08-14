@@ -162,7 +162,8 @@ private struct MappingRow: View {
                 .frame(width: 72, alignment: .leading)
 
             Image(systemName: "arrow.right").foregroundStyle(.secondary)
-            ShortcutControl(action: $mapping.action)
+            ShortcutControl(action: $mapping.action,
+                            showScrollOutputs: mapping.trigger == .hold)
             Spacer()
 
             Button(role: .destructive, action: onDelete) {

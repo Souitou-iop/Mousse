@@ -12,6 +12,7 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
     case navigateForward
     case smartZoom
     case clickButton(buttonNumber: Int) // simulate a click of another button (e.g. the middle button)
+    case scrollOutput(ScrollOutput)     // while the button is held, wheel input drives this output
 
     // Keystroke presets (macOS default shortcuts)
     static let spaceLeft      = keyStroke(keyCode: 0x7B, control: true, option: false, command: false, shift: false) // Ctrl+←
@@ -19,10 +20,21 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
     static let missionControl = keyStroke(keyCode: 0x7E, control: true, option: false, command: false, shift: false) // Ctrl+↑
     static let appExpose      = keyStroke(keyCode: 0x7D, control: true, option: false, command: false, shift: false) // Ctrl+↓
 
+    /// What a held button turns wheel input into (MMF-style "click and scroll" outputs).
+    enum ScrollOutput: String, Codable, CaseIterable, Sendable {
+        case volume // one notch up/down = volume +1/−1 step
+
+        var label: String {
+            switch self {
+            case .volume: return Localized.text("action.holdScrollVolume")
+            }
+        }
+    }
+
     /// Actions offered in the Settings picker.
     static var presets: [RemapAction] {
         [.navigateBack, .navigateForward, .spaceLeft, .spaceRight, .missionControl, .appExpose, .launchpad,
-         .smartZoom, .clickButton(buttonNumber: 3),
+         .smartZoom, .clickButton(buttonNumber: 3), .scrollOutput(.volume),
          .mediaKey(.volumeDown), .mediaKey(.volumeUp), .mediaKey(.mute),
          .mediaKey(.playPause), .mediaKey(.previous), .mediaKey(.next)]
     }
@@ -128,12 +140,25 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
             click(.otherMouseDown)
             click(.otherMouseUp)
 
+        case let .scrollOutput(output):
+            // Not a one-shot: the engine routes wheel input while the button is held (see
+            // HoldScrollGesture). Nothing to post here — reaching this would be a wiring bug.
+            switch output { case .volume: break }
+
         case .navigateBack:
             SmartNavigation.post(.back)
 
         case .navigateForward:
             SmartNavigation.post(.forward)
         }
+    }
+
+    /// Human-readable name for the UI.
+    /// True for hold-and-scroll outputs — the engine treats these mappings specially (the button
+    /// enters scroll-output mode on press instead of waiting out the hold duration).
+    var isScrollOutput: Bool {
+        if case .scrollOutput = self { return true }
+        return false
     }
 
     /// Human-readable name for the UI.
@@ -162,6 +187,8 @@ enum RemapAction: Codable, Equatable, Hashable, Sendable {
         case let .clickButton(buttonNumber):
             if buttonNumber == 3 { return Localized.text("action.clickMiddle") }
             return Localized.format("action.clickButton", buttonNumber)
+        case let .scrollOutput(output):
+            return output.label
         case .navigateBack:
             return Localized.text("action.navigateBack")
         case .navigateForward:
