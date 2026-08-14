@@ -23,7 +23,13 @@
 "scroll.fast" = "快";
 "scroll.acceleration" = "滚动加速度";
 "scroll.linesPerNotch" = "每格滚动行数：%d";
+"scroll.zoomSpeed" = "缩放速度（⌘+滚轮）";
+"scroll.zoomSpeedValue" = "缩放速度：%g×";
 "scroll.reverse" = "反转滚动方向";
+"scroll.edgeScroll" = "边缘滚动";
+"scroll.edgeScrollSpeed" = "边缘滚动速度";
+"scroll.edgeScrollSpeedValue" = "边缘滚动速度：%d px/s";
+"scroll.edgeScrollDescription" = "将指针停在屏幕顶部或底部边缘半秒,页面即向该方向持续滚动;指针离开边缘(或滚动滚轮)即停止。";
 "scroll.smoothHighRes" = "平滑高分辨率鼠标";
 "scroll.smoothHighResDescription" = "适用于滚动不连贯的高分辨率鼠标（例如 Keychron M6），使其使用与有刻度滚轮相同的平滑效果。MX Master 3 等自由滚轮鼠标请保持关闭，其硬件飞轮已经很平滑，开启后反而会产生冲突。";
 "scroll.styleDescription" = "标准 = 滚轮立即滚动（无动画）。平滑 = 触控板式惯性。平滑步进 = 类似 Windows 浏览器：每格滚动缓动固定行数，但没有余速。仅作用于实体鼠标滚轮，不影响触控板滚动。";
@@ -85,6 +91,7 @@
 "action.launchpad" = "启动台";
 "action.navigateBack" = "返回";
 "action.navigateForward" = "前进";
+"action.holdScrollVolume" = "按住滚动调整音量";
 "action.smartZoom" = "智能缩放";
 "action.clickMiddle" = "模拟中键点击";
 "action.placeholder" = "选择操作…";

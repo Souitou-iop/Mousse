@@ -23,7 +23,13 @@
 "scroll.fast" = "Fast";
 "scroll.acceleration" = "Scroll acceleration";
 "scroll.linesPerNotch" = "Lines per notch: %d";
+"scroll.zoomSpeed" = "Zoom speed (Cmd+scroll)";
+"scroll.zoomSpeedValue" = "Zoom speed: %g×";
 "scroll.reverse" = "Reverse scroll direction";
+"scroll.edgeScroll" = "Edge scrolling";
+"scroll.edgeScrollSpeed" = "Edge scroll speed";
+"scroll.edgeScrollSpeedValue" = "Edge scroll speed: %d px/s";
+"scroll.edgeScrollDescription" = "Rest the pointer on the top or bottom screen edge for half a second and the page scrolls continuously in that direction; moving away from the edge (or using the wheel) stops it.";
 "scroll.smoothHighRes" = "Smooth high-res mice";
 "scroll.smoothHighResDescription" = "Turn on for high-resolution mice that scroll choppily (e.g. Keychron M6) so they use the same smoothing as a notched wheel. Leave OFF for free-spin mice like the MX Master 3 — their hardware flywheel is already smooth and this would fight it.";
 "scroll.styleDescription" = "Standard = instant wheel (no animation). Smooth = trackpad-style momentum. Smooth-step = Windows-browser feel: each notch eases a fixed number of lines with no coast. Applies to a physical mouse wheel only — trackpad scrolling is left untouched.";
@@ -85,6 +91,7 @@
 "action.launchpad" = "Launchpad";
 "action.navigateBack" = "Back";
 "action.navigateForward" = "Forward";
+"action.holdScrollVolume" = "Hold & Scroll Volume";
 "action.smartZoom" = "Smart Zoom";
 "action.clickMiddle" = "Click Middle Button";
 "action.placeholder" = "Select Action…";

@@ -78,6 +78,27 @@ struct SettingsView: View {
                 }
             }
             Toggle(Localized.text("scroll.reverse"), isOn: $store.config.reverseScroll)
+            VStack(alignment: .leading) {
+                Text(Localized.format("scroll.zoomSpeedValue", store.config.zoomSpeed))
+                // Cmd+wheel pinch-zoom sensitivity — independent of the scroll-speed slider so a
+                // fast scroll feel doesn't force an aggressive zoom.
+                Slider(value: $store.config.zoomSpeed, in: 0.5...3.0, step: 0.1) {
+                    Text(Localized.text("scroll.zoomSpeed"))
+                } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
+                  maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
+            }
+            Toggle(Localized.text("scroll.edgeScroll"), isOn: $store.config.edgeScroll)
+            if store.config.edgeScroll {
+                VStack(alignment: .leading) {
+                    Text(Localized.format("scroll.edgeScrollSpeedValue", Int(store.config.edgeScrollSpeed)))
+                    Slider(value: $store.config.edgeScrollSpeed, in: 100...1200, step: 50) {
+                        Text(Localized.text("scroll.edgeScrollSpeed"))
+                    } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
+                      maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
+                }
+                Text(Localized.text("scroll.edgeScrollDescription"))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             if store.config.scrollMode != .standard {
                 Toggle(Localized.text("scroll.smoothHighRes"), isOn: $store.config.smoothHighRes)
                 Text(Localized.text("scroll.smoothHighResDescription"))

@@ -241,6 +241,19 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.spaceDragThreshold, 400, accuracy: 1e-9)
     }
 
+    /// Zoom speed clamps to its UI range on decode (a hand-edited value must not extrapolate).
+    func testZoomSpeedClamps() throws {
+        let low = try JSONDecoder().decode(AppConfig.self,
+            from: #"{"zoomSpeed":0.1}"#.data(using: .utf8)!)
+        XCTAssertEqual(low.zoomSpeed, 0.5, accuracy: 1e-9)
+        let high = try JSONDecoder().decode(AppConfig.self,
+            from: #"{"zoomSpeed":9.0}"#.data(using: .utf8)!)
+        XCTAssertEqual(high.zoomSpeed, 3.0, accuracy: 1e-9)
+        let mid = try JSONDecoder().decode(AppConfig.self,
+            from: #"{"zoomSpeed":1.7}"#.data(using: .utf8)!)
+        XCTAssertEqual(mid.zoomSpeed, 1.7, accuracy: 1e-9)
+    }
+
     func testScrollExclusionMatchHasPriority() {
         let excluded: Set<String> = ["com.example.Editor"]
         XCTAssertTrue(EventTapEngine.isScrollExcluded("com.example.Editor", from: excluded))

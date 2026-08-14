@@ -70,6 +70,9 @@ struct AppConfig: Codable, Sendable, Equatable {
                                         // anchors (0=low, 0.5=medium, 1=high); also scales hi-res gain
     var scrollLines: Int = 3            // lines per notch in Smooth-step mode (Windows default = 3)
     var scrollAcceleration: Bool = true // rapid consecutive notches scroll farther (Smooth mode only)
+    var zoomSpeed: Double = 1.0         // Cmd+wheel pinch-zoom sensitivity, independent of scrollSpeed
+    var edgeScroll: Bool = false        // pointer resting on the screen edge scrolls continuously
+    var edgeScrollSpeed: Double = 400.0 // px/s while edge scrolling
     var smoothHighRes: Bool = false     // also smooth high-res "continuous" mice (e.g. Keychron M6) that
                                         // lack a flywheel; keep off for MX-Master-style free-spin mice
     var doubleClickInterval: Double = 0.26
@@ -103,7 +106,8 @@ struct AppConfig: Codable, Sendable, Equatable {
 extension AppConfig {
     enum CodingKeys: String, CodingKey {
         case language, enabled, reverseScroll, scrollMode, scrollSmoothness, smoothScroll, scrollSpeed, scrollLines
-        case scrollAcceleration, smoothHighRes, doubleClickInterval, holdDuration
+        case scrollAcceleration, smoothHighRes, zoomSpeed, doubleClickInterval, holdDuration
+        case edgeScroll, edgeScrollSpeed
         case spaceDragButton, spaceDragThreshold, spaceDragReverse, spaceDragFollowFinger, spaceDragLockPointer
         case excludedBundleIDs, verticalToHorizontalBundleIDs, configuredButtons, mappings
     }
@@ -134,6 +138,9 @@ extension AppConfig {
         scrollSpeed        = field(Double.self, .scrollSpeed)        ?? scrollSpeed
         scrollLines        = field(Int.self,    .scrollLines)        ?? scrollLines
         scrollAcceleration = field(Bool.self,   .scrollAcceleration) ?? scrollAcceleration
+        zoomSpeed          = field(Double.self, .zoomSpeed)          ?? zoomSpeed
+        edgeScroll         = field(Bool.self,   .edgeScroll)         ?? edgeScroll
+        edgeScrollSpeed    = field(Double.self, .edgeScrollSpeed)    ?? edgeScrollSpeed
         smoothHighRes      = field(Bool.self,   .smoothHighRes)      ?? smoothHighRes
         if let value = field(Double.self, .doubleClickInterval), value.isFinite {
             doubleClickInterval = min(max(value, 0.10), 0.50)
@@ -157,6 +164,8 @@ extension AppConfig {
         configuredButtons = Array(Set((savedButtons + mappings.map(\.buttonNumber)).filter { $0 >= 3 })).sorted()
 
         scrollSpeed        = min(max(scrollSpeed, 0.05), 1.5)
+        zoomSpeed          = min(max(zoomSpeed, 0.5), 3.0)
+        edgeScrollSpeed    = min(max(edgeScrollSpeed, 100), 1200)
         scrollLines        = min(max(scrollLines, 1), 10)
         spaceDragThreshold = min(max(spaceDragThreshold, 100), 400)
     }
@@ -172,6 +181,9 @@ extension AppConfig {
         try c.encode(scrollSpeed, forKey: .scrollSpeed)
         try c.encode(scrollLines, forKey: .scrollLines)
         try c.encode(scrollAcceleration, forKey: .scrollAcceleration)
+        try c.encode(zoomSpeed, forKey: .zoomSpeed)
+        try c.encode(edgeScroll, forKey: .edgeScroll)
+        try c.encode(edgeScrollSpeed, forKey: .edgeScrollSpeed)
         try c.encode(smoothHighRes, forKey: .smoothHighRes)
         try c.encode(doubleClickInterval, forKey: .doubleClickInterval)
         try c.encode(holdDuration, forKey: .holdDuration)

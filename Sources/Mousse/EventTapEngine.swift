@@ -54,6 +54,7 @@ final class EventTapEngine {
     private var scrollMode: ScrollMode = .smooth
     private var scrollSmoothness: ScrollSmoothness = .balanced
     private var scrollSpeed = 0.5
+    private var zoomSpeed = 1.0
     private var scrollLines = 3
     private var scrollAcceleration = true
     private var smoothHighRes = false
@@ -64,6 +65,13 @@ final class EventTapEngine {
     private var spaceDragReverse = false
     private var spaceDragFollowFinger = true
     private var spaceDragLockPointer = true
+    private var holdScrollOutput: RemapAction.ScrollOutput?
+    private var edgeScrollEnabled = false
+    private var edgeScrollSpeed = 400.0
+    // Tap-thread only (like the other gesture state): the detector and the timestamp of the last
+    // REAL wheel input, which resets the edge-scroll rest timer (user input takes priority).
+    private var edgeScrollDetector = EdgeScrollDetector()
+    private var lastRealWheelAt = 0.0
     private var captureKind: CaptureKind = .none
     private var captureCompletion: ((CaptureOutcome<Int>) -> Void)?
     private var keyboardCaptureCompletion: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
@@ -111,6 +119,7 @@ final class EventTapEngine {
     private let scrollAnimator = ScrollAnimator()
     private let magnifier = MagnifySynthesizer()
     private let spaceDrag = SpaceDragGesture()
+    private let holdScroll = HoldScrollGesture()
     private let buttonTriggers = ButtonTriggerRecognizer()
     private var buttonTriggerTimer: CFRunLoopTimer?
     private var eventTapRunLoop: CFRunLoop?
@@ -126,6 +135,11 @@ final class EventTapEngine {
             PointerFreeze.shared.freeze(at: self.spaceDrag.pointerLocation())
         }
         spaceDrag.unfreezePointer = { PointerFreeze.shared.unfreeze() }
+        holdScroll.volumeStep = { steps in
+            // Tap thread (handleScroll runs there) — MediaKey.post is already used from this
+            // thread by the regular remap path.
+            (steps > 0 ? MediaKey.volumeUp : MediaKey.volumeDown).post()
+        }
         guard thread == nil else { return }
         let t = Thread { [weak self] in self?.threadMain() }
         t.name = "com.mousse.event-tap"
@@ -338,6 +352,9 @@ final class EventTapEngine {
         scrollMode = config.scrollMode
         scrollSmoothness = config.scrollSmoothness
         scrollSpeed = config.scrollSpeed
+        zoomSpeed = config.zoomSpeed
+        edgeScrollEnabled = config.edgeScroll
+        edgeScrollSpeed = config.edgeScrollSpeed
         scrollLines = config.scrollLines
         scrollAcceleration = config.scrollAcceleration
         smoothHighRes = config.smoothHighRes
@@ -353,13 +370,21 @@ final class EventTapEngine {
         mappingsByButton = Dictionary(grouping: config.mappings, by: \.buttonNumber).compactMapValues { mappings in
             // `.none` mappings are unconfigured placeholders — exclude them, and drop the whole
             // button group if nothing is configured yet, so the button keeps its normal behavior
-            // (not swallowed) until the user picks an action.
+            // (not swallowed) until the user picks an action. Hold-and-scroll outputs are handled
+            // by `holdScroll`, not the hold timer — exclude them from `hold` as well.
             let actions = ButtonTriggerRecognizer.Actions(
                 click: mappings.first(where: { $0.trigger == .click && $0.action != .none })?.action,
                 doubleClick: mappings.first(where: { $0.trigger == .doubleClick && $0.action != .none })?.action,
-                hold: mappings.first(where: { $0.trigger == .hold && $0.action != .none })?.action)
+                hold: mappings.first(where: { $0.trigger == .hold && $0.action != .none && !$0.action.isScrollOutput })?.action)
             return (actions.click != nil || actions.doubleClick != nil || actions.hold != nil)
                 ? actions : nil
+        }
+        // The hold-and-scroll button (if any): trigger == .hold with a `.scrollOutput` action.
+        if let m = config.mappings.first(where: { $0.trigger == .hold }),
+           case let .scrollOutput(output) = m.action {
+            holdScrollOutput = output
+        } else {
+            holdScrollOutput = nil
         }
         (captureCancellation, keyboardCaptureCancellation) = cancelCaptureLocked()
         let keyboardTap = keyboardCaptureTap
@@ -427,8 +452,17 @@ final class EventTapEngine {
         ) { [weak self] _ in
             self?.handleButtonTriggerTimer()
         }
+        // Edge-scroll ticker: ~30 Hz while the feature is enabled (the handler itself no-ops
+        // instantly when it isn't). Always scheduled — toggling the setting then just flips a
+        // flag; recreating timers per toggle would be needless lifecycle.
+        let edgeScrollTimer = CFRunLoopTimerCreateWithHandler(
+            kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + 1.0 / 30.0, 1.0 / 30.0, 0, 0
+        ) { [weak self] _ in
+            self?.handleEdgeScrollTick()
+        }
         let runLoop = CFRunLoopGetCurrent()
         CFRunLoopAddTimer(runLoop, triggerTimer, .commonModes)
+        CFRunLoopAddTimer(runLoop, edgeScrollTimer, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
         lock.lock()
         self.tap = tap
@@ -438,6 +472,31 @@ final class EventTapEngine {
         lock.unlock()
         PointerFreeze.shared.install(on: runLoop)
         CFRunLoopRun()
+    }
+
+    /// Edge-scroll tick (tap thread, ~30 Hz): rest the pointer on the screen edge and the page
+    /// scrolls continuously. Posts a synthetic phase-less continuous event (tagged so our own tap
+    /// passes it through) — the same shape a high-res mouse produces.
+    private func handleEdgeScrollTick() {
+        lock.lock()
+        let enabled = edgeScrollEnabled
+        let speed = edgeScrollSpeed
+        lock.unlock()
+        guard enabled else { return }
+        guard let loc = CGEvent(source: nil)?.location else { return }
+        var display: CGDirectDisplayID = 0
+        var count: UInt32 = 0
+        guard CGGetDisplaysWithPoint(loc, 1, &display, &count) == .success, count > 0 else { return }
+        let delta = edgeScrollDetector.tick(pointer: loc, screenBounds: CGDisplayBounds(display),
+                                            now: CACurrentMediaTime(),
+                                            lastRealWheelAt: lastRealWheelAt, speed: speed)
+        guard delta != 0 else { return }
+        guard let event = CGEvent(scrollWheelEvent2Source: scrollSource, units: .pixel,
+                                  wheelCount: 2, wheel1: Int32(delta.rounded()), wheel2: 0,
+                                  wheel3: 0) else { return }
+        event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+        event.setIntegerValueField(.eventSourceUserData, value: ScrollAnimator.syntheticTag)
+        event.post(tap: .cghidEventTap)
     }
 
     private func handleButtonTriggerTimer() {
@@ -565,9 +624,13 @@ final class EventTapEngine {
         spaceDrag.reverse = spaceDragReverse
         spaceDrag.followFinger = spaceDragFollowFinger
         spaceDrag.lockPointer = spaceDragLockPointer
+        holdScroll.output = holdScrollOutput
         lock.unlock()
 
-        if dragCancel { spaceDrag.cancel() } // tap thread — safe to touch the gesture's state
+        if dragCancel {
+            spaceDrag.cancel()
+            holdScroll.cancel()
+        } // tap thread — safe to touch the gesture states
         if cursorFlush { cursorApp.invalidate() }
         if triggerCancel {
             buttonTriggers.cancelAll()
@@ -608,6 +671,8 @@ final class EventTapEngine {
         switch type {
         case .otherMouseDown:
             let button = Int(event.getIntegerValueField(.mouseEventButtonNumber)) + 1
+            // Hold-and-scroll: the button enters scroll-output mode on press — swallow the down.
+            if holdScroll.handleButtonDown(buttonNumber: button) { return nil }
             guard let actions = maps[button] else {
                 if spaceDrag.handleButtonDown(button) { return nil }
                 return Unmanaged.passUnretained(event)
@@ -625,6 +690,8 @@ final class EventTapEngine {
 
         case .otherMouseUp:
             let button = Int(event.getIntegerValueField(.mouseEventButtonNumber)) + 1
+            // Hold-and-scroll release — swallow the up before anything else can react to it.
+            if holdScroll.handleButtonUp(buttonNumber: button) { return nil }
             let up = spaceDrag.handleButtonUp(button)
             if up.consumed {
                 if up.wasClick { post(buttonTriggers.buttonUp(button, at: CACurrentMediaTime())) }
@@ -664,6 +731,21 @@ final class EventTapEngine {
             let phase = event.getIntegerValueField(scrollPhaseField)
             let momentumPhase = event.getIntegerValueField(scrollMomentumPhaseField)
             guard phase == 0, momentumPhase == 0 else { return Unmanaged.passUnretained(event) }
+
+            // A real wheel input — used to reset the edge-scroll rest timer (user input first).
+            lastRealWheelAt = CACurrentMediaTime()
+
+            // Hold-and-scroll: while the configured button is held, wheel input drives the output
+            // (volume ±1 per notch) instead of scrolling the page. Highest priority — before
+            // modifiers, transpose and smoothing.
+            if holdScroll.isActive {
+                let lineV = event.getIntegerValueField(.scrollWheelEventDeltaAxis1)
+                let lineH = event.getIntegerValueField(.scrollWheelEventDeltaAxis2)
+                if lineV != 0 || lineH != 0 {
+                    _ = holdScroll.handleScroll(lineDelta: Double(lineV != 0 ? lineV : lineH))
+                    return nil
+                }
+            }
 
             let isContinuous = event.getIntegerValueField(.scrollWheelEventIsContinuous) != 0
 
@@ -713,12 +795,12 @@ final class EventTapEngine {
                     // the unambiguous field. Same 800 scale: point ≈ fixedPt on the hardware the
                     // constant was tuned on.
                     mag = Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
-                               + event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)) * dir / 800.0
+                               + event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)) * dir * zoomSpeed / 800.0
                 } else {
                     // One notch = one comfortable zoom step ('s medium tick ÷ its 800 scale).
                     let notches = event.getIntegerValueField(.scrollWheelEventDeltaAxis1)
                                 + event.getIntegerValueField(.scrollWheelEventDeltaAxis2)
-                    mag = Double(notches.signum()) * dir * 60.0 / 800.0
+                    mag = Double(notches.signum()) * dir * 60.0 * zoomSpeed / 800.0
                 }
                 let chromium = EventTapEngine.chromiumBundlePrefixes
                     .contains { cursorID?.hasPrefix($0) == true }
