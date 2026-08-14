@@ -11,9 +11,10 @@ import os
 /// unfinished distance, covered by a short bezier whose initial slope equals the current glide
 /// speed (speed smoothing — no velocity jump on retarget) that hands off to a physical drag coast
 /// v' = −a·v^b down to a stop speed. Chained fast swipes multiply the distance exponentially
-/// ("fast scroll"). The drag portion is labeled with momentum phases (trackpad-style)
-/// once the wheel has been quiet past the tick window, so phase-aware apps (Safari…)
-/// treat the coast natively; while ticks keep arriving everything stays one gesture stream.
+/// ("fast scroll"). Glides are emitted as PHASE-LESS continuous pixel events (Mac Mouse Fix's
+/// default behavior): apps treat them like a high-res mouse wheel — smooth, no rubber-band, no
+/// gesture/momentum stream to churn or get stuck in. (The momentum machinery below is dormant
+/// for wheel/hi-res glides; Smooth-step mode still emits a phased gesture stream per step.)
 ///
 /// Smooth-step mode and hi-res pixel mice instead use a critically-damped spring toward an
 /// accumulated target (state = remaining distance + velocity, see `springAdvance`): crisp
@@ -117,11 +118,13 @@ final class ScrollAnimator: NSObject {
     // so the backlog has already drained below the tail by the time events stop.
     private static let pixelInputGrace = 0.10 // s without pixel input before a grab is assumed
     private static let pixelStopTail = 300.0  // px of backlog allowed to finish after a grab
-    // Hi-res glides emit PHASE-LESS continuous events (gesture/momentum fields zero), matching what
-    // the mouse itself sends. Phase-tagged streams let apps rubber-band PAST the page edge — a fast
-    // free-spin overscrolls into blank space and snaps back ("content vanishes, then reappears").
-    // Phase-less events clamp hard at the edge like native mouse scrolling. Wheel glides keep the
-    // phased trackpad stream (per-notch smoothness in phase-aware apps).
+    // Wheel and hi-res glides both emit PHASE-LESS continuous events (gesture/momentum fields
+    // zero), matching what a mouse itself sends (Mac Mouse Fix's default smooth mode works the
+    // same way). Phase-tagged streams let apps rubber-band PAST the page edge — a fast free-spin
+    // overscrolls into blank space and snaps back ("content vanishes, then reappears") — and the
+    // gesture↔momentum churn between slow notches could wedge apps mid-page. Phase-less events
+    // clamp hard at the edge like native mouse scrolling and never open a stream to get stuck in.
+    // Only Smooth-step mode keeps a phased gesture stream (per-notch crisp steps, no coast).
     private var phaselessStream = false
 
     // Hard ceiling on the emitted scroll speed, both glide models. Whatever the input does — a
@@ -144,14 +147,6 @@ final class ScrollAnimator: NSObject {
         return (full * pixelGainKnee + (inputSpeed - pixelGainKnee)) / inputSpeed
     }
     private static let pixelGainKnee = 800.0 // px/s of input speed that still gets the full gain
-
-    /// Pure brake predicate (extracted so it's unit-testable): a reversed notch is consumed as a
-    /// brake only when the input has been quiet past the tick window (it's a coast, not active
-    /// back-and-forth scrolling) AND the glide is still moving fast enough that stopping it is
-    /// what the user means (a nearly-settled crawl reverses normally instead).
-    static func shouldBrakeOnReversal(silence: Double, speed: Double) -> Bool {
-        return silence >= ScrollTuning.tickIntervalMax && speed > 150
-    }
 
     /// A fresh tick landed while the glide was coasting: hand the momentum stream back to a
     /// gesture. Only flags a pending `momentum ended` if that stream actually emitted its `began` —
@@ -204,26 +199,17 @@ final class ScrollAnimator: NSObject {
         let sign: Double = axisIsV ? (lineV > 0 ? 1 : -1) : (lineH > 0 ? 1 : -1)
 
         lock.lock()
-        phaselessStream = false
-        // -style brake: an opposite notch while the glide is COASTING (input quiet past the
-        // tick window, still visibly moving) stops the page dead instead of scrolling back — the
-        // notch is consumed as a brake. Further opposite notches then scroll normally (the plan is
-        // gone and the analyzer resets on the direction change). Reversals during active ticking
-        // (gaps < the tick window) are not brakes — they flip direction immediately as before.
-        if let p = plan, planAxisIsV == axisIsV, planSign != sign {
-            let planTime = min((now - planStart) * planRate, p.duration)
-            if ScrollAnimator.shouldBrakeOnReversal(silence: now - planStart,
-                                                    speed: p.speed(at: planTime) * planRate) {
-                clearPlanLocked()
-                lastMotionTime = now // hold the stream open; the finish path closes it cleanly
-                lock.unlock()
-                return
-            }
-        }
+        // Wheel glides are PHASE-LESS, exactly like Mac Mouse Fix's default smooth mode: plain
+        // continuous pixel events (no gesture/momentum phase fields), i.e. what a high-res mouse
+        // itself sends. Phase-tagged streams made apps churn their own momentum on every slow
+        // notch (gesture→momentum→gesture transitions per tick) and could swallow input mid-way —
+        // the "stuck for a moment in the middle of a page" artifact. Phase-less events also clamp
+        // hard at page edges like native mouse scrolling, with no rubber-band state to wedge.
+        phaselessStream = true
         // The plan drives Smooth motion; any spring leftovers (mode switch mid-glide) would double-post.
         remV = 0; remH = 0; velV = 0; velH = 0
-        // A tick mid-coast "catches" the glide, like touching a coasting trackpad: close the momentum
-        // stream (posted by the link thread) and reopen a gesture. Velocity carries over — no stutter.
+        // A tick mid-coast re-plans the glide; with a phase-less stream there is no gesture or
+        // momentum sequence to close (interruptMomentumLocked is a no-op while mode stays .gesture).
         interruptMomentumLocked()
 
         // Tick rate → px for this notch; chained fast swipes multiply it ( fast scroll).
@@ -621,6 +607,8 @@ final class ScrollAnimator: NSObject {
             // wheel has been quiet past the tick window (each notch resets `planStart`) and only
             // for frames that lie ENTIRELY inside the drag portion — so steady ticking stays one
             // gesture stream instead of churning ended→momentum→began between notches.
+            // DORMANT for wheel/hi-res glides: `phaselessStream` keeps `phaseStarted` false, so the
+            // handoff below can never fire; retained for Smooth-step's phased gesture stream.
             wantMomentum = (now - planStart) >= ScrollTuning.tickIntervalMax
                 && p.inDragPhase(at: planPrevTime) && p.inDragPhase(at: planTime)
             planPrevTime = planTime
@@ -785,7 +773,8 @@ final class ScrollAnimator: NSObject {
         event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: preciseH / lineUnit)
         event.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: Int64(intV))
         event.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: Int64(intH))
-        // Stamp the phases so phase-aware apps (Safari) render a coherent gesture + coast, not jumps.
+        // Stamp the phases (both zero for phase-less wheel/hi-res glides; only Smooth-step's
+        // gesture stream carries them), so phase-aware apps see a coherent stream, not jumps.
         // At most one of the two is nonzero at a time — a real trackpad stream looks the same.
         event.setIntegerValueField(scrollPhaseField, value: gesturePhase)
         event.setIntegerValueField(momentumPhaseField, value: momentumPhase)
