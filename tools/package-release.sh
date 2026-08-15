@@ -25,8 +25,9 @@ echo "==> building ${APP_NAME} ${VERSION}"
 echo "==> zipping ${APP} -> ${ZIP}"
 mkdir -p dist
 rm -f "$ZIP"
-# ditto --keepParent preserves the .app bundle structure and code signature (plain `zip` can mangle it).
-ditto -c -k --keepParent "$APP" "$ZIP"
+# Keep the bundle structure and embedded signature files, but omit external-disk metadata that
+# otherwise appears as `._*` AppleDouble entries in the public archive.
+ditto -c -k --keepParent --norsrc --noextattr --noqtn --noacl "$APP" "$ZIP"
 
 SHA="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
 echo "==> sha256: ${SHA}"

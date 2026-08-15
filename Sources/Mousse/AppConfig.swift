@@ -118,6 +118,32 @@ struct ButtonMapping: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
+/// Per-app scroll exceptions. The two switches are independent: Mousse scrolling controls the
+/// optimized processing chain, while reverse scrolling can flip an otherwise native wheel stream.
+struct ScrollAppProfile: Codable, Identifiable, Equatable, Sendable {
+    var id = UUID()
+    var bundleID: String
+    var mousseScrollEnabled = false
+    var reverseScroll = false
+
+    init(id: UUID = UUID(), bundleID: String,
+         mousseScrollEnabled: Bool = false, reverseScroll: Bool = false) {
+        self.id = id
+        self.bundleID = bundleID
+        self.mousseScrollEnabled = mousseScrollEnabled
+        self.reverseScroll = reverseScroll
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        bundleID = try c.decode(String.self, forKey: .bundleID)
+        mousseScrollEnabled = (try? c.decodeIfPresent(Bool.self,
+                                                       forKey: .mousseScrollEnabled)) ?? false
+        reverseScroll = (try? c.decodeIfPresent(Bool.self, forKey: .reverseScroll)) ?? false
+    }
+}
+
 /// The whole persisted configuration. Plain Codable value stored as JSON — no keychain,
 /// no license, survives rebuilds.
 /// `Equatable` so `ConfigStore` can skip the save + engine reload when an assignment changes
@@ -151,6 +177,7 @@ struct AppConfig: Codable, Sendable, Equatable {
     var spaceDragLockPointer: Bool = true // anchor the pointer at the drag's origin while
                                           // dragging (MMF "lock pointer during drag")
     var excludedBundleIDs: [String] = [] // apps where every Mousse scroll transform is bypassed
+    var scrollAppProfiles: [ScrollAppProfile] = []
     var verticalToHorizontalBundleIDs: [String] = [] // apps where the scroll axes are SWAPPED (the
                                          // wheel scrolls horizontally): purpose-built for
                                          // horizontal-first browsers like Nimble Commander's Brief
@@ -180,7 +207,7 @@ extension AppConfig {
         case edgeScroll, edgeScrollSpeed, autoScrollSpeed, autoScrollBaseSpeed, autoScrollClickDelay
         case showAutoScrollHUD
         case spaceDragButton, spaceDragThreshold, spaceDragReverse, spaceDragFollowFinger, spaceDragLockPointer
-        case excludedBundleIDs, verticalToHorizontalBundleIDs, configuredButtons, mappings
+        case excludedBundleIDs, scrollAppProfiles, verticalToHorizontalBundleIDs, configuredButtons, mappings
         case pointerControlEnabled, pointerAccelerationEnabled, pointerSpeedMultiplier
         case pointerAppProfiles
     }
@@ -227,6 +254,10 @@ extension AppConfig {
         spaceDragFollowFinger = field(Bool.self, .spaceDragFollowFinger) ?? spaceDragFollowFinger
         spaceDragLockPointer   = field(Bool.self, .spaceDragLockPointer)   ?? spaceDragLockPointer
         excludedBundleIDs  = field([String].self, .excludedBundleIDs) ?? excludedBundleIDs
+        if c.contains(.scrollAppProfiles),
+           let decodedProfiles = field([Lossy<ScrollAppProfile>].self, .scrollAppProfiles) {
+            scrollAppProfiles = decodedProfiles.compactMap(\.value)
+        }
         verticalToHorizontalBundleIDs = field([String].self, .verticalToHorizontalBundleIDs) ?? verticalToHorizontalBundleIDs
         if c.contains(.mappings) {
             if let decodedMappings = field([Lossy<ButtonMapping>].self, .mappings) {
@@ -283,6 +314,7 @@ extension AppConfig {
         try c.encode(spaceDragFollowFinger, forKey: .spaceDragFollowFinger)
         try c.encode(spaceDragLockPointer, forKey: .spaceDragLockPointer)
         try c.encode(excludedBundleIDs, forKey: .excludedBundleIDs)
+        try c.encode(scrollAppProfiles, forKey: .scrollAppProfiles)
         try c.encode(verticalToHorizontalBundleIDs, forKey: .verticalToHorizontalBundleIDs)
         try c.encode(configuredButtons, forKey: .configuredButtons)
         try c.encode(mappings, forKey: .mappings)

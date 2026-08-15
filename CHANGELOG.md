@@ -2,6 +2,19 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.18.1] - 2026-08-15
+
+### 修复 / Fixed
+
+- **应用滚动开关独立生效**：关闭某个应用的 Mousse 滚动优化后，仍可单独启用反向滚动；只有两个开关都关闭时才会完全原样传递滚轮事件。
+- **Independent app scrolling switches**: reverse scrolling can now stay enabled when Mousse scrolling optimization is off. Wheel input is passed through unchanged only when both switches are off.
+- **Parallels 虚拟机滚动**：仅反向时保留原始滚动幅度和按键修饰状态，不进入平滑、速度、加速度、缩放或轴转换处理。
+- **Parallels virtual-machine scrolling**: reverse-only mode preserves the native scroll magnitude and modifier flags without entering smoothing, speed, acceleration, zoom, or axis-transpose processing.
+- **自动发布**：推送版本 tag 后由 GitHub Actions 验证并发布 Release，同时移除 ZIP 中外置磁盘产生的 `._*` 元数据文件。
+- **Automated releases**: version tags now publish a validated GitHub Release through Actions, and release ZIPs omit `._*` metadata generated on external disks.
+
+[0.18.1]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.18.1
+
 ## [0.18.0] - 2026-08-15
 
 ### 新增 / Added
@@ -14,6 +27,8 @@
 - **Pointer diagnostics**: Diagnostics now reports management state, matched profile, target acceleration and speed, applied mouse count, and unavailable, failed, or externally drifted states.
 - **系统设置协调**：接管期间若系统或其他工具修改了鼠标 HID 状态，Mousse 会逐属性保留为新的恢复基准而不反复抢写；“指针”页可采用该基准并重新应用当前配置。
 - **System-settings coordination**: if the system or another utility changes mouse HID state during management, Mousse preserves each changed property as the new restore baseline without continuously fighting it. The Pointer tab can adopt that baseline and reapply the current profile.
+- **应用滚动设置**：滚动页面的应用例外现在可分别开启 Mousse 滚动和反向滚动；Mousse 滚动继续使用全局模式与速度，旧排除列表会保持原生滚动行为。
+- **Per-app scrolling**: app exceptions on the Scroll tab can now enable Mousse scrolling and reverse direction independently. Mousse scrolling continues to use the global mode and speed, while legacy exclusions retain native scrolling behavior.
 
 ### 说明 / Notes
 

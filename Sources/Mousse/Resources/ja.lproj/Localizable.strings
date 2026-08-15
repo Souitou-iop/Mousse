@@ -164,10 +164,12 @@
 "buttons.removeButtonMessage" = "このボタンと、そのすべてのトリガー割り当てが削除されます。";
 "buttons.doubleClickInterval" = "ダブルクリック間隔：%d ms";
 "buttons.holdDuration" = "長押し時間：%d ms";
-"apps.excluded" = "除外するアプリ";
-"apps.noExcluded" = "除外するアプリはありません";
-"apps.exclude" = "除外";
-"apps.excludedDescription" = "ポインタがこれらのアプリ上にある間、Mousse はマウスホイール入力を完全にそのまま通します。なめらか、速度、加速度、反転、軸入れ替え、スクロール修飾キーはすべて無効になります。ターミナルアプリ（Terminal、iTerm2、kitty、WezTerm、Ghostty、Alacritty など）は常に除外されます。";
+"apps.excluded" = "アプリ別スクロール";
+"apps.noExcluded" = "アプリ別スクロール設定はありません";
+"apps.exclude" = "追加";
+"apps.excludedDescription" = "Mousse スクロールはグローバルのモードと速度を使用します。逆方向スクロールは独立して有効にでき、両方オフにするとホイールをそのまま通します。ターミナルアプリは常にネイティブスクロールを使用します。";
+"apps.mousseScroll" = "Mousse スクロール";
+"apps.reverseScroll" = "逆方向スクロール";
 "apps.axisSwap" = "垂直スクロールを水平にするアプリ";
 "apps.noAxisSwap" = "軸入れ替えアプリはありません";
 "apps.axisSwapDescription" = "ポインタがこれらのアプリ上にある間、垂直ホイールは水平スクロールになります（チルトホイールは垂直）。なめらか、反転、速度は引き続き有効です。Nimble Commander の Brief モードなど、横方向のコンテンツが多いビュー向けです。";

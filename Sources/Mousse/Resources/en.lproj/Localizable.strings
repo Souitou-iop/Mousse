@@ -164,10 +164,12 @@
 "buttons.removeButtonMessage" = "This removes the button and all of its trigger mappings.";
 "buttons.doubleClickInterval" = "Double-click interval: %d ms";
 "buttons.holdDuration" = "Hold duration: %d ms";
-"apps.excluded" = "Excluded apps";
-"apps.noExcluded" = "No excluded apps";
-"apps.exclude" = "Exclude";
-"apps.excludedDescription" = "While the pointer is over these apps, Mousse leaves mouse-wheel input completely untouched. Smoothing, speed, acceleration, reverse direction, axis swapping, and scroll modifiers are all disabled there. Terminal apps (Terminal, iTerm2, kitty, WezTerm, Ghostty, Alacritty, …) are always excluded.";
+"apps.excluded" = "App scrolling";
+"apps.noExcluded" = "No app-specific scrolling";
+"apps.exclude" = "Add";
+"apps.excludedDescription" = "Mousse scrolling uses the global mode and speed. Reverse scrolling can be enabled independently; turn both off to pass the wheel through unchanged. Terminal apps always use native scrolling.";
+"apps.mousseScroll" = "Mousse scrolling";
+"apps.reverseScroll" = "Reverse scrolling";
 "apps.axisSwap" = "Vertical → horizontal apps";
 "apps.noAxisSwap" = "No axis-swap apps";
 "apps.axisSwapDescription" = "While the pointer is over these apps, vertical wheel scrolling scrolls horizontally (and tilt scrolls vertically). Smoothing, reverse and speed all still apply — made for Nimble Commander's Brief mode and other horizontal-first views.";

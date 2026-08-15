@@ -78,8 +78,8 @@ open build/Mousse.app
 
 ## 使用
 
-启动应用后它会常驻菜单栏（不显示 Dock 图标）。打开 **设置**（⌘,）可看到四个标签页：
-**常规**、**按钮**、**滚动** 和 **手势**。
+启动应用后它会常驻菜单栏（不显示 Dock 图标）。打开 **设置**（⌘,）可看到五个标签页：
+**常规**、**按钮**、**滚动**、**指针** 和 **手势**。
 
 ## 开发
 
@@ -90,7 +90,11 @@ swift test
 # 打包发布版本：构建、压缩并生成 sha256（仅本地）
 tools/package-release.sh
 
-# 同时创建 GitHub Release 并上传压缩包
+# 推送版本 tag 后，GitHub Actions 会验证并发布 Release
+git tag vX.Y.Z
+git push origin vX.Y.Z
+
+# 手动发布备用方式
 tools/package-release.sh --publish
 ```
 

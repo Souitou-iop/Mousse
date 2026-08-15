@@ -164,10 +164,12 @@
 "buttons.removeButtonMessage" = "这会删除该按钮及其全部触发方式映射。";
 "buttons.doubleClickInterval" = "双击间隔：%d 毫秒";
 "buttons.holdDuration" = "长按时长：%d 毫秒";
-"apps.excluded" = "排除的应用";
-"apps.noExcluded" = "暂无排除的应用";
-"apps.exclude" = "排除";
-"apps.excludedDescription" = "指针位于这些应用上时，Mousse 会完全保持鼠标滚轮输入原样通过，不应用平滑、速度、加速、反向、轴向交换或滚动修饰键。终端应用（Terminal、iTerm2、kitty、WezTerm、Ghostty、Alacritty 等）始终排除。";
+"apps.excluded" = "应用滚动";
+"apps.noExcluded" = "暂无应用滚动设置";
+"apps.exclude" = "添加";
+"apps.excludedDescription" = "Mousse 滚动使用全局模式和速度；反向滚动可独立开启，两个开关都关闭时原样传递滚轮。终端应用始终使用原生滚动。";
+"apps.mousseScroll" = "Mousse 滚动";
+"apps.reverseScroll" = "反向滚动";
 "apps.axisSwap" = "垂直滚动改为水平滚动的应用";
 "apps.noAxisSwap" = "暂无轴向交换应用";
 "apps.axisSwapDescription" = "指针位于这些应用上时，垂直滚轮会进行水平滚动（倾斜滚轮则进行垂直滚动）。平滑、反向和速度设置仍然有效，适合 Nimble Commander 的 Brief 模式等以横向内容为主的视图。";

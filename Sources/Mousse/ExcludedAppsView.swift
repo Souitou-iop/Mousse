@@ -1,17 +1,71 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Apps where Mousse leaves physical wheel events completely untouched.
+/// Per-app scroll exceptions with only the two controls that differ from global behavior.
 struct ExcludedAppsView: View {
     @EnvironmentObject var store: ConfigStore
 
     var body: some View {
-        AppListSection(
-            title: Localized.text("apps.excluded"),
-            emptyLabel: Localized.text("apps.noExcluded"),
-            addPrompt: Localized.text("apps.exclude"),
-            footer: Localized.text("apps.excludedDescription"),
-            bundleIDs: $store.config.excludedBundleIDs)
+        Section(Localized.text("apps.excluded")) {
+            if store.config.scrollAppProfiles.isEmpty {
+                Text(Localized.text("apps.noExcluded"))
+                    .foregroundStyle(.secondary)
+            }
+            ForEach($store.config.scrollAppProfiles) { $profile in
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        AppRow(bundleID: profile.bundleID)
+                        Spacer()
+                        Button {
+                            store.config.scrollAppProfiles.removeAll { $0.id == profile.id }
+                        } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(Localized.text("apps.remove"))
+                    }
+                    Toggle(Localized.text("apps.mousseScroll"),
+                           isOn: $profile.mousseScrollEnabled)
+                    Toggle(Localized.text("apps.reverseScroll"),
+                           isOn: $profile.reverseScroll)
+                }
+            }
+            Button(Localized.text("apps.add"), action: addApp)
+            Text(Localized.text("apps.excludedDescription"))
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .onAppear(perform: migrateLegacyExclusions)
+    }
+
+    private func migrateLegacyExclusions() {
+        guard !store.config.excludedBundleIDs.isEmpty else { return }
+        var config = store.config
+        let existing = Set(config.scrollAppProfiles.map(\.bundleID))
+        config.scrollAppProfiles.append(contentsOf: config.excludedBundleIDs
+            .filter { !existing.contains($0) }
+            .map { ScrollAppProfile(bundleID: $0) })
+        config.excludedBundleIDs = []
+        store.config = config
+    }
+
+    private func addApp() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = Localized.text("apps.exclude")
+        guard panel.runModal() == .OK else { return }
+        let existing = Set(store.config.scrollAppProfiles.map(\.bundleID))
+        for url in panel.urls {
+            guard let id = Bundle(url: url)?.bundleIdentifier,
+                  !existing.contains(id),
+                  !store.config.scrollAppProfiles.contains(where: { $0.bundleID == id }) else {
+                continue
+            }
+            store.config.scrollAppProfiles.append(ScrollAppProfile(bundleID: id))
+        }
     }
 }
 

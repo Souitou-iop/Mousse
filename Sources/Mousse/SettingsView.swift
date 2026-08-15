@@ -107,7 +107,7 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.18.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.18.1"
     }
 
     private var buttonsTab: some View {
@@ -220,9 +220,7 @@ struct SettingsView: View {
                 Text(Localized.text("scroll.modifierDescription"))
                     .font(.caption)
             }
-            if store.config.scrollMode != .standard {
-                ExcludedAppsView()
-            }
+            ExcludedAppsView()
             TransposedAppsView() // axis-swap works in every scroll mode, including Standard
         }
         .formStyle(.grouped)

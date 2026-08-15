@@ -164,10 +164,12 @@
 "buttons.removeButtonMessage" = "이 버튼과 모든 트리거 매핑이 삭제됩니다.";
 "buttons.doubleClickInterval" = "더블 클릭 간격: %d ms";
 "buttons.holdDuration" = "길게 누름 시간: %d ms";
-"apps.excluded" = "제외 앱";
-"apps.noExcluded" = "제외 앱 없음";
-"apps.exclude" = "제외";
-"apps.excludedDescription" = "포인터가 이 앱 위에 있으면 Mousse는 마우스 휠 입력을 그대로 통과시킵니다. 부드러움, 속도, 가속, 반전, 축 교체, 스크롤 보조 키가 모두 비활성화됩니다. 터미널 앱(Terminal, iTerm2, kitty, WezTerm, Ghostty, Alacritty 등)은 항상 제외됩니다.";
+"apps.excluded" = "앱별 스크롤";
+"apps.noExcluded" = "앱별 스크롤 설정 없음";
+"apps.exclude" = "추가";
+"apps.excludedDescription" = "Mousse 스크롤은 전역 모드와 속도를 사용합니다. 반대 방향 스크롤은 독립적으로 켤 수 있으며 두 옵션을 모두 끄면 휠을 그대로 전달합니다. 터미널 앱은 항상 기본 스크롤을 사용합니다.";
+"apps.mousseScroll" = "Mousse 스크롤";
+"apps.reverseScroll" = "반대 방향 스크롤";
 "apps.axisSwap" = "세로 스크롤을 가로로 바꿀 앱";
 "apps.noAxisSwap" = "축 교체 앱 없음";
 "apps.axisSwapDescription" = "포인터가 이 앱 위에 있으면 세로 휠이 가로로 스크롤됩니다(틸트 휠은 세로). 부드러움, 반전, 속도는 계속 적용됩니다. Nimble Commander의 Brief 모드처럼 가로 콘텐츠가 많은 뷰에 적합합니다.";

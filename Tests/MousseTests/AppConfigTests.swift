@@ -22,6 +22,7 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.showAutoScrollHUD, true)
         XCTAssertEqual(decoded.autoScrollClickDelay, 0.20, accuracy: 1e-9)
         XCTAssertEqual(decoded.reverseScroll, false)
+        XCTAssertTrue(decoded.scrollAppProfiles.isEmpty)
         XCTAssertEqual(decoded.mappings.count, AppConfig.defaultMappings.count)
         XCTAssertFalse(decoded.pointerControlEnabled)
         XCTAssertTrue(decoded.pointerAccelerationEnabled)
@@ -76,6 +77,10 @@ final class AppConfigTests: XCTestCase {
         config.spaceDragThreshold = 250
         config.spaceDragReverse = true
         config.excludedBundleIDs = ["info.filesmanager.Files", "com.example.other"]
+        config.scrollAppProfiles = [
+            ScrollAppProfile(bundleID: "com.apple.Safari",
+                             mousseScrollEnabled: true, reverseScroll: true),
+        ]
         config.verticalToHorizontalBundleIDs = ["info.filesmanager.Files"]
         config.scrollSmoothness = .floaty
         config.configuredButtons = [3, 6]
@@ -99,6 +104,7 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.spaceDragThreshold, 250, accuracy: 1e-9)
         XCTAssertEqual(decoded.spaceDragReverse, true)
         XCTAssertEqual(decoded.excludedBundleIDs, ["info.filesmanager.Files", "com.example.other"])
+        XCTAssertEqual(decoded.scrollAppProfiles, config.scrollAppProfiles)
         XCTAssertEqual(decoded.verticalToHorizontalBundleIDs, ["info.filesmanager.Files"])
         XCTAssertEqual(decoded.scrollSmoothness, .floaty)
         XCTAssertEqual(decoded.configuredButtons, [3, 6])
@@ -118,6 +124,7 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.scrollLines, 3)
         XCTAssertEqual(decoded.smoothHighRes, false)
         XCTAssertEqual(decoded.excludedBundleIDs, [])
+        XCTAssertTrue(decoded.scrollAppProfiles.isEmpty)
         XCTAssertEqual(decoded.verticalToHorizontalBundleIDs, [])
         XCTAssertEqual(decoded.scrollSmoothness, .balanced)
         XCTAssertEqual(decoded.mappings.count, AppConfig.defaultMappings.count)
@@ -396,6 +403,19 @@ final class AppConfigTests: XCTestCase {
         XCTAssertNil(object["perAppMappings"])
     }
 
+    func testConfigImportRejectsDuplicateScrollProfiles() throws {
+        let json = #"{"scrollAppProfiles":[{"bundleID":"com.apple.Safari"},{"bundleID":"com.apple.Safari"}]}"#
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try json.data(using: .utf8)!.write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        XCTAssertThrowsError(try ConfigTransfer.importConfig(from: url)) { error in
+            XCTAssertEqual(error as? ConfigTransferError,
+                           .duplicateAppProfile("com.apple.Safari"))
+        }
+    }
+
     /// Auto-scroll base speed clamps to its UI range on decode.
     func testAutoScrollBaseSpeedClamps() throws {
         let low = try JSONDecoder().decode(AppConfig.self,
@@ -419,11 +439,47 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(mid.zoomSpeed, 1.7, accuracy: 1e-9)
     }
 
-    func testScrollExclusionMatchHasPriority() {
+    func testScrollAppSettingsUseGlobalValuesWithoutOverride() {
         let excluded: Set<String> = ["com.example.Editor"]
-        XCTAssertTrue(EventTapEngine.isScrollExcluded("com.example.Editor", from: excluded))
-        XCTAssertFalse(EventTapEngine.isScrollExcluded("com.example.Browser", from: excluded))
-        XCTAssertFalse(EventTapEngine.isScrollExcluded(nil, from: excluded))
+        XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(
+            bundleID: "com.example.Browser", profiles: [:], excluded: excluded,
+            globalReverse: true),
+            .init(mousseScrollEnabled: true, reverseScroll: true))
+        XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(
+            bundleID: "com.example.Editor", profiles: [:], excluded: excluded,
+            globalReverse: true),
+            .init(mousseScrollEnabled: false, reverseScroll: false))
+    }
+
+    func testScrollAppProfileOverridesMousseScrollingAndReverse() {
+        let normal = ScrollAppProfile(
+            bundleID: "com.example.Normal", mousseScrollEnabled: true, reverseScroll: false)
+        let reversed = ScrollAppProfile(
+            bundleID: "com.example.Reversed", mousseScrollEnabled: true, reverseScroll: true)
+        let native = ScrollAppProfile(
+            bundleID: "com.example.Native", mousseScrollEnabled: false, reverseScroll: true)
+        let profiles = Dictionary(uniqueKeysWithValues:
+            [normal, reversed, native].map { ($0.bundleID, $0) })
+
+        XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(
+            bundleID: normal.bundleID, profiles: profiles, excluded: [], globalReverse: true),
+            .init(mousseScrollEnabled: true, reverseScroll: false))
+        XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(
+            bundleID: reversed.bundleID, profiles: profiles, excluded: [], globalReverse: false),
+            .init(mousseScrollEnabled: true, reverseScroll: true))
+        XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(
+            bundleID: native.bundleID, profiles: profiles, excluded: [], globalReverse: false),
+            .init(mousseScrollEnabled: false, reverseScroll: true))
+    }
+
+    func testTerminalScrollAlwaysUsesNativeInput() {
+        let terminal = ScrollAppProfile(
+            bundleID: "com.apple.Terminal", mousseScrollEnabled: true, reverseScroll: true)
+        XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(
+            bundleID: terminal.bundleID,
+            profiles: [terminal.bundleID: terminal],
+            excluded: [], globalReverse: true),
+            .init(mousseScrollEnabled: false, reverseScroll: false))
     }
 
     // MARK: - Config export/import

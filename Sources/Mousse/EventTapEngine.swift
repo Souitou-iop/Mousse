@@ -88,6 +88,7 @@ final class EventTapEngine {
     private var captureDeadline = 0.0
     private static let captureMaxDuration = 30.0
     private var excludedBundleIDs: Set<String> = []
+    private var scrollAppProfiles: [String: ScrollAppProfile] = [:]
 
     /// Terminal emulators are always excluded from smoothing (merged with the user's list).
     /// They are line-grid UIs that translate accumulated scroll PIXELS into mouse-reporting
@@ -458,6 +459,11 @@ final class EventTapEngine {
         spaceDragFollowFinger = config.spaceDragFollowFinger
         spaceDragLockPointer = config.spaceDragLockPointer
         excludedBundleIDs = Set(config.excludedBundleIDs).union(EventTapEngine.terminalBundleIDs)
+        var compiledScrollProfiles: [String: ScrollAppProfile] = [:]
+        for profile in config.scrollAppProfiles {
+            compiledScrollProfiles[profile.bundleID] = profile
+        }
+        scrollAppProfiles = compiledScrollProfiles
         verticalToHorizontalBundleIDs = Set(config.verticalToHorizontalBundleIDs)
         buttonMappings = CompiledButtonMappings(config.mappings)
         (captureCancellation, keyboardCaptureCancellation) = cancelCaptureLocked()
@@ -780,7 +786,7 @@ final class EventTapEngine {
         let on = enabled
         let capturing = captureKind == .mouse
         let mappings = buttonMappings
-        let reverse = reverseScroll
+        let globalReverse = reverseScroll
         let mode = scrollMode
         let smoothness = scrollSmoothness
         let speed = scrollSpeed
@@ -791,6 +797,7 @@ final class EventTapEngine {
         let holdTime = holdDuration
         let autoClickDelay = autoScrollClickDelay
         let excluded = excludedBundleIDs
+        let appScrollProfiles = scrollAppProfiles
         let vToH = verticalToHorizontalBundleIDs
         let dragCancel = pendingDragCancel
         let autoScrollCancel = pendingAutoScrollCancel
@@ -991,12 +998,31 @@ final class EventTapEngine {
             let smoothingPossible = isContinuous
                 ? (smoothHiRes && (mode == .smooth || mode == .smoothStep))
                 : (modQuick || modPrecise || mode == .smooth || mode == .smoothStep)
-            let needsCursorID = !excluded.isEmpty || modZoom || !vToH.isEmpty || smoothingPossible
+            let needsCursorID = !excluded.isEmpty || !appScrollProfiles.isEmpty
+                || modZoom || !vToH.isEmpty || smoothingPossible
             let cursorID = needsCursorID ? cursorApp.bundleID(at: event.location) : nil
-            // Exclusion wins over every Mousse scroll feature, including modifiers and axis swap.
-            if EventTapEngine.isScrollExcluded(cursorID, from: excluded) {
+            let appSettings = EventTapEngine.resolveScrollAppSettings(
+                bundleID: cursorID,
+                profiles: appScrollProfiles,
+                excluded: excluded,
+                globalReverse: globalReverse)
+            // The two app switches are independent. With only reverse enabled, preserve the
+            // native wheel stream and apply just its direction; do not enable smoothing, speed,
+            // acceleration, zoom, modifiers or axis swapping.
+            if !appSettings.mousseScrollEnabled {
+                if appSettings.reverseScroll {
+                    if isContinuous {
+                        postContinuous(event, gain: -1.0, transpose: false,
+                                       preserveFlags: true)
+                    } else {
+                        postNativeScroll(event, reverse: true, transpose: false,
+                                         preserveFlags: true)
+                    }
+                    return nil
+                }
                 return Unmanaged.passUnretained(event)
             }
+            let reverse = appSettings.reverseScroll
             // Axis-swap app (e.g. Nimble Commander's Brief panels): the wheel's vertical motion
             // should scroll HORIZONTALLY. We transpose the axes ourselves, so smoothing keeps
             // working — no need to rely on AppKit's transposition (which rejects phased gestures).
@@ -1106,22 +1132,7 @@ final class EventTapEngine {
                 // in Standard). So build a FRESH wheel event carrying the reversed and/or
                 // axis-swapped line, pixel and fixed-point deltas, tag it so our tap skips it,
                 // post it, and swallow the original. (`lineV`/`lineH` are already adjusted above.)
-                guard let out = CGEvent(scrollWheelEvent2Source: scrollSource, units: .line,
-                                        wheelCount: 2, wheel1: int32Clamped(lineV),
-                                        wheel2: int32Clamped(lineH),
-                                        wheel3: 0) else { return Unmanaged.passUnretained(event) }
-                let sign: Int64 = reverse ? -1 : 1
-                let p1 = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
-                let p2 = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)
-                let f1 = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)
-                let f2 = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)
-                out.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: sign * (transpose ? p2 : p1))
-                out.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: sign * (transpose ? p1 : p2))
-                out.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: Double(sign) * (transpose ? f2 : f1))
-                out.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: Double(sign) * (transpose ? f1 : f2))
-                out.setIntegerValueField(.eventSourceUserData, value: ScrollAnimator.syntheticTag)
-                out.flags = [] // modifiers already applied upstream (Shift = the swap itself)
-                out.post(tap: .cghidEventTap)
+                postNativeScroll(event, reverse: reverse, transpose: transpose)
                 return nil
             }
             return Unmanaged.passUnretained(event)
@@ -1131,8 +1142,35 @@ final class EventTapEngine {
         }
     }
 
-    static func isScrollExcluded(_ bundleID: String?, from excluded: Set<String>) -> Bool {
-        bundleID.map(excluded.contains) == true
+    struct ResolvedScrollAppSettings: Equatable {
+        let mousseScrollEnabled: Bool
+        let reverseScroll: Bool
+    }
+
+    static func resolveScrollAppSettings(
+        bundleID: String?,
+        profiles: [String: ScrollAppProfile],
+        excluded: Set<String>,
+        globalReverse: Bool
+    ) -> ResolvedScrollAppSettings {
+        guard let bundleID else {
+            return ResolvedScrollAppSettings(
+                mousseScrollEnabled: true, reverseScroll: globalReverse)
+        }
+        // Terminal emulators remain hard exclusions because phased/synthetic scrolling can break
+        // their alternate-screen and TUI input handling.
+        if terminalBundleIDs.contains(bundleID) {
+            return ResolvedScrollAppSettings(mousseScrollEnabled: false, reverseScroll: false)
+        }
+        if let profile = profiles[bundleID] {
+            return ResolvedScrollAppSettings(
+                mousseScrollEnabled: profile.mousseScrollEnabled,
+                reverseScroll: profile.reverseScroll)
+        }
+        if excluded.contains(bundleID) {
+            return ResolvedScrollAppSettings(mousseScrollEnabled: false, reverseScroll: false)
+        }
+        return ResolvedScrollAppSettings(mousseScrollEnabled: true, reverseScroll: globalReverse)
     }
 
     private func finishCaptureLocked(_ button: Int) -> ((CaptureOutcome<Int>) -> Void)? {
@@ -1220,7 +1258,8 @@ extension EventTapEngine {
     /// Post a fresh continuous (pixel) event with the slider gain / reverse sign applied and the
     /// axes optionally swapped — for the hi-res path whenever the original can't pass through
     /// unmodified (in-place edits on a passthrough don't stick).
-    fileprivate func postContinuous(_ event: CGEvent, gain: Double, transpose: Bool) {
+    fileprivate func postContinuous(_ event: CGEvent, gain: Double, transpose: Bool,
+                                    preserveFlags: Bool = false) {
         var pV = Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)) * gain
         var pH = Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)) * gain
         // Line/fixedPt outputs are derived from the SAME point-field pixels (sanitized: the tap
@@ -1258,7 +1297,35 @@ extension EventTapEngine {
         out.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: Int64(int32Clamped(pV)))
         out.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: Int64(int32Clamped(pH)))
         out.setIntegerValueField(.eventSourceUserData, value: ScrollAnimator.syntheticTag)
-        out.flags = [] // modifiers already applied upstream (Shift = the swap itself)
+        out.flags = preserveFlags ? event.flags : []
+        out.post(tap: .cghidEventTap)
+    }
+
+    /// Post a fresh notched wheel event with only direction and optional axes applied.
+    fileprivate func postNativeScroll(_ event: CGEvent, reverse: Bool, transpose: Bool,
+                                      preserveFlags: Bool = false) {
+        let sign: Double = reverse ? -1 : 1
+        let rawV = Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis1)) * sign
+        let rawH = Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis2)) * sign
+        let lineV = transpose ? rawH : rawV
+        let lineH = transpose ? rawV : rawH
+        guard let out = CGEvent(scrollWheelEvent2Source: scrollSource, units: .line,
+                                wheelCount: 2, wheel1: int32Clamped(lineV),
+                                wheel2: int32Clamped(lineH), wheel3: 0) else { return }
+        let p1 = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
+        let p2 = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)
+        let f1 = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)
+        let f2 = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)
+        out.setIntegerValueField(.scrollWheelEventPointDeltaAxis1,
+                                  value: Int64(sign) * (transpose ? p2 : p1))
+        out.setIntegerValueField(.scrollWheelEventPointDeltaAxis2,
+                                  value: Int64(sign) * (transpose ? p1 : p2))
+        out.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1,
+                                value: sign * (transpose ? f2 : f1))
+        out.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2,
+                                value: sign * (transpose ? f1 : f2))
+        out.setIntegerValueField(.eventSourceUserData, value: ScrollAnimator.syntheticTag)
+        out.flags = preserveFlags ? event.flags : []
         out.post(tap: .cghidEventTap)
     }
 }

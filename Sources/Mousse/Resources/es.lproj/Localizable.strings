@@ -164,10 +164,12 @@
 "buttons.removeButtonMessage" = "Se quitarán este botón y todas sus asignaciones de disparadores.";
 "buttons.doubleClickInterval" = "Intervalo de doble clic: %d ms";
 "buttons.holdDuration" = "Duración de mantener: %d ms";
-"apps.excluded" = "Apps excluidas";
-"apps.noExcluded" = "Sin apps excluidas";
-"apps.exclude" = "Excluir";
-"apps.excludedDescription" = "Cuando el puntero está sobre estas apps, Mousse deja pasar la rueda sin cambios. Se desactivan suavizado, velocidad, aceleración, inversión, intercambio de ejes y modificadores de desplazamiento. Las apps de terminal (Terminal, iTerm2, kitty, WezTerm, Ghostty, Alacritty…) siempre están excluidas.";
+"apps.excluded" = "Desplazamiento por app";
+"apps.noExcluded" = "Sin ajustes de desplazamiento por app";
+"apps.exclude" = "Añadir";
+"apps.excludedDescription" = "El desplazamiento de Mousse usa el modo y la velocidad globales. La inversión puede activarse por separado; si ambas opciones están desactivadas, la rueda pasa sin cambios. Las apps de terminal siempre usan el desplazamiento nativo.";
+"apps.mousseScroll" = "Desplazamiento de Mousse";
+"apps.reverseScroll" = "Invertir desplazamiento";
 "apps.axisSwap" = "Apps con vertical → horizontal";
 "apps.noAxisSwap" = "Sin apps de intercambio de ejes";
 "apps.axisSwapDescription" = "Cuando el puntero está sobre estas apps, la rueda vertical desplaza horizontalmente (y el tilt, verticalmente). Suavizado, inversión y velocidad siguen aplicándose; pensado para vistas horizontales como el modo Brief de Nimble Commander.";

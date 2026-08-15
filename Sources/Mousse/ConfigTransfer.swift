@@ -34,6 +34,11 @@ enum ConfigTransfer {
             where !bundleIDs.insert(profile.bundleID).inserted {
             throw ConfigTransferError.duplicateAppProfile(profile.bundleID)
         }
+        bundleIDs.removeAll()
+        for profile in config.scrollAppProfiles
+            where !bundleIDs.insert(profile.bundleID).inserted {
+            throw ConfigTransferError.duplicateAppProfile(profile.bundleID)
+        }
         return config
     }
 }
