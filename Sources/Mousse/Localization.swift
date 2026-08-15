@@ -10,7 +10,7 @@ enum AppLanguage: String, Codable, Sendable, CaseIterable {
 
     var label: String {
         switch self {
-        case .system: return Localized.text("general.language.system")
+        case .system: return "System Default"
         case .english: return "English"
         case .simplifiedChinese: return "简体中文"
         case .japanese: return "日本語"
