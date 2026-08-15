@@ -2,6 +2,22 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.19.0] - 2026-08-15
+
+### 新增 / Added
+
+- **macOS 15+ 支持**：最低系统版本由 macOS 26 调整为 macOS 15，Release、Debug staging、SwiftPM 和 GitHub Actions 统一生成 arm64、`minos 15.0` 的应用。
+- **macOS 15+ support**: the minimum system version is now macOS 15. Release and debug staging, SwiftPM, and GitHub Actions consistently produce an arm64 app with `minos 15.0`.
+- **系统外观自适应**：继续使用标准 SwiftUI/AppKit 结构；macOS 15 保持其原生样式，macOS 26 及后续版本由系统自动采用 Liquid Glass 等对应平台外观。
+- **Adaptive system appearance**: standard SwiftUI and AppKit structures remain in use, preserving the native macOS 15 style while allowing macOS 26 and later to adopt Liquid Glass and subsequent system appearances automatically.
+
+### 说明 / Notes
+
+- 使用 macOS 26 SDK 构建以获得新系统适配，同时不调用需要 macOS 26 才能运行的未保护界面 API；自绘自动滚动 HUD 保持透明、低侵入设计。
+- Builds continue to use the macOS 26 SDK for current-system integration without unguarded UI APIs that require macOS 26 at runtime. The custom auto-scroll HUD remains transparent and low-profile.
+
+[0.19.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.19.0
+
 ## [0.18.1] - 2026-08-15
 
 ### 修复 / Fixed

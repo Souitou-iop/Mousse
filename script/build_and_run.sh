@@ -3,7 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="Mousse"
-BUILD_TRIPLE="arm64-apple-macosx26.0"
+BUILD_TRIPLE="arm64-apple-macosx15.0"
+VERSION="$(awk -F'"' '/^VERSION=/ {print $2; exit}' "$ROOT_DIR/build-app.sh")"
+[ -n "$VERSION" ] || { echo "Error: could not read version from build-app.sh" >&2; exit 1; }
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
 APP_BINARY="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 MODE="${1:-run}"
@@ -22,11 +24,9 @@ elif [ -d "/Applications/Xcode-beta.app/Contents/Developer" ]; then
     export DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer"
 fi
 
-if [ -n "${DEVELOPER_DIR:-}" ] && [ -x "$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" ]; then
-    SWIFT="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
-else
-    SWIFT="$(command -v swift)" || { echo "Error: swift not found" >&2; exit 1; }
-fi
+SWIFT="/usr/bin/swift"
+[ -x "$SWIFT" ] || { echo "Error: swift driver not found" >&2; exit 1; }
+SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 
 stop_existing_app() {
     local pid command
@@ -51,8 +51,8 @@ stage_app() {
     local bin_dir source_binary resource_bundle plist
 
     echo "==> building Debug configuration"
-    "$SWIFT" build -c debug --triple "$BUILD_TRIPLE"
-    bin_dir="$("$SWIFT" build -c debug --triple "$BUILD_TRIPLE" --show-bin-path)"
+    "$SWIFT" build -c debug --sdk "$SDK_PATH" --triple "$BUILD_TRIPLE"
+    bin_dir="$("$SWIFT" build -c debug --sdk "$SDK_PATH" --triple "$BUILD_TRIPLE" --show-bin-path)"
     source_binary="$bin_dir/$APP_NAME"
     resource_bundle="$bin_dir/Mousse_Mousse.bundle"
 
@@ -75,10 +75,10 @@ stage_app() {
     plutil -insert CFBundleName -string "$APP_NAME" "$plist"
     plutil -insert CFBundleDisplayName -string "$APP_NAME" "$plist"
     plutil -insert CFBundlePackageType -string "APPL" "$plist"
-    plutil -insert CFBundleShortVersionString -string "0.9.4" "$plist"
-    plutil -insert CFBundleVersion -string "0.9.4" "$plist"
+    plutil -insert CFBundleShortVersionString -string "$VERSION" "$plist"
+    plutil -insert CFBundleVersion -string "$VERSION" "$plist"
     plutil -insert CFBundleIconFile -string "AppIcon" "$plist"
-    plutil -insert LSMinimumSystemVersion -string "26.0" "$plist"
+    plutil -insert LSMinimumSystemVersion -string "15.0" "$plist"
     plutil -insert LSUIElement -bool true "$plist"
     plutil -insert NSPrincipalClass -string "NSApplication" "$plist"
 

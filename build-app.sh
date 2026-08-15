@@ -11,22 +11,20 @@ fi
 [ -d "$DEVELOPER_DIR" ] || { echo "Error: no valid Xcode developer directory" >&2; exit 1; }
 export DEVELOPER_DIR
 
-# Try to find swift executable
-if [ -f "$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift" ]; then
-    SWIFT="$DEVELOPER_DIR/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift"
-else
-    SWIFT="$(which swift)" || { echo "Error: swift not found in PATH or Xcode"; exit 1; }
-fi
+# Use the system driver entry point so DEVELOPER_DIR selects the requested Xcode toolchain.
+SWIFT="/usr/bin/swift"
+[ -x "$SWIFT" ] || { echo "Error: swift driver not found" >&2; exit 1; }
 
 APP_NAME="Mousse"
 BUNDLE_ID="com.mousse.app"
-VERSION="0.18.1"
-BUILD_TRIPLE="arm64-apple-macosx26.0"
+VERSION="0.19.0"
+BUILD_TRIPLE="arm64-apple-macosx15.0"
+SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 OUT="build/${APP_NAME}.app"
 
 echo "==> swift build -c release"
-"$SWIFT" build -c release --triple "$BUILD_TRIPLE"
-BIN="$("$SWIFT" build -c release --triple "$BUILD_TRIPLE" --show-bin-path)/${APP_NAME}"
+"$SWIFT" build -c release --sdk "$SDK_PATH" --triple "$BUILD_TRIPLE"
+BIN="$("$SWIFT" build -c release --sdk "$SDK_PATH" --triple "$BUILD_TRIPLE" --show-bin-path)/${APP_NAME}"
 
 echo "==> assembling ${OUT}"
 rm -rf "$OUT"
@@ -48,7 +46,7 @@ cat > "$OUT/Contents/Info.plist" <<PLIST
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
     <key>CFBundleVersion</key><string>${VERSION}</string>
-    <key>LSMinimumSystemVersion</key><string>26.0</string>
+    <key>LSMinimumSystemVersion</key><string>15.0</string>
     <key>NSHumanReadableCopyright</key><string>Mousse</string>
 </dict>
 </plist>
