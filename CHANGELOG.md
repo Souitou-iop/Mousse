@@ -2,6 +2,17 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.20.0] - 2026-08-16
+
+### 改进 / Improved
+
+- **按键设置页布局居中**：操作选择下拉菜单在触发标签（如“单击 →”）与删除按钮之间自动居中对齐，并适度拓展宽度至 200pt，优化多语言界面下的排版视觉。
+- **Centered button mapping layout**: action popup controls now automatically center between the trigger label (e.g. "Click →") and the delete button, with width refined to 200pt for clean visual alignment across all localized UI strings.
+- **多语言文档体系**：拆分为独立的中、英、日（README.md, README_zh.md, README_ja.md）专属文档页面，并在页面顶部提供一键语言切换导航。
+- **Multilingual documentation**: split documentation into dedicated English, Simplified Chinese, and Japanese README pages with seamless top navigation bar.
+
+[0.20.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.20.0
+
 ## [0.19.0] - 2026-08-15
 
 ### 新增 / Added
