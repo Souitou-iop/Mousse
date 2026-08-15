@@ -60,6 +60,19 @@
 
 ---
 
+## 📸 界面预览
+
+<p align="center">
+  <img src="docs/screenshots/buttons_zh.png" alt="按键设置" width="32%" />
+  <img src="docs/screenshots/scroll_zh.png" alt="滚动与增强设置" width="32%" />
+  <img src="docs/screenshots/pointer_zh.png" alt="指针与加速度设置" width="32%" />
+</p>
+<p align="center">
+  <i>按键动作映射 • 滚动与增强设置 • 指针与加速度管理</i>
+</p>
+
+---
+
 ## 📥 系统要求与安装
 
 ### 系统要求

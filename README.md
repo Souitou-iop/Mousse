@@ -59,6 +59,19 @@ Compared to the upstream project, this fork adds significant capabilities, perfo
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="docs/screenshots/buttons_en.png" alt="Buttons Tab" width="32%" />
+  <img src="docs/screenshots/scroll_en.png" alt="Scroll Tab" width="32%" />
+  <img src="docs/screenshots/pointer_en.png" alt="Pointer Tab" width="32%" />
+</p>
+<p align="center">
+  <i>Buttons Mapping • Scroll & Enhancements • Pointer Acceleration Control</i>
+</p>
+
+---
+
 ## 📥 Requirements & Installation
 
 ### Requirements

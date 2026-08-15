@@ -60,6 +60,19 @@
 
 ---
 
+## 📸 スクリーンショット
+
+<p align="center">
+  <img src="docs/screenshots/buttons_ja.png" alt="ボタン設定" width="32%" />
+  <img src="docs/screenshots/scroll_ja.png" alt="スクロール設定" width="32%" />
+  <img src="docs/screenshots/pointer_ja.png" alt="ポインタ設定" width="32%" />
+</p>
+<p align="center">
+  <i>ボタン割り当て • スクロールと拡張機能 • ポインタ加速と速度管理</i>
+</p>
+
+---
+
 ## 📥 動作環境とインストール
 
 ### 動作環境
