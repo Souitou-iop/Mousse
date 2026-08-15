@@ -268,16 +268,6 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertEqual(mice.map(\.name), ["Alpha (duplicate)", "Zeta"])
     }
 
-    func testMatchedProfileOnlyReturnsExistingPerAppOverride() {
-        let config = AppConfig(perAppMappings: [AppMappings(bundleID: "com.apple.Safari")])
-
-        XCTAssertEqual(
-            DiagnosticProfileResolver.matchedAppBundleID(for: "com.apple.Safari", in: config),
-            "com.apple.Safari")
-        XCTAssertNil(DiagnosticProfileResolver.matchedAppBundleID(for: "com.apple.Terminal", in: config))
-        XCTAssertNil(DiagnosticProfileResolver.matchedAppBundleID(for: nil, in: config))
-    }
-
     func testLastTriggeredActionRecordsLatestButtonAndTime() {
         let date = Date(timeIntervalSince1970: 123)
         let output = ButtonTriggerRecognizer.Output(triggered: [

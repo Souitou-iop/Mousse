@@ -23,6 +23,10 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.autoScrollClickDelay, 0.20, accuracy: 1e-9)
         XCTAssertEqual(decoded.reverseScroll, false)
         XCTAssertEqual(decoded.mappings.count, AppConfig.defaultMappings.count)
+        XCTAssertFalse(decoded.pointerControlEnabled)
+        XCTAssertTrue(decoded.pointerAccelerationEnabled)
+        XCTAssertEqual(decoded.pointerSpeedMultiplier, 1.0, accuracy: 1e-9)
+        XCTAssertTrue(decoded.pointerAppProfiles.isEmpty)
     }
 
     func testEveryLanguageRoundTrips() throws {
@@ -318,6 +322,80 @@ final class AppConfigTests: XCTestCase {
         }
     }
 
+    func testPointerSettingsRoundTripAndLegacyDefaults() throws {
+        let legacy = try JSONDecoder().decode(
+            AppConfig.self, from: #"{}"#.data(using: .utf8)!)
+        XCTAssertFalse(legacy.pointerControlEnabled)
+        XCTAssertTrue(legacy.pointerAccelerationEnabled)
+        XCTAssertEqual(legacy.pointerSpeedMultiplier, 1.0, accuracy: 1e-9)
+        XCTAssertTrue(legacy.pointerAppProfiles.isEmpty)
+
+        var config = AppConfig()
+        config.pointerControlEnabled = true
+        config.pointerAccelerationEnabled = false
+        config.pointerSpeedMultiplier = 1.75
+        config.pointerAppProfiles = [
+            PointerAppProfile(
+                bundleID: "com.apple.Safari", acceleration: .enabled,
+                speedMultiplier: 0.75),
+            PointerAppProfile(bundleID: "com.apple.Terminal", acceleration: .disabled),
+        ]
+
+        let decoded = try roundTrip(config)
+        XCTAssertEqual(decoded.pointerControlEnabled, true)
+        XCTAssertEqual(decoded.pointerAccelerationEnabled, false)
+        XCTAssertEqual(decoded.pointerSpeedMultiplier, 1.75, accuracy: 1e-9)
+        XCTAssertEqual(decoded.pointerAppProfiles, config.pointerAppProfiles)
+    }
+
+    func testPointerSpeedValuesClampDuringDecode() throws {
+        let low = try JSONDecoder().decode(
+            AppConfig.self,
+            from: #"{"pointerSpeedMultiplier":0.1,"pointerAppProfiles":[{"bundleID":"low","speedMultiplier":0.1}]}"#
+                .data(using: .utf8)!)
+        XCTAssertEqual(low.pointerSpeedMultiplier, 0.25, accuracy: 1e-9)
+        XCTAssertEqual(low.pointerAppProfiles[0].speedMultiplier!, 0.25, accuracy: 1e-9)
+
+        let high = try JSONDecoder().decode(
+            AppConfig.self,
+            from: #"{"pointerSpeedMultiplier":8,"pointerAppProfiles":[{"bundleID":"high","speedMultiplier":8}]}"#
+                .data(using: .utf8)!)
+        XCTAssertEqual(high.pointerSpeedMultiplier, 4.0, accuracy: 1e-9)
+        XCTAssertEqual(high.pointerAppProfiles[0].speedMultiplier!, 4.0, accuracy: 1e-9)
+    }
+
+    func testPointerProfileToleratesUnknownOverrideAndInvalidSpeed() throws {
+        let json = #"{"pointerAppProfiles":[{"bundleID":"com.apple.Safari","acceleration":"future","speedMultiplier":"fast"}]}"#
+        let decoded = try JSONDecoder().decode(AppConfig.self, from: json.data(using: .utf8)!)
+
+        XCTAssertEqual(decoded.pointerAppProfiles.count, 1)
+        XCTAssertEqual(decoded.pointerAppProfiles[0].acceleration, .inherit)
+        XCTAssertNil(decoded.pointerAppProfiles[0].speedMultiplier)
+    }
+
+    func testConfigImportRejectsDuplicatePointerProfilesAndIgnoresLegacyButtonProfiles() throws {
+        let duplicate = #"{"pointerAppProfiles":[{"bundleID":"com.apple.Safari"},{"bundleID":"com.apple.Safari"}]}"#
+        let duplicateURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try duplicate.data(using: .utf8)!.write(to: duplicateURL)
+        defer { try? FileManager.default.removeItem(at: duplicateURL) }
+        XCTAssertThrowsError(try ConfigTransfer.importConfig(from: duplicateURL)) { error in
+            XCTAssertEqual(error as? ConfigTransferError,
+                           .duplicateAppProfile("com.apple.Safari"))
+        }
+
+        let independent = #"{"perAppMappings":[{"bundleID":"com.apple.Safari"}],"pointerAppProfiles":[{"bundleID":"com.apple.Safari"}]}"#
+        let independentURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try independent.data(using: .utf8)!.write(to: independentURL)
+        defer { try? FileManager.default.removeItem(at: independentURL) }
+        let imported = try ConfigTransfer.importConfig(from: independentURL)
+        let reencoded = try JSONEncoder().encode(imported)
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: reencoded) as? [String: Any])
+        XCTAssertNil(object["perAppMappings"])
+    }
+
     /// Auto-scroll base speed clamps to its UI range on decode.
     func testAutoScrollBaseSpeedClamps() throws {
         let low = try JSONDecoder().decode(AppConfig.self,
@@ -384,58 +462,4 @@ final class AppConfigTests: XCTestCase {
         }
     }
 
-    func testConfigImportRejectsDuplicateAppProfiles() throws {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString + ".json")
-        defer { try? FileManager.default.removeItem(at: url) }
-        let json = #"{"perAppMappings":[{"bundleID":"com.apple.Safari"},{"bundleID":"com.apple.Safari"}]}"#
-        try Data(json.utf8).write(to: url)
-
-        XCTAssertThrowsError(try ConfigTransfer.importConfig(from: url)) { error in
-            XCTAssertEqual(error as? ConfigTransferError,
-                           .duplicateAppProfile("com.apple.Safari"))
-        }
-    }
-
-    // MARK: - Per-app mappings
-
-    func testPerAppMappingsRoundTrip() throws {
-        var config = AppConfig()
-        config.perAppMappings = [AppMappings(
-            bundleID: "com.apple.Safari",
-            configuredButtons: [4, 5],
-            mappings: [ButtonMapping(buttonNumber: 4, action: .navigateBack)])]
-        XCTAssertEqual(try roundTrip(config).perAppMappings, config.perAppMappings)
-    }
-
-    func testMissingPerAppMappingsDefaultsToEmpty() throws {
-        let decoded = try JSONDecoder().decode(AppConfig.self,
-            from: #"{"enabled":false}"#.data(using: .utf8)!)
-        XCTAssertTrue(decoded.perAppMappings.isEmpty)
-    }
-
-    func testInvalidPerAppMappingsFieldFallsBackToEmpty() throws {
-        let json = #"{"perAppMappings":[{"bundleID":"com.apple.Safari","mappings":"broken"},{"bundleID":"com.google.Chrome"}]}"#
-        let decoded = try JSONDecoder().decode(AppConfig.self, from: json.data(using: .utf8)!)
-        XCTAssertEqual(decoded.perAppMappings.count, 2)
-        XCTAssertEqual(decoded.perAppMappings[0].bundleID, "com.apple.Safari")
-        XCTAssertTrue(decoded.perAppMappings[0].mappings.isEmpty)
-        XCTAssertEqual(decoded.perAppMappings[1].bundleID, "com.google.Chrome")
-    }
-
-    func testBrokenPerAppMappingElementIsDroppedNotFatal() throws {
-        let good = String(data: try JSONEncoder().encode(ButtonMapping(buttonNumber: 4, action: .navigateBack)),
-                          encoding: .utf8)!
-        let json = #"{"perAppMappings":[{"bundleID":"com.apple.Safari","mappings":[\#(good),{"buttonNumber":5,"action":{"warpDrive":{}}}]}]}"#
-        let decoded = try JSONDecoder().decode(AppConfig.self, from: json.data(using: .utf8)!)
-        XCTAssertEqual(decoded.perAppMappings.count, 1)
-        XCTAssertEqual(decoded.perAppMappings[0].mappings.count, 1)
-        XCTAssertEqual(decoded.perAppMappings[0].mappings[0].action, .navigateBack)
-    }
-
-    func testPerAppConfiguredButtonsAreNormalized() throws {
-        let json = #"{"perAppMappings":[{"bundleID":"com.apple.Safari","configuredButtons":[4,2],"mappings":[{"buttonNumber":5,"action":{"navigateForward":{}}}]}]}"#
-        let decoded = try JSONDecoder().decode(AppConfig.self, from: json.data(using: .utf8)!)
-        XCTAssertEqual(decoded.perAppMappings[0].configuredButtons, [4, 5])
-    }
 }

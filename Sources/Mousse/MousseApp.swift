@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Mousse — a lean, single-process menu-bar mouse utility for Apple silicon and macOS 26+.
-/// Original codebase (not derived from any other app); uses only public macOS APIs.
+/// Original codebase (not derived from any other app). Pointer control uses a narrowly wrapped
+/// IOHID service SPI; the rest of the app uses public macOS APIs.
 @main
 struct MousseApp: App {
 
@@ -41,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AccessibilityPermission.request() // shows the system prompt once
         }
         EventTapEngine.shared.start(config: ConfigStore.shared.config)
+        PointerSettingsController.shared.start(config: ConfigStore.shared.config)
         // When the Settings window closes, drop the Dock presence again.
         NotificationCenter.default.addObserver(self, selector: #selector(settingsWindowClosed),
                                                name: NSWindow.willCloseNotification, object: nil)
@@ -65,6 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        PointerSettingsController.shared.stopAndRestore()
         // The config write is debounced; a change made in the last half second is still in flight.
         ConfigStore.shared.flushPendingSave()
     }

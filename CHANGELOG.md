@@ -2,6 +2,31 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.18.0] - 2026-08-15
+
+### 新增 / Added
+
+- **指针控制**：新增独立“指针”页面，可选择由 Mousse 管理 macOS 鼠标加速，并以 `0.25×–4×` 相对倍率调整指针速度；默认关闭，升级后不会自动改变现有鼠标手感。
+- **Pointer control**: a new Pointer tab can let Mousse manage macOS mouse acceleration and adjust pointer speed with a relative `0.25×–4×` multiplier. It is off by default, so upgrading does not change the existing pointer feel.
+- **按应用覆盖**：可按前台应用分别继承、开启或关闭加速，并选择全局或独立速度倍率；按钮映射仍在“按钮”页面全局管理。
+- **Per-app overrides**: each frontmost app can inherit, enable, or disable acceleration and use either the global or a custom speed multiplier. Button mappings remain global in the Buttons tab.
+- **指针诊断**：诊断中心新增接管状态、匹配配置、目标加速与速度、已应用鼠标数量，以及不可用、失败或外部状态漂移提示。
+- **Pointer diagnostics**: Diagnostics now reports management state, matched profile, target acceleration and speed, applied mouse count, and unavailable, failed, or externally drifted states.
+- **系统设置协调**：接管期间若系统或其他工具修改了鼠标 HID 状态，Mousse 会逐属性保留为新的恢复基准而不反复抢写；“指针”页可采用该基准并重新应用当前配置。
+- **System-settings coordination**: if the system or another utility changes mouse HID state during management, Mousse preserves each changed property as the new restore baseline without continuously fighting it. The Pointer tab can adopt that baseline and reapply the current profile.
+
+### 说明 / Notes
+
+- Mousse 仅调整通用鼠标的 macOS HID 软件状态，不读取或修改鼠标板载 DPI，也不会写入触控板。关闭接管、停用 Mousse 或正常退出时会恢复最近的系统基准，并保留接管期间检测到的外部修改。
+- Mousse changes only the macOS HID software state for generic mice. It neither reads nor modifies onboard DPI and does not write to trackpads. Disabling management, disabling Mousse, or quitting normally restores the latest system baseline, including external changes detected during management.
+
+### 移除 / Removed
+
+- **简化应用配置**：移除独立“应用”页面及按应用按钮映射。旧配置中的 `perAppMappings` 会在读取或导入时忽略，并在下次保存或导出时省略；滚动应用例外、横向滚动应用列表及指针按应用配置保持不变。
+- **Simplified app configuration**: removed the standalone Apps tab and per-app button mappings. Legacy `perAppMappings` data is ignored when loading or importing and omitted on the next save or export; scroll app exceptions, horizontal-scroll app lists, and per-app pointer profiles remain available.
+
+[0.18.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.18.0
+
 ## [0.17.0] - 2026-08-15
 
 ### 新增 / Added

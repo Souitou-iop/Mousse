@@ -30,8 +30,9 @@ enum ConfigTransfer {
 
         let config = try JSONDecoder().decode(AppConfig.self, from: data)
         var bundleIDs = Set<String>()
-        for app in config.perAppMappings where !bundleIDs.insert(app.bundleID).inserted {
-            throw ConfigTransferError.duplicateAppProfile(app.bundleID)
+        for profile in config.pointerAppProfiles
+            where !bundleIDs.insert(profile.bundleID).inserted {
+            throw ConfigTransferError.duplicateAppProfile(profile.bundleID)
         }
         return config
     }

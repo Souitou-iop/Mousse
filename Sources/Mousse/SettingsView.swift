@@ -1,7 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The Settings window (⌘,). Three tabs: General, Buttons, Scroll.
+/// The Settings window (⌘,) with five fixed-size preference tabs.
 struct SettingsView: View {
     @EnvironmentObject var store: ConfigStore
     @State private var launchAtLogin = LoginItem.isEnabled
@@ -13,8 +13,8 @@ struct SettingsView: View {
             generalTab.tabItem  { Label(Localized.text("tab.general"), systemImage: "gearshape") }
             buttonsTab.tabItem  { Label(Localized.text("tab.buttons"), systemImage: "computermouse") }
             scrollTab.tabItem   { Label(Localized.text("tab.scroll"), systemImage: "scroll") }
+            pointerTab.tabItem  { Label(Localized.text("tab.pointer"), systemImage: "cursorarrow.motionlines") }
             gesturesTab.tabItem { Label(Localized.text("tab.gestures"), systemImage: "hand.draw") }
-            appsTab.tabItem     { Label(Localized.text("tab.apps"), systemImage: "app.badge") }
         }
         .frame(width: 480, height: 480)
         .padding()
@@ -107,15 +107,11 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.9.4"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.18.0"
     }
 
     private var buttonsTab: some View {
         ButtonMappingsView()
-    }
-
-    private var appsTab: some View {
-        PerAppMappingsView()
     }
 
     private var scrollTab: some View {
@@ -230,6 +226,10 @@ struct SettingsView: View {
             TransposedAppsView() // axis-swap works in every scroll mode, including Standard
         }
         .formStyle(.grouped)
+    }
+
+    private var pointerTab: some View {
+        PointerSettingsView()
     }
 
     private var gesturesTab: some View {

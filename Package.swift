@@ -8,6 +8,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "Mousse",
+            dependencies: ["MousseHIDBridge"],
             path: "Sources/Mousse",
             resources: [.process("Resources")],
             swiftSettings: [
@@ -15,6 +16,12 @@ let package = Package(
                 // without Swift 6 strict-concurrency ceremony. Tighten to .v6 once the engine is stable.
                 .swiftLanguageMode(.v5)
             ]
+        ),
+        .target(
+            name: "MousseHIDBridge",
+            path: "Sources/MousseHIDBridge",
+            publicHeadersPath: "include",
+            linkerSettings: [.linkedFramework("IOKit")]
         ),
         .testTarget(
             name: "MousseTests",

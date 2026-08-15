@@ -21,6 +21,7 @@ final class ConfigStore: ObservableObject {
             // write (encode, temp file, rename) is main-thread I/O nobody needs mid-drag.
             Localized.language = config.language
             EventTapEngine.shared.reload(config)
+            PointerSettingsController.shared.reload(config)
             scheduleSave()
         }
     }

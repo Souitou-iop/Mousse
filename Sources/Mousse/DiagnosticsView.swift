@@ -4,24 +4,24 @@ import SwiftUI
 @MainActor
 private final class DiagnosticsViewModel: ObservableObject {
     @Published var snapshot = EventTapEngine.shared.diagnosticsSnapshot()
+    @Published var pointerSnapshot = PointerDiagnosticsSnapshot.inactive
 
     private let cursorApp = CursorAppResolver()
 
-    func refresh(config: AppConfig) {
+    func refresh() {
         let pointerBundleID: String?
         if let location = CGEvent(source: nil)?.location {
             pointerBundleID = cursorApp.bundleID(at: location)
         } else {
             pointerBundleID = nil
         }
-        snapshot = EventTapEngine.shared.diagnosticsSnapshot(
-            pointerBundleID: pointerBundleID,
-            config: config)
+        snapshot = EventTapEngine.shared.diagnosticsSnapshot(pointerBundleID: pointerBundleID)
+        pointerSnapshot = PointerSettingsController.shared
+            .diagnosticsSnapshot(refreshActual: true)
     }
 }
 
 struct DiagnosticsView: View {
-    @EnvironmentObject private var store: ConfigStore
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model = DiagnosticsViewModel()
 
@@ -44,14 +44,66 @@ struct DiagnosticsView: View {
 
             Form {
                 systemSection
+                pointerSection
                 contextSection
                 mouseSection
             }
             .formStyle(.grouped)
         }
         .frame(width: 540, height: 500)
-        .onAppear { model.refresh(config: store.config) }
-        .onReceive(timer) { _ in model.refresh(config: store.config) }
+        .onAppear { model.refresh() }
+        .onReceive(timer) { _ in model.refresh() }
+    }
+
+    private var pointerSection: some View {
+        Section(Localized.text("diagnostics.pointerSection")) {
+            DiagnosticRow(
+                label: Localized.text("pointer.manage"),
+                value: model.pointerSnapshot.managementEnabled
+                    ? Localized.text("diagnostics.enabled")
+                    : Localized.text("diagnostics.disabled"),
+                systemImage: model.pointerSnapshot.managementEnabled
+                    ? "cursorarrow.motionlines" : "cursorarrow",
+                color: model.pointerSnapshot.managementEnabled ? .green : .secondary)
+            LabeledContent(Localized.text("pointer.matchedProfile")) {
+                Text(pointerProfileDescription)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+            LabeledContent(Localized.text("pointer.targetAcceleration")) {
+                Text(pointerTargetAccelerationDescription)
+                    .foregroundStyle(.secondary)
+            }
+            LabeledContent(Localized.text("pointer.targetSpeed")) {
+                Text(pointerTargetSpeedDescription)
+                    .foregroundStyle(.secondary)
+            }
+            LabeledContent(Localized.text("pointer.appliedAcceleration")) {
+                Text(pointerAccelerationDescription)
+                    .foregroundStyle(.secondary)
+            }
+            LabeledContent(Localized.text("pointer.appliedSpeed")) {
+                Text(pointerSpeedDescription)
+                    .foregroundStyle(.secondary)
+            }
+            LabeledContent(Localized.text("pointer.appliedDevices")) {
+                Text(Localized.format(
+                    "pointer.appliedDevicesValue",
+                    model.pointerSnapshot.appliedDeviceCount,
+                    model.pointerSnapshot.connectedDeviceCount))
+                    .foregroundStyle(.secondary)
+            }
+            LabeledContent(Localized.text("pointer.health")) {
+                Text(pointerHealthDescription)
+                    .foregroundStyle(pointerHealthColor)
+            }
+            if let failureReason = model.pointerSnapshot.failureReason {
+                LabeledContent(Localized.text("pointer.failureReason")) {
+                    Text(failureReason.localizedDescription)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 
     private var systemSection: some View {
@@ -99,11 +151,6 @@ struct DiagnosticsView: View {
                     Text(Localized.text("diagnostics.notDetected"))
                         .foregroundStyle(.secondary)
                 }
-            }
-            LabeledContent(Localized.text("diagnostics.profile")) {
-                Text(profileDescription)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
             }
             LabeledContent(Localized.text("diagnostics.lastAction")) {
                 Text(lastActionDescription)
@@ -162,14 +209,6 @@ struct DiagnosticsView: View {
         return Localized.format("diagnostics.recoveryCountAt", model.snapshot.recoveryCount, time)
     }
 
-    private var profileDescription: String {
-        guard let bundleID = model.snapshot.matchedProfileBundleID else {
-            return Localized.text("diagnostics.globalProfile")
-        }
-        let name = InstalledApp.lookup(bundleID)?.name ?? bundleID
-        return Localized.format("diagnostics.appProfile", name)
-    }
-
     private var lastActionDescription: String {
         guard let last = model.snapshot.lastAction else {
             return Localized.text("diagnostics.noAction")
@@ -179,6 +218,67 @@ struct DiagnosticsView: View {
             last.action.displayName,
             last.button,
             Self.timeFormatter.string(from: last.triggeredAt))
+    }
+
+    private var pointerProfileDescription: String {
+        guard model.pointerSnapshot.managementEnabled else {
+            return Localized.text("pointer.systemUnchanged")
+        }
+        guard let bundleID = model.pointerSnapshot.matchedProfileBundleID else {
+            return Localized.text("pointer.globalProfile")
+        }
+        let name = InstalledApp.lookup(bundleID)?.name ?? bundleID
+        return Localized.format("pointer.appProfile", name)
+    }
+
+    private var pointerAccelerationDescription: String {
+        guard let enabled = model.pointerSnapshot.actualAccelerationEnabled else {
+            return Localized.text("pointer.systemUnchanged")
+        }
+        return enabled
+            ? Localized.text("pointer.override.enabled")
+            : Localized.text("pointer.override.disabled")
+    }
+
+    private var pointerSpeedDescription: String {
+        guard let speed = model.pointerSnapshot.actualSpeedMultiplier else {
+            return Localized.text("pointer.systemUnchanged")
+        }
+        return Localized.format("pointer.speedValue", speed)
+    }
+
+    private var pointerTargetAccelerationDescription: String {
+        guard let enabled = model.pointerSnapshot.accelerationEnabled else {
+            return Localized.text("pointer.systemUnchanged")
+        }
+        return enabled
+            ? Localized.text("pointer.override.enabled")
+            : Localized.text("pointer.override.disabled")
+    }
+
+    private var pointerTargetSpeedDescription: String {
+        guard model.pointerSnapshot.managementEnabled else {
+            return Localized.text("pointer.systemUnchanged")
+        }
+        return Localized.format("pointer.speedValue", model.pointerSnapshot.speedMultiplier)
+    }
+
+    private var pointerHealthDescription: String {
+        switch model.pointerSnapshot.health {
+        case .inactive: return Localized.text("pointer.health.inactive")
+        case .applied: return Localized.text("pointer.health.applied")
+        case .unavailable: return Localized.text("pointer.health.unavailable")
+        case .failed: return Localized.text("pointer.health.failed")
+        case .drifted: return Localized.text("pointer.health.drifted")
+        }
+    }
+
+    private var pointerHealthColor: Color {
+        switch model.pointerSnapshot.health {
+        case .inactive, .unavailable: return .secondary
+        case .applied: return .green
+        case .failed, .drifted: return .orange
+        }
     }
 
     private static let timeFormatter: DateFormatter = {

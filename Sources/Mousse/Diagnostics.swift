@@ -47,14 +47,5 @@ struct EngineDiagnosticsSnapshot: Equatable, Sendable {
     let lastRecoveryAt: Date?
     let detectedMice: [DetectedMouse]
     let pointerBundleID: String?
-    let matchedProfileBundleID: String?
     let lastAction: LastTriggeredAction?
-}
-
-enum DiagnosticProfileResolver {
-    static func matchedAppBundleID(for bundleID: String?, in config: AppConfig) -> String? {
-        guard let bundleID,
-              config.perAppMappings.contains(where: { $0.bundleID == bundleID }) else { return nil }
-        return bundleID
-    }
 }

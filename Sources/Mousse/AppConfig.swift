@@ -17,6 +17,51 @@ enum AutoScrollClickDelaySetting {
     static let defaultValue = 0.20
 }
 
+enum PointerSpeedSetting {
+    static let range = 0.25...4.0
+    static let step = 0.05
+
+    static func clamp(_ value: Double) -> Double {
+        min(max(value, range.lowerBound), range.upperBound)
+    }
+}
+
+enum PointerAccelerationOverride: String, Codable, Sendable, CaseIterable, Equatable {
+    case inherit
+    case enabled
+    case disabled
+}
+
+struct PointerAppProfile: Codable, Identifiable, Equatable, Sendable {
+    var id = UUID()
+    var bundleID: String
+    var acceleration: PointerAccelerationOverride = .inherit
+    var speedMultiplier: Double?
+
+    init(id: UUID = UUID(), bundleID: String,
+         acceleration: PointerAccelerationOverride = .inherit,
+         speedMultiplier: Double? = nil) {
+        self.id = id
+        self.bundleID = bundleID
+        self.acceleration = acceleration
+        self.speedMultiplier = speedMultiplier.map(PointerSpeedSetting.clamp)
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        bundleID = try c.decode(String.self, forKey: .bundleID)
+        acceleration = (try? c.decodeIfPresent(PointerAccelerationOverride.self,
+                                                forKey: .acceleration)) ?? .inherit
+        if let value = (try? c.decodeIfPresent(Double.self, forKey: .speedMultiplier)) ?? nil,
+           value.isFinite {
+            speedMultiplier = PointerSpeedSetting.clamp(value)
+        } else {
+            speedMultiplier = nil
+        }
+    }
+}
+
 /// How the mouse wheel scrolls.
 enum ScrollMode: String, Codable, Sendable, CaseIterable {
     case standard    // OS stepped wheel — raw passthrough; each notch jumps instantly
@@ -73,33 +118,6 @@ struct ButtonMapping: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
-/// Button mappings scoped to one app. Buttons without an entry here fall back to the global
-/// `AppConfig.mappings`, so per-app config only overrides what the user actually edits.
-struct AppMappings: Codable, Identifiable, Equatable, Sendable {
-    var id = UUID()
-    var bundleID: String
-    var configuredButtons: [Int] = [] // persists empty button groups in this app's editor
-    var mappings: [ButtonMapping] = []
-
-    // Missing keys and per-element decode failures fall back instead of dropping the whole app.
-    init(id: UUID = UUID(), bundleID: String, configuredButtons: [Int] = [],
-         mappings: [ButtonMapping] = []) {
-        self.id = id
-        self.bundleID = bundleID
-        self.configuredButtons = configuredButtons
-        self.mappings = mappings
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-        bundleID = try c.decode(String.self, forKey: .bundleID)
-        configuredButtons = (try? c.decodeIfPresent([Int].self, forKey: .configuredButtons)) ?? []
-        mappings = ((try? c.decodeIfPresent([Lossy<ButtonMapping>].self, forKey: .mappings))
-            ?? []).compactMap(\.value)
-    }
-}
-
 /// The whole persisted configuration. Plain Codable value stored as JSON — no keychain,
 /// no license, survives rebuilds.
 /// `Equatable` so `ConfigStore` can skip the save + engine reload when an assignment changes
@@ -139,7 +157,10 @@ struct AppConfig: Codable, Sendable, Equatable {
                                          // panels — smoothing stays on, we transpose ourselves
     var configuredButtons: [Int] = [4, 5] // persists empty button groups in the mapping editor
     var mappings: [ButtonMapping] = AppConfig.defaultMappings
-    var perAppMappings: [AppMappings] = [] // per-app button overrides; global mappings is the fallback
+    var pointerControlEnabled: Bool = false
+    var pointerAccelerationEnabled: Bool = true
+    var pointerSpeedMultiplier: Double = 1.0
+    var pointerAppProfiles: [PointerAppProfile] = []
 
     /// Sensible defaults so the app is useful on first launch.
     static let defaultMappings: [ButtonMapping] = [
@@ -160,7 +181,8 @@ extension AppConfig {
         case showAutoScrollHUD
         case spaceDragButton, spaceDragThreshold, spaceDragReverse, spaceDragFollowFinger, spaceDragLockPointer
         case excludedBundleIDs, verticalToHorizontalBundleIDs, configuredButtons, mappings
-        case perAppMappings
+        case pointerControlEnabled, pointerAccelerationEnabled, pointerSpeedMultiplier
+        case pointerAppProfiles
     }
 
     init(from decoder: Decoder) throws {        self.init()
@@ -211,15 +233,15 @@ extension AppConfig {
                 mappings = decodedMappings.compactMap(\.value)
             }
         }
-        if c.contains(.perAppMappings) {
-            if let decodedApps = field([Lossy<AppMappings>].self, .perAppMappings) {
-                perAppMappings = decodedApps.compactMap(\.value).map { app in
-                    var app = app
-                    app.configuredButtons = Array(Set((app.configuredButtons
-                        + app.mappings.map(\.buttonNumber)).filter { $0 >= 3 })).sorted()
-                    return app
-                }
-            }
+        pointerControlEnabled = field(Bool.self, .pointerControlEnabled) ?? pointerControlEnabled
+        pointerAccelerationEnabled = field(Bool.self, .pointerAccelerationEnabled)
+            ?? pointerAccelerationEnabled
+        if let value = field(Double.self, .pointerSpeedMultiplier), value.isFinite {
+            pointerSpeedMultiplier = PointerSpeedSetting.clamp(value)
+        }
+        if c.contains(.pointerAppProfiles),
+           let decodedProfiles = field([Lossy<PointerAppProfile>].self, .pointerAppProfiles) {
+            pointerAppProfiles = decodedProfiles.compactMap(\.value)
         }
         let savedButtons = field([Int].self, .configuredButtons) ?? []
         configuredButtons = Array(Set((savedButtons + mappings.map(\.buttonNumber)).filter { $0 >= 3 })).sorted()
@@ -264,6 +286,9 @@ extension AppConfig {
         try c.encode(verticalToHorizontalBundleIDs, forKey: .verticalToHorizontalBundleIDs)
         try c.encode(configuredButtons, forKey: .configuredButtons)
         try c.encode(mappings, forKey: .mappings)
-        try c.encode(perAppMappings, forKey: .perAppMappings)
+        try c.encode(pointerControlEnabled, forKey: .pointerControlEnabled)
+        try c.encode(pointerAccelerationEnabled, forKey: .pointerAccelerationEnabled)
+        try c.encode(pointerSpeedMultiplier, forKey: .pointerSpeedMultiplier)
+        try c.encode(pointerAppProfiles, forKey: .pointerAppProfiles)
     }
 }

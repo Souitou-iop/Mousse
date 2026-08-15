@@ -105,7 +105,7 @@ final class EventTapEngine {
         "com.google.Chrome", "org.chromium.Chromium", "com.operasoftware.Opera",
         "com.microsoft.edgemac", "com.vivaldi.Vivaldi", "com.brave.Browser",
     ]
-    private var mappingResolver = ButtonMappingResolver(config: AppConfig())
+    private var buttonMappings = CompiledButtonMappings(AppConfig().mappings)
     private var pendingDragCancel = false // set on wake/device-change, consumed on the tap thread
     private var pendingAutoScrollCancel = false
     private var pendingTriggerCancel = false
@@ -309,7 +309,6 @@ final class EventTapEngine {
 
     func diagnosticsSnapshot(accessibilityTrusted: Bool = AccessibilityPermission.isTrusted,
                              pointerBundleID: String? = nil,
-                             config: AppConfig? = nil,
                              now: Date = Date()) -> EngineDiagnosticsSnapshot {
         lock.lock()
         let tap = self.tap
@@ -333,9 +332,6 @@ final class EventTapEngine {
             lastRecoveryAt: lastRecoveryAt,
             detectedMice: detectedMice,
             pointerBundleID: pointerBundleID,
-            matchedProfileBundleID: config.flatMap {
-                DiagnosticProfileResolver.matchedAppBundleID(for: pointerBundleID, in: $0)
-            },
             lastAction: lastAction)
     }
 
@@ -463,7 +459,7 @@ final class EventTapEngine {
         spaceDragLockPointer = config.spaceDragLockPointer
         excludedBundleIDs = Set(config.excludedBundleIDs).union(EventTapEngine.terminalBundleIDs)
         verticalToHorizontalBundleIDs = Set(config.verticalToHorizontalBundleIDs)
-        mappingResolver = ButtonMappingResolver(config: config)
+        buttonMappings = CompiledButtonMappings(config.mappings)
         (captureCancellation, keyboardCaptureCancellation) = cancelCaptureLocked()
         let keyboardTap = keyboardCaptureTap
         lock.unlock()
@@ -783,7 +779,7 @@ final class EventTapEngine {
         lock.lock()
         let on = enabled
         let capturing = captureKind == .mouse
-        let resolver = mappingResolver
+        let mappings = buttonMappings
         let reverse = reverseScroll
         let mode = scrollMode
         let smoothness = scrollSmoothness
@@ -811,18 +807,8 @@ final class EventTapEngine {
         spaceDrag.lockPointer = spaceDragLockPointer
         lock.unlock()
 
-        // Per-app button mappings key off the app whose window is under the cursor, so resolve it
-        // only when an override exists; otherwise every button event would pay a WindowServer
-        // lookup for nothing.
-        let isButtonEvent = type == .otherMouseDown || type == .otherMouseUp || type == .otherMouseDragged
-        let resolved: CompiledButtonMappings
-        if isButtonEvent, resolver.hasPerAppMappings {
-            resolved = resolver.resolved(for: cursorApp.bundleID(at: event.location))
-        } else {
-            resolved = resolver.resolved(for: nil)
-        }
-        let maps = resolved.actionsByButton
-        holdScroll.mappings = resolved.holdScrollByButton
+        let maps = mappings.actionsByButton
+        holdScroll.mappings = mappings.holdScrollByButton
 
         if dragCancel {
             spaceDrag.cancel()
