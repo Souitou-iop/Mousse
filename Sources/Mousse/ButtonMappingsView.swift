@@ -175,13 +175,18 @@ private struct MappingRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Text(mapping.trigger.label)
                 .frame(width: 72, alignment: .leading)
 
-            Image(systemName: "arrow.right").foregroundStyle(.secondary)
+            Image(systemName: "arrow.right")
+                .foregroundStyle(.secondary)
+
+            Spacer()
+
             ShortcutControl(action: $mapping.action,
                             showScrollOutputs: mapping.trigger == .hold)
+
             Spacer()
 
             Button(role: .destructive, action: onDelete) {

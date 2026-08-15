@@ -32,7 +32,7 @@ struct ShortcutControl: View {
                 }
             }
         }
-        .frame(width: 190)
+        .frame(width: 200)
         .overlay(alignment: .bottom) {
             if startError == .accessibilityRequired {
                 Button(Localized.text("capture.openAccessibility")) { AccessibilityPermission.openSettings() }
