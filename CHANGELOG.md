@@ -2,6 +2,20 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.20.1] - 2026-08-16
+
+### 修复 / Fixed
+
+- **语言菜单选项固定**：设置中语言切换菜单的“跟随系统”选项固定为英文“System Default”，避免在系统首选语言为日文等环境时偶发显示为“システムに従う”等不一致文本。
+- **Pinned system language option**: the "System Default" entry in the Language picker is now pinned to English across all system locales, preventing dynamic localization mismatch.
+
+### 改进 / Improved
+
+- **多语言截图文档**：各语言 README（中/英/日）补充了按键、滚动与指针设置的高清本地化界面展示。
+- **Localized documentation screenshots**: embedded high-resolution screenshot galleries across English, Simplified Chinese, and Japanese READMEs.
+
+[0.20.1]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.20.1
+
 ## [0.20.0] - 2026-08-16
 
 ### 改进 / Improved
