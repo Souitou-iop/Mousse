@@ -1,4 +1,6 @@
-"menu.enabled" = "有効にする";
+"menu.enabled" = "Mousse を有効にする";
+"menu.reverseScroll" = "スクロール方向を反転";
+"menu.smoothScroll" = "なめらかスクロール";
 "menu.grantAccessibility" = "⚠️ アクセシビリティを許可…";
 "menu.settings" = "設定…";
 "menu.quit" = "Mousse を終了";

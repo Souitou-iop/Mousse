@@ -1,4 +1,6 @@
-"menu.enabled" = "Activar";
+"menu.enabled" = "Activar Mousse";
+"menu.reverseScroll" = "Invertir desplazamiento";
+"menu.smoothScroll" = "Desplazamiento suave";
 "menu.grantAccessibility" = "⚠️ Conceder Accesibilidad…";
 "menu.settings" = "Ajustes…";
 "menu.quit" = "Salir de Mousse";

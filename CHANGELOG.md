@@ -2,6 +2,15 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.21.0] - 2026-08-17
+
+### 新增 / Added
+
+- **菜单栏快速控制**：在菜单栏下拉菜单中直接加入“反转滚动方向”和“平滑滚动”全局开关，方便快速切换滚轮行为，无需每次打开设置窗口。
+- **Menu bar quick toggles**: added direct toggles for "Reverse Scrolling" and "Smooth Scrolling" in the menu bar extra menu for rapid workflow adjustments without opening the Settings window.
+
+[0.21.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.21.0
+
 ## [0.20.1] - 2026-08-16
 
 ### 修复 / Fixed

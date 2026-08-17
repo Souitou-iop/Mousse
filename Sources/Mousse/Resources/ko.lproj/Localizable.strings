@@ -1,4 +1,6 @@
-"menu.enabled" = "사용";
+"menu.enabled" = "Mousse 사용";
+"menu.reverseScroll" = "스크롤 방향 반전";
+"menu.smoothScroll" = "부드러운 스크롤";
 "menu.grantAccessibility" = "⚠️ 손쉬운 사용 권한 부여…";
 "menu.settings" = "설정…";
 "menu.quit" = "Mousse 종료";

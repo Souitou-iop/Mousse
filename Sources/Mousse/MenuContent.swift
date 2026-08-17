@@ -10,6 +10,19 @@ struct MenuContent: View {
 
         Divider()
 
+        Toggle(Localized.text("menu.reverseScroll"), isOn: $store.config.reverseScroll)
+            .disabled(!store.config.enabled)
+
+        Toggle(Localized.text("menu.smoothScroll"), isOn: Binding(
+            get: { store.config.scrollMode != .standard },
+            set: { isSmooth in
+                store.config.scrollMode = isSmooth ? .smooth : .standard
+            }
+        ))
+        .disabled(!store.config.enabled)
+
+        Divider()
+
         if !AccessibilityPermission.isTrusted {
             Button(Localized.text("menu.grantAccessibility")) { AccessibilityPermission.openSettings() }
             Divider()
