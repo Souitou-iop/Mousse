@@ -292,18 +292,12 @@ extension AppConfig {
         gameBypass = field(Bool.self, .gameBypass) ?? gameBypass
         if c.contains(.gameBundleIDs),
            let ids = field([String].self, .gameBundleIDs) {
-            let legacyDefaultGames: Set<String> = [
-                "com.valvesoftware.steam",
-                "com.epicgames.EpicGamesLauncher",
-                "com.riotgames.leagueoflegends",
-                "com.blizzard.worldofwarcraft",
+            let legacyGames: Set<String> = [
+                "com.valvesoftware.steam", "com.epicgames.EpicGamesLauncher",
+                "com.riotgames.leagueoflegends", "com.blizzard.worldofwarcraft",
                 "com.mojang.minecraftlauncher",
             ]
-            if Set(ids) == legacyDefaultGames {
-                gameBundleIDs = []
-            } else {
-                gameBundleIDs = ids
-            }
+            gameBundleIDs = ids.filter { !legacyGames.contains($0) }
         }
         let savedButtons = field([Int].self, .configuredButtons) ?? []
         configuredButtons = Array(Set((savedButtons + mappings.map(\.buttonNumber)).filter { $0 >= 3 })).sorted()

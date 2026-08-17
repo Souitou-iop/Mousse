@@ -96,9 +96,8 @@ final class DockSwipeSynthesizer {
         case .cancelled:
             pendingDelta = 0
         }
-        let exitSpeed = 0.0
 
-        guard let e30 = makeSwipeEvent(phase: phase, type: type, exitSpeed: exitSpeed),
+        guard let e30 = makeSwipeEvent(phase: phase, type: type, exitSpeed: 0.0),
               let e29 = makeCompanionEvent() else { return }
         e30.post(tap: .cgSessionEventTap)
         e29.post(tap: .cgSessionEventTap)
