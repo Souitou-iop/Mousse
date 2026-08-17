@@ -40,11 +40,16 @@ enum SmartNavigation {
 
     private static func postOnMain(_ direction: Direction) {
         let location = CGEvent(source: nil)?.location ?? .zero
-        let windowBundleID = cursorApp.navigationBundleID(at: location)
-        let frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let windowTarget = cursorApp.navigationTarget(at: location)
+        let frontmostApp = NSWorkspace.shared.frontmostApplication
+        let frontmostBundleID = frontmostApp?.bundleIdentifier
         let bundleID = navigationTarget(
-            windowBundleID: windowBundleID,
+            windowBundleID: windowTarget?.bundleID,
             frontmostBundleID: frontmostBundleID)
+
+        let targetPID = windowTarget?.pid ?? frontmostApp?.processIdentifier
+        activateTargetAppIfNeeded(pid: targetPID)
+
         let selectedStrategy = strategy(for: bundleID)
         switch selectedStrategy {
         case .mouseButton:
@@ -56,6 +61,13 @@ enum SmartNavigation {
         case .commandBracket:
             postCommandBracket(direction)
         }
+    }
+
+    static func activateTargetAppIfNeeded(pid: pid_t?) {
+        guard let pid,
+              let targetApp = NSRunningApplication(processIdentifier: pid),
+              !targetApp.isActive else { return }
+        targetApp.activate()
     }
 
     static func navigationTarget(windowBundleID: String?, frontmostBundleID: String?) -> String? {

@@ -8,7 +8,7 @@ final class SpaceDragGestureTests: XCTestCase {
         gesture.followFinger = false
 
         XCTAssertTrue(gesture.handleButtonDown(4))
-        XCTAssertTrue(gesture.handleDrag(deltaX: 3, deltaY: 2))
+        XCTAssertTrue(gesture.handleDrag(deltaX: 5, deltaY: 4))
         XCTAssertFalse(gesture.hasDragged)
         XCTAssertEqual(gesture.handleButtonUp(4).wasClick, true)
     }
@@ -19,7 +19,7 @@ final class SpaceDragGestureTests: XCTestCase {
         gesture.followFinger = false
 
         XCTAssertTrue(gesture.handleButtonDown(4))
-        XCTAssertTrue(gesture.handleDrag(deltaX: 7, deltaY: 0))
+        XCTAssertTrue(gesture.handleDrag(deltaX: 11, deltaY: 0))
         XCTAssertTrue(gesture.hasDragged)
         XCTAssertEqual(gesture.handleButtonUp(4).wasClick, false)
     }
@@ -64,7 +64,7 @@ final class SpaceDragGestureTests: XCTestCase {
         gesture.unfreezePointer = { unfreezes += 1 }
 
         XCTAssertTrue(gesture.handleButtonDown(4))
-        _ = gesture.handleDrag(deltaX: 7, deltaY: 0) // crosses deadzone
+        _ = gesture.handleDrag(deltaX: 11, deltaY: 0) // crosses deadzone
         XCTAssertEqual(freezes, 1, "must freeze exactly once at drag start")
         _ = gesture.handleDrag(deltaX: 3, deltaY: 0)
         _ = gesture.handleDrag(deltaX: 2, deltaY: 0)
@@ -84,7 +84,7 @@ final class SpaceDragGestureTests: XCTestCase {
         gesture.unfreezePointer = { unfreezes += 1 }
 
         XCTAssertTrue(gesture.handleButtonDown(4))
-        _ = gesture.handleDrag(deltaX: 7, deltaY: 0)
+        _ = gesture.handleDrag(deltaX: 11, deltaY: 0)
         XCTAssertEqual(freezes, 1)
         gesture.cancel()
         XCTAssertEqual(unfreezes, 1)
@@ -102,7 +102,7 @@ final class SpaceDragGestureTests: XCTestCase {
         gesture.unfreezePointer = { unfreezes += 1 }
 
         XCTAssertTrue(gesture.handleButtonDown(4))
-        _ = gesture.handleDrag(deltaX: 9, deltaY: 0)
+        _ = gesture.handleDrag(deltaX: 12, deltaY: 0)
         _ = gesture.handleButtonUp(4)
         XCTAssertEqual(freezes, 0)
     }

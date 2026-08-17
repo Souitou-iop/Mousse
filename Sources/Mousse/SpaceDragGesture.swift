@@ -42,7 +42,7 @@ final class SpaceDragGesture {
     private var followingFinger = false // this drag is driving a live dock-swipe transition
     private var swipeScale = 0.0        // originOffset per pixel, computed once per drag
 
-    private let deadzone = 6.0           // px of movement before a press counts as a drag (not a click)
+    private let deadzone = 10.0          // px of movement before a press counts as a drag (not a click)
     private let hCooldown = 0.30         // s between Space switches — roughly the slide-animation duration
     private let vThreshold = 150.0       // px of vertical drag to fire Mission Control / App Exposé
     private let vCooldown = 0.40         // s between vertical triggers, so a held drag doesn't re-toggle

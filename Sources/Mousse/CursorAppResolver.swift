@@ -60,6 +60,10 @@ final class CursorAppResolver {
     /// enumerating every window, this path still identifies the owner when macOS redacts the
     /// general window list because Screen Recording permission was not granted.
     func navigationBundleID(at quartzPoint: CGPoint) -> String? {
+        navigationTarget(at: quartzPoint)?.bundleID
+    }
+
+    func navigationTarget(at quartzPoint: CGPoint) -> (bundleID: String, pid: pid_t)? {
         guard let zeroScreen = NSScreen.screens.first else { return nil }
         let cocoaPoint = NSPoint(x: quartzPoint.x, y: zeroScreen.frame.height - quartzPoint.y)
         let windowNumber = NSWindow.windowNumber(at: cocoaPoint, belowWindowWithWindowNumber: 0)
@@ -68,7 +72,8 @@ final class CursorAppResolver {
                                                     CGWindowID(windowNumber)) as? [NSDictionary],
               let pid = info.first?[kCGWindowOwnerPID as String] as? pid_t
         else { return nil }
-        return bundleID(for: pid)
+        guard let bundleID = bundleID(for: pid) else { return nil }
+        return (bundleID, pid)
     }
 
     private func resolve(at point: CGPoint) -> String? {

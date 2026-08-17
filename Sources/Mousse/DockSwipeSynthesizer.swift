@@ -96,7 +96,7 @@ final class DockSwipeSynthesizer {
         case .cancelled:
             pendingDelta = 0
         }
-        let exitSpeed = (phase == .ended || phase == .cancelled) ? lastDelta * 100 : 0
+        let exitSpeed = 0.0
 
         guard let e30 = makeSwipeEvent(phase: phase, type: type, exitSpeed: exitSpeed),
               let e29 = makeCompanionEvent() else { return }

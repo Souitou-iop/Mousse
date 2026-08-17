@@ -17,13 +17,13 @@ VERSION="$(awk -F'"' '/^VERSION=/ {print $2; exit}' build-app.sh)"
 TAG="v${VERSION}"
 
 APP="build/${APP_NAME}.app"
-ZIP="dist/${APP_NAME}.zip"
+ZIP="build/${APP_NAME}-${VERSION}.zip"
 
 echo "==> building ${APP_NAME} ${VERSION}"
 ./build-app.sh
 
 echo "==> zipping ${APP} -> ${ZIP}"
-mkdir -p dist
+mkdir -p build
 rm -f "$ZIP"
 # Keep the bundle structure and embedded signature files, but omit external-disk metadata that
 # otherwise appears as `._*` AppleDouble entries in the public archive.

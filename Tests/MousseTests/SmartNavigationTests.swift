@@ -75,4 +75,10 @@ final class SmartNavigationTests: XCTestCase {
         let forward = try XCTUnwrap(SmartNavigation.makeNavigationSwipeEvent(.forward))
         XCTAssertEqual(forward.getIntegerValueField(CGEventField(rawValue: 115)!), 8)
     }
+
+    func testActivateTargetAppIfNeededHandlesNilAndInvalidPIDsSafely() {
+        // Safe no-op for nil or invalid PIDs
+        SmartNavigation.activateTargetAppIfNeeded(pid: nil)
+        SmartNavigation.activateTargetAppIfNeeded(pid: -1)
+    }
 }

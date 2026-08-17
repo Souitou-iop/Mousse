@@ -536,7 +536,7 @@ final class EventTapEngine {
             NSLog("Mousse: keyboard capture event tap could not be created")
         }
         let triggerTimer = CFRunLoopTimerCreateWithHandler(
-            kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + 86_400, 0, 0, 0
+            kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + 86_400, 86_400, 0, 0
         ) { [weak self] _ in
             self?.handleButtonTriggerTimer()
         }
@@ -605,6 +605,10 @@ final class EventTapEngine {
         lock.unlock()
 
         if pendingAutoCancel { cancelAutoScroll() }
+
+        if let deadline = buttonTriggers.nextDeadline, CACurrentMediaTime() >= deadline {
+            handleButtonTriggerTimer()
+        }
 
         // The menu-bar switch is the master kill switch. Periodic modes do not receive another
         // physical event to cancel themselves, so stop them on their own run-loop tick.

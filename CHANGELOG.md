@@ -2,6 +2,24 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.24.0] - 2026-08-18
+
+### 修复 / Fixed
+
+- **按键超时定时器失效导致单击被阻塞**：修复当按键同时配置了单击与双击/长按时，单次定时器（one-shot timer）触发后失效导致单击动作被卡在状态机内、必须点第二次才被释放的问题。将按键触发定时器重构为支持持续重置的重复定时器，并在周期 Tick 中加入超时兜底，确保单击在识别窗口结束后即时触发。
+- **Button trigger timer expiration causing blocked clicks**: fixed an issue where a button configured with both click and double-click/hold would have its click action trapped in the recognizer state machine after the one-shot timer fired and became dead, requiring a second press to flush the action. Refactored the button trigger timer to a re-armable repeating timer with periodic tick fallback, guaranteeing clicks fire promptly after the recognition window expires.
+- **未激活窗口侧键响应**：修复鼠标悬停在后台非激活窗口时，点击前进/后退侧键需要点击两次才能响应的问题。智能导航分发时将自动激活目标应用并精准派发导航操作，消除 macOS 系统对后台窗口首击的 Click-through 拦截。
+- **Side button navigation on inactive windows**: fixed an issue where clicking the forward/back mouse side buttons over an inactive background window required two clicks to take effect. Smart Navigation now activates the target application and routes the action directly, eliminating the macOS background window click-through barrier.
+- **按键手势误触发桌面切换**：对齐 Mac Mouse Fix，彻底移除手势结束时的非零退出惯性速度（Exit Speed），让微小位移在松手时由系统平滑回弹（Snap Back）至原桌面；同时优化起始死区门槛（10px），防止按下中键/手势按键时的机械微动公差误触发切屏。
+- **Space drag accidental triggering on press**: aligned with Mac Mouse Fix by removing non-zero exit speed momentum on gesture completion, allowing small accidental offsets on button release to snap back smoothly to the current Space instead of triggering a full Space switch; refined the initial drag deadzone threshold (10px) to prevent mechanical button travel jitter from initiating gestures.
+
+### 改进 / Improved
+
+- **构建产物统一与版本标识**：打包脚本优化，构建产物统一输出至 `build/` 目录，归档包自动附加版本号（如 `build/Mousse-0.24.0.zip`）。
+- **Unified build artifacts and versioning**: packaging script refined to output archives consistently into the `build/` directory with explicit version tags (e.g. `build/Mousse-0.24.0.zip`).
+
+[0.24.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.24.0
+
 ## [0.21.0] - 2026-08-17
 
 ### 新增 / Added
