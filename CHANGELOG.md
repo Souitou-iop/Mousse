@@ -2,6 +2,30 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.26.0] - 2026-08-18
+
+### 改进 / Improved
+
+- **滚动与手势设置页面折叠排版优化**：重构“滚动”与“手势”设置页面，将高级增强功能（边缘滚动、自动滚动参数、高分辨率平滑）与应用例外列表（排除应用、横纵轴交换、远程桌面直通）统一收纳在轻量折叠面板（`DisclosureGroup`）中。默认视图大幅缩短页面垂直高度达 60% 以上，让核心样式与速度调节一览无余，显著提升交互体验。
+- **Collapsible settings layout for scroll and gestures**: restructured the Scroll and Gestures preference panes by organizing advanced enhancements (edge scroll, auto-scroll parameters, high-res smoothing) and application exception lists (exclusions, axis swaps, remote desktop passthrough) into elegant collapsible disclosure groups. Reduces default vertical scroll length by over 60% while keeping core adjustments front and center.
+- **预置应用纯净初始化**：清空远程桌面和游戏避让的内置预设列表，默认配置保持纯净，完全由用户按需添加自定义 App。
+- **Clean default application lists**: set default lists for remote desktop and game bypasses to empty arrays, keeping initial configuration minimal and purely user-driven.
+
+[0.26.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.26.0
+
+## [0.25.0] - 2026-08-18
+
+### 新增 / Added
+
+- **远程桌面与虚拟机原生直通**：新增独立开关与可自定义应用列表，内置支持 Microsoft Remote Desktop、Parsec、Moonlight、Parallels、VMware Fusion、TeamViewer、AnyDesk 等应用；处于列表内应用时，自动绕过像素平滑与手势拦截，以 1:1 原生 Notch 方式直通宿主系统，消除双重阻尼与惯性漂移。
+- **Remote desktop & VM passthrough**: added a dedicated toggle and customizable application list supporting Microsoft Remote Desktop, Parsec, Moonlight, Parallels, VMware Fusion, TeamViewer, AnyDesk, and others; automatically bypasses pixel smoothing and gesture interception over listed apps for 1:1 native scroll delivery.
+- **游戏全屏与光标避让**：新增独立开关与自定义游戏列表，当处于游戏内时自动挂起 SpaceDrag 手势与指针控制，防止 3D/FPS 游戏中拖拽手势对视角旋转造成干扰。
+- **Gaming & cursor auto-bypass**: added a dedicated toggle and customizable game list, automatically suspending SpaceDrag gestures and pointer overrides in games to prevent view rotation interference.
+- **多显示器动态帧时钟自适应**：ScrollAnimator 渲染引擎内置跨屏幕动态刷新率同步机制，光标在 120Hz ProMotion 内置屏与外接显示器之间移动时毫秒级动态重绑定物理时钟，多屏来回滚动与热插拔无感顺滑。
+- **Multi-display dynamic refresh rate sync**: integrated adaptive display link synchronization in the scroll engine, seamlessly rebinding the physical frame clock across 120Hz ProMotion and external displays without stuttering or dropped frames.
+
+[0.25.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.25.0
+
 ## [0.24.0] - 2026-08-18
 
 ### 修复 / Fixed

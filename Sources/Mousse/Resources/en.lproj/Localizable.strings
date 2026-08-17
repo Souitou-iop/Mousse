@@ -102,6 +102,15 @@
 "scroll.speedSection" = "Speed & Direction";
 "scroll.enhancementsSection" = "Enhancements";
 "scroll.autoScrollSpeed" = "Auto-scroll acceleration";
+"apps.remoteDesktop" = "Remote Desktop & Virtual Machines";
+"apps.exceptionsSection" = "App Exceptions";
+"apps.remoteDesktopBypass" = "Automatic Native Passthrough";
+"apps.noRemoteDesktop" = "No additional remote desktop apps";
+"apps.remoteDesktopDescription" = "Automatically bypasses pixel smoothing and gesture interception, delivering 1:1 native scroll to the remote host.";
+"apps.games" = "Games & Pointer Lock";
+"apps.gameBypass" = "Auto-Bypass Games & Locked Pointer";
+"apps.noGames" = "No custom games";
+"apps.gameBypassDescription" = "Automatically suspends space drag gestures and pointer overrides during games or when the cursor is locked/hidden.";
 "scroll.autoScrollSpeedValue" = "Auto-scroll acceleration: %g×";
 "scroll.autoScrollBaseSpeed" = "Auto-scroll base speed";
 "scroll.autoScrollBaseSpeedValue" = "Auto-scroll base speed: %d px/s";

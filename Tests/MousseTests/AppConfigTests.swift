@@ -28,6 +28,10 @@ final class AppConfigTests: XCTestCase {
         XCTAssertTrue(decoded.pointerAccelerationEnabled)
         XCTAssertEqual(decoded.pointerSpeedMultiplier, 1.0, accuracy: 1e-9)
         XCTAssertTrue(decoded.pointerAppProfiles.isEmpty)
+        XCTAssertTrue(decoded.remoteDesktopBypass)
+        XCTAssertTrue(decoded.remoteDesktopBundleIDs.isEmpty)
+        XCTAssertTrue(decoded.gameBypass)
+        XCTAssertTrue(decoded.gameBundleIDs.isEmpty)
     }
 
     func testEveryLanguageRoundTrips() throws {

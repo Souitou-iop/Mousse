@@ -188,12 +188,20 @@ struct AppConfig: Codable, Sendable, Equatable {
     var pointerAccelerationEnabled: Bool = true
     var pointerSpeedMultiplier: Double = 1.0
     var pointerAppProfiles: [PointerAppProfile] = []
+    var remoteDesktopBypass: Bool = true
+    var remoteDesktopBundleIDs: [String] = AppConfig.defaultRemoteDesktopBundleIDs
+    var gameBypass: Bool = true
+    var gameBundleIDs: [String] = AppConfig.defaultGameBundleIDs
 
     /// Sensible defaults so the app is useful on first launch.
     static let defaultMappings: [ButtonMapping] = [
         ButtonMapping(buttonNumber: 4, action: .spaceLeft),
         ButtonMapping(buttonNumber: 5, action: .spaceRight),
     ]
+
+    static let defaultRemoteDesktopBundleIDs: [String] = []
+
+    static let defaultGameBundleIDs: [String] = []
 }
 
 /// Tolerant decoding: a missing key OR an unreadable value (type mismatch, unknown enum case —
@@ -210,6 +218,8 @@ extension AppConfig {
         case excludedBundleIDs, scrollAppProfiles, verticalToHorizontalBundleIDs, configuredButtons, mappings
         case pointerControlEnabled, pointerAccelerationEnabled, pointerSpeedMultiplier
         case pointerAppProfiles
+        case remoteDesktopBypass, remoteDesktopBundleIDs
+        case gameBypass, gameBundleIDs
     }
 
     init(from decoder: Decoder) throws {        self.init()
@@ -274,6 +284,27 @@ extension AppConfig {
            let decodedProfiles = field([Lossy<PointerAppProfile>].self, .pointerAppProfiles) {
             pointerAppProfiles = decodedProfiles.compactMap(\.value)
         }
+        remoteDesktopBypass = field(Bool.self, .remoteDesktopBypass) ?? remoteDesktopBypass
+        if c.contains(.remoteDesktopBundleIDs),
+           let ids = field([String].self, .remoteDesktopBundleIDs) {
+            remoteDesktopBundleIDs = ids
+        }
+        gameBypass = field(Bool.self, .gameBypass) ?? gameBypass
+        if c.contains(.gameBundleIDs),
+           let ids = field([String].self, .gameBundleIDs) {
+            let legacyDefaultGames: Set<String> = [
+                "com.valvesoftware.steam",
+                "com.epicgames.EpicGamesLauncher",
+                "com.riotgames.leagueoflegends",
+                "com.blizzard.worldofwarcraft",
+                "com.mojang.minecraftlauncher",
+            ]
+            if Set(ids) == legacyDefaultGames {
+                gameBundleIDs = []
+            } else {
+                gameBundleIDs = ids
+            }
+        }
         let savedButtons = field([Int].self, .configuredButtons) ?? []
         configuredButtons = Array(Set((savedButtons + mappings.map(\.buttonNumber)).filter { $0 >= 3 })).sorted()
 
@@ -322,5 +353,9 @@ extension AppConfig {
         try c.encode(pointerAccelerationEnabled, forKey: .pointerAccelerationEnabled)
         try c.encode(pointerSpeedMultiplier, forKey: .pointerSpeedMultiplier)
         try c.encode(pointerAppProfiles, forKey: .pointerAppProfiles)
+        try c.encode(remoteDesktopBypass, forKey: .remoteDesktopBypass)
+        try c.encode(remoteDesktopBundleIDs, forKey: .remoteDesktopBundleIDs)
+        try c.encode(gameBypass, forKey: .gameBypass)
+        try c.encode(gameBundleIDs, forKey: .gameBundleIDs)
     }
 }

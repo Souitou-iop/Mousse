@@ -17,7 +17,7 @@ SWIFT="/usr/bin/swift"
 
 APP_NAME="Mousse"
 BUNDLE_ID="com.mousse.app"
-VERSION="0.24.0"
+VERSION="0.26.0"
 BUILD_TRIPLE="arm64-apple-macosx15.0"
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 OUT="build/${APP_NAME}.app"

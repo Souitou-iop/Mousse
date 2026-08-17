@@ -107,6 +107,15 @@
 "scroll.autoScrollBaseSpeedValue" = "Velocidad base del desplazamiento automático: %d px/s";
 "scroll.autoScrollSpeedDescription" = "Se aplica a la acción “Desplazamiento automático (mover puntero)”: al salir del ancla empieza a la velocidad base y acelera cuanto más se aleja el puntero.";
 "scroll.autoScrollClickDelayValue" = "Retardo de activación del desplazamiento automático: %d ms";
+"apps.remoteDesktop" = "Escritorio remoto y máquinas virtuales";
+"apps.exceptionsSection" = "Excepciones de aplicaciones";
+"apps.remoteDesktopBypass" = "Paso a través nativo automático";
+"apps.noRemoteDesktop" = "Sin aplicaciones de escritorio remoto adicionales";
+"apps.remoteDesktopDescription" = "Omite automáticamente el suavizado y los gestos, entregando desplazamiento nativo 1:1 al host remoto.";
+"apps.games" = "Juegos y bloqueo de puntero";
+"apps.gameBypass" = "Evitar automáticamente en juegos y puntero bloqueado";
+"apps.noGames" = "Sin juegos personalizados";
+"apps.gameBypassDescription" = "Suspende automáticamente los gestos de arrastre y el control del puntero en juegos o con el cursor bloqueado.";
 "scroll.autoScrollClickDelayDescription" = "Espera después de un clic antes de iniciar el desplazamiento automático para evitar activarlo con dobles clics o pulsaciones largas.";
 "scroll.showAutoScrollHUD" = "Mostrar indicador de desplazamiento automático";
 "scroll.style" = "Estilo de desplazamiento";

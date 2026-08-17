@@ -107,6 +107,15 @@
 "scroll.autoScrollBaseSpeedValue" = "自動スクロール基本速度：%d px/s";
 "scroll.autoScrollSpeedDescription" = "「自動スクロール（ポインタを動かしてスクロール）」ボタン操作に適用されます。ポインタが基準点を離れると基本速度でスクロールし、離れるほど速度が上がります。";
 "scroll.autoScrollClickDelayValue" = "自動スクロールの開始遅延：%d ms";
+"apps.remoteDesktop" = "リモートデスクトップと仮想マシン";
+"apps.exceptionsSection" = "アプリの例外設定";
+"apps.remoteDesktopBypass" = "自動ネイティブパススルー";
+"apps.noRemoteDesktop" = "追加のリモートデスクトップアプリなし";
+"apps.remoteDesktopDescription" = "ピクセル平滑化とジェスチャーを自動バイパスし、リモートホストに1:1のネイティブスクロールを渡します。";
+"apps.games" = "ゲームとポインタロック";
+"apps.gameBypass" = "ゲームとロックされたポインタの自動回避";
+"apps.noGames" = "カスタムゲームなし";
+"apps.gameBypassDescription" = "ゲーム中やカーソルがロック/非表示の際、視点干渉を防ぐためジェスチャーとポインタ制御を自動停止します。";
 "scroll.autoScrollClickDelayDescription" = "シングルクリック後に待機してから自動スクロールを開始し、ダブルクリックや長押しによる誤作動を防ぎます。";
 "scroll.showAutoScrollHUD" = "自動スクロールインジケータを表示";
 "scroll.style" = "スクロールスタイル";

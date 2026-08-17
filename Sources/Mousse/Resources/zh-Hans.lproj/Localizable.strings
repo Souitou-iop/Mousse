@@ -97,6 +97,15 @@
 "config.exportFailed" = "导出配置失败：%@";
 "config.importFailed" = "导入配置失败：%@";
 "config.importInvalidTopLevel" = "配置文件的顶层必须是 JSON 对象。";
+"apps.remoteDesktop" = "远程桌面与虚拟机";
+"apps.exceptionsSection" = "应用例外规则";
+"apps.remoteDesktopBypass" = "自动原生直通";
+"apps.noRemoteDesktop" = "无额外远程桌面应用";
+"apps.remoteDesktopDescription" = "自动跳过像素平滑与手势拦截，以 1:1 原生滚轮直通给远程宿主系统。";
+"apps.games" = "游戏与光标锁定";
+"apps.gameBypass" = "游戏与光标锁定自动避让";
+"apps.noGames" = "无自定义游戏";
+"apps.gameBypassDescription" = "当处于游戏内或光标被隐藏锁定时，自动暂停桌面拖拽手势与指针控制，防止视角受干扰。";
 "config.importDuplicateAppProfile" = "配置文件中包含多个 %@ 的应用配置。";
 "scroll.styleSection" = "滚动样式";
 "scroll.speedSection" = "速度与方向";

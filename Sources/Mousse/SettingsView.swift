@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var configMessage: String?
     @State private var showingDiagnostics = false
+    @State private var scrollEnhancementsExpanded = false
 
     var body: some View {
         TabView {
@@ -166,62 +167,61 @@ struct SettingsView: View {
 
             // 增强 — extra scrolling inputs (edge resting, the auto-scroll button action, hi-res
             // smoothing).
-            Section(Localized.text("scroll.enhancementsSection")) {
-                Toggle(Localized.text("scroll.edgeScroll"), isOn: $store.config.edgeScroll)
-                if store.config.edgeScroll {
+            Section {
+                DisclosureGroup(Localized.text("scroll.enhancementsSection"), isExpanded: $scrollEnhancementsExpanded) {
+                    Toggle(Localized.text("scroll.edgeScroll"), isOn: $store.config.edgeScroll)
+                    if store.config.edgeScroll {
+                        VStack(alignment: .leading) {
+                            Text(Localized.format("scroll.edgeScrollSpeedValue", Int(store.config.edgeScrollSpeed)))
+                            Slider(value: $store.config.edgeScrollSpeed, in: 50...2400, step: 50) {
+                                Text(Localized.text("scroll.edgeScrollSpeed"))
+                            } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
+                              maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
+                        }
+                        Text(Localized.text("scroll.edgeScrollDescription"))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     VStack(alignment: .leading) {
-                        Text(Localized.format("scroll.edgeScrollSpeedValue", Int(store.config.edgeScrollSpeed)))
-                        Slider(value: $store.config.edgeScrollSpeed, in: 50...2400, step: 50) {
-                            Text(Localized.text("scroll.edgeScrollSpeed"))
+                        Text(Localized.format("scroll.autoScrollBaseSpeedValue",
+                                              Int(store.config.autoScrollBaseSpeed)))
+                        Slider(value: $store.config.autoScrollBaseSpeed, in: 0...1000, step: 10) {
+                            Text(Localized.text("scroll.autoScrollBaseSpeed"))
                         } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
                           maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
                     }
-                    Text(Localized.text("scroll.edgeScrollDescription"))
+                    VStack(alignment: .leading) {
+                        Text(Localized.format("scroll.autoScrollSpeedValue", store.config.autoScrollSpeed))
+                        Slider(value: $store.config.autoScrollSpeed,
+                               in: AutoScrollSpeedSetting.range,
+                               step: AutoScrollSpeedSetting.step) {
+                            Text(Localized.text("scroll.autoScrollSpeed"))
+                        } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
+                          maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
+                    }
+                    Text(Localized.text("scroll.autoScrollSpeedDescription"))
                         .font(.caption).foregroundStyle(.secondary)
-                }
-                VStack(alignment: .leading) {
-                    Text(Localized.format("scroll.autoScrollBaseSpeedValue",
-                                          Int(store.config.autoScrollBaseSpeed)))
-                    Slider(value: $store.config.autoScrollBaseSpeed, in: 0...1000, step: 10) {
-                        Text(Localized.text("scroll.autoScrollBaseSpeed"))
-                    } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
-                      maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
-                }
-                VStack(alignment: .leading) {
-                    Text(Localized.format("scroll.autoScrollSpeedValue", store.config.autoScrollSpeed))
-                    Slider(value: $store.config.autoScrollSpeed,
-                           in: AutoScrollSpeedSetting.range,
-                           step: AutoScrollSpeedSetting.step) {
-                        Text(Localized.text("scroll.autoScrollSpeed"))
-                    } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
-                      maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
-                }
-                Text(Localized.text("scroll.autoScrollSpeedDescription"))
-                    .font(.caption).foregroundStyle(.secondary)
-                Stepper(value: $store.config.autoScrollClickDelay,
-                        in: AutoScrollClickDelaySetting.range,
-                        step: AutoScrollClickDelaySetting.step) {
-                    Text(Localized.format(
-                        "scroll.autoScrollClickDelayValue",
-                        Int((store.config.autoScrollClickDelay * 1000).rounded())))
-                }
-                Text(Localized.text("scroll.autoScrollClickDelayDescription"))
-                    .font(.caption).foregroundStyle(.secondary)
-                Toggle(Localized.text("scroll.showAutoScrollHUD"),
-                       isOn: $store.config.showAutoScrollHUD)
-                if store.config.scrollMode != .standard {
-                    Toggle(Localized.text("scroll.smoothHighRes"), isOn: $store.config.smoothHighRes)
-                    Text(Localized.text("scroll.smoothHighResDescription"))
+                    Stepper(value: $store.config.autoScrollClickDelay,
+                            in: AutoScrollClickDelaySetting.range,
+                            step: AutoScrollClickDelaySetting.step) {
+                        Text(Localized.format(
+                            "scroll.autoScrollClickDelayValue",
+                            Int((store.config.autoScrollClickDelay * 1000).rounded())))
+                    }
+                    Text(Localized.text("scroll.autoScrollClickDelayDescription"))
+                        .font(.caption).foregroundStyle(.secondary)
+                    Toggle(Localized.text("scroll.showAutoScrollHUD"),
+                           isOn: $store.config.showAutoScrollHUD)
+                    if store.config.scrollMode != .standard {
+                        Toggle(Localized.text("scroll.smoothHighRes"), isOn: $store.config.smoothHighRes)
+                        Text(Localized.text("scroll.smoothHighResDescription"))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Text(Localized.text("scroll.modifierDescription"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
 
-            Section(Localized.text("scroll.modifiers")) {
-                Text(Localized.text("scroll.modifierDescription"))
-                    .font(.caption)
-            }
-            ExcludedAppsView()
-            TransposedAppsView() // axis-swap works in every scroll mode, including Standard
+            AppExceptionsGroupView()
         }
         .formStyle(.grouped)
     }
@@ -251,6 +251,7 @@ struct SettingsView: View {
             }
             Text(Localized.text("gestures.description"))
                 .font(.caption).foregroundStyle(.secondary)
+            GameBypassGroupView()
         }
         .formStyle(.grouped)
     }

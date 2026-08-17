@@ -89,6 +89,10 @@ final class EventTapEngine {
     private static let captureMaxDuration = 30.0
     private var excludedBundleIDs: Set<String> = []
     private var scrollAppProfiles: [String: ScrollAppProfile] = [:]
+    private var remoteDesktopBypass = true
+    private var remoteDesktopBundleIDs: Set<String> = []
+    private var gameBypass = true
+    private var gameBundleIDs: Set<String> = []
 
     /// Terminal emulators are always excluded from smoothing (merged with the user's list).
     /// They are line-grid UIs that translate accumulated scroll PIXELS into mouse-reporting
@@ -465,6 +469,10 @@ final class EventTapEngine {
         }
         scrollAppProfiles = compiledScrollProfiles
         verticalToHorizontalBundleIDs = Set(config.verticalToHorizontalBundleIDs)
+        remoteDesktopBypass = config.remoteDesktopBypass
+        remoteDesktopBundleIDs = Set(config.remoteDesktopBundleIDs)
+        gameBypass = config.gameBypass
+        gameBundleIDs = Set(config.gameBundleIDs)
         buttonMappings = CompiledButtonMappings(config.mappings)
         (captureCancellation, keyboardCaptureCancellation) = cancelCaptureLocked()
         let keyboardTap = keyboardCaptureTap
@@ -803,6 +811,10 @@ final class EventTapEngine {
         let excluded = excludedBundleIDs
         let appScrollProfiles = scrollAppProfiles
         let vToH = verticalToHorizontalBundleIDs
+        let rdBypass = remoteDesktopBypass
+        let rdBundles = remoteDesktopBundleIDs
+        let gBypass = gameBypass
+        let gBundles = gameBundleIDs
         let dragCancel = pendingDragCancel
         let autoScrollCancel = pendingAutoScrollCancel
         let triggerCancel = pendingTriggerCancel
@@ -898,6 +910,16 @@ final class EventTapEngine {
         }
 
         guard on else { return Unmanaged.passUnretained(event) }
+
+        if (type == .otherMouseDown || type == .otherMouseUp || type == .otherMouseDragged) && (rdBypass || gBypass) {
+            let cursorID = cursorApp.bundleID(at: event.location)
+            if rdBypass, let id = cursorID, rdBundles.contains(id) {
+                return Unmanaged.passUnretained(event)
+            }
+            if gBypass, let id = cursorID, gBundles.contains(id) {
+                return Unmanaged.passUnretained(event)
+            }
+        }
 
         switch type {
         case .otherMouseDown:
@@ -1003,8 +1025,11 @@ final class EventTapEngine {
                 ? (smoothHiRes && (mode == .smooth || mode == .smoothStep))
                 : (modQuick || modPrecise || mode == .smooth || mode == .smoothStep)
             let needsCursorID = !excluded.isEmpty || !appScrollProfiles.isEmpty
-                || modZoom || !vToH.isEmpty || smoothingPossible
+                || modZoom || !vToH.isEmpty || smoothingPossible || rdBypass
             let cursorID = needsCursorID ? cursorApp.bundleID(at: event.location) : nil
+            if rdBypass, let id = cursorID, rdBundles.contains(id) {
+                return Unmanaged.passUnretained(event)
+            }
             let appSettings = EventTapEngine.resolveScrollAppSettings(
                 bundleID: cursorID,
                 profiles: appScrollProfiles,

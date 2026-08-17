@@ -1,18 +1,38 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Per-app scroll exceptions with only the two controls that differ from global behavior.
-struct ExcludedAppsView: View {
+/// Collapsible group for all per-app scroll exceptions.
+struct AppExceptionsGroupView: View {
+    @EnvironmentObject var store: ConfigStore
+    @State private var isExpanded = false
+
+    var body: some View {
+        Section {
+            DisclosureGroup(Localized.text("apps.exceptionsSection"), isExpanded: $isExpanded) {
+                ExcludedAppsContent()
+                Divider()
+                TransposedAppsContent()
+                Divider()
+                RemoteDesktopAppsContent()
+            }
+        }
+    }
+}
+
+/// Content for general excluded apps.
+struct ExcludedAppsContent: View {
     @EnvironmentObject var store: ConfigStore
 
     var body: some View {
-        Section(Localized.text("apps.excluded")) {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(Localized.text("apps.excluded"))
+                .font(.headline)
             if store.config.scrollAppProfiles.isEmpty {
                 Text(Localized.text("apps.noExcluded"))
                     .foregroundStyle(.secondary)
             }
             ForEach($store.config.scrollAppProfiles) { $profile in
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         AppRow(bundleID: profile.bundleID)
                         Spacer()
@@ -69,53 +89,93 @@ struct ExcludedAppsView: View {
     }
 }
 
-/// Settings section for the axis-swap list: apps where the wheel's vertical motion scrolls
-/// HORIZONTALLY (purpose-built for horizontal-first browsers like Nimble Commander's Brief
-/// panels). Unlike exclusion, smoothing keeps working — we transpose the axes ourselves.
-struct TransposedAppsView: View {
+/// Content for axis-swapped apps.
+struct TransposedAppsContent: View {
     @EnvironmentObject var store: ConfigStore
 
     var body: some View {
-        AppListSection(
-            title: Localized.text("apps.axisSwap"),
-            emptyLabel: Localized.text("apps.noAxisSwap"),
-            addPrompt: Localized.text("common.add"),
-            footer: Localized.text("apps.axisSwapDescription"),
-            bundleIDs: $store.config.verticalToHorizontalBundleIDs)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(Localized.text("apps.axisSwap"))
+                .font(.headline)
+            AppListContent(bundleIDs: $store.config.verticalToHorizontalBundleIDs,
+                           emptyLabel: Localized.text("apps.noAxisSwap"),
+                           addPrompt: Localized.text("common.add"))
+            Text(Localized.text("apps.axisSwapDescription"))
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 }
 
-/// One reusable per-app list section: rows with app icon/name, remove buttons, an add-app picker.
-private struct AppListSection: View {
-    let title: String
-    let emptyLabel: String
-    let addPrompt: String
-    let footer: String
-    @Binding var bundleIDs: [String]
+/// Content for remote desktop and virtual machine bypass.
+struct RemoteDesktopAppsContent: View {
+    @EnvironmentObject var store: ConfigStore
 
     var body: some View {
-        Section(title) {
-            if bundleIDs.isEmpty {
-                Text(emptyLabel)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            Text(Localized.text("apps.remoteDesktop"))
+                .font(.headline)
+            Toggle(Localized.text("apps.remoteDesktopBypass"),
+                   isOn: $store.config.remoteDesktopBypass)
+            if store.config.remoteDesktopBypass {
+                AppListContent(bundleIDs: $store.config.remoteDesktopBundleIDs,
+                               emptyLabel: Localized.text("apps.noRemoteDesktop"),
+                               addPrompt: Localized.text("common.add"))
             }
-            ForEach(bundleIDs, id: \.self) { bundleID in
-                HStack {
-                    AppRow(bundleID: bundleID)
-                    Spacer()
-                    Button {
-                        bundleIDs.removeAll { $0 == bundleID }
-                    } label: {
-                        Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(Localized.text("apps.remove"))
-                }
-            }
-            Button(Localized.text("apps.add"), action: addApp)
-            Text(footer)
+            Text(Localized.text("apps.remoteDesktopDescription"))
                 .font(.caption).foregroundStyle(.secondary)
         }
+    }
+}
+
+/// Collapsible group for gaming and pointer lock auto-bypass.
+struct GameBypassGroupView: View {
+    @EnvironmentObject var store: ConfigStore
+    @State private var isExpanded = false
+
+    var body: some View {
+        Section {
+            DisclosureGroup(Localized.text("apps.games"), isExpanded: $isExpanded) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(Localized.text("apps.gameBypass"),
+                           isOn: $store.config.gameBypass)
+                    if store.config.gameBypass {
+                        AppListContent(bundleIDs: $store.config.gameBundleIDs,
+                                       emptyLabel: Localized.text("apps.noGames"),
+                                       addPrompt: Localized.text("common.add"))
+                    }
+                    Text(Localized.text("apps.gameBypassDescription"))
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
+/// One reusable per-app list content view without outer section wrapper.
+struct AppListContent: View {
+    @Binding var bundleIDs: [String]
+    let emptyLabel: String
+    let addPrompt: String
+
+    var body: some View {
+        if bundleIDs.isEmpty {
+            Text(emptyLabel)
+                .foregroundStyle(.secondary)
+        }
+        ForEach(bundleIDs, id: \.self) { bundleID in
+            HStack {
+                AppRow(bundleID: bundleID)
+                Spacer()
+                Button {
+                    bundleIDs.removeAll { $0 == bundleID }
+                } label: {
+                    Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(Localized.text("apps.remove"))
+            }
+        }
+        Button(Localized.text("apps.add"), action: addApp)
     }
 
     private func addApp() {
