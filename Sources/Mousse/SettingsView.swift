@@ -42,7 +42,31 @@ struct SettingsView: View {
                     Button(Localized.text("general.grant")) { AccessibilityPermission.openSettings() }
                 }
             }
+            LabeledContent(Localized.text("general.inputMonitoring")) {
+                if InputMonitoringPermission.isTrusted {
+                    Label(Localized.text("general.granted"), systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                } else {
+                    Button(Localized.text("general.grant")) {
+                        _ = InputMonitoringPermission.request()
+                        InputMonitoringPermission.openSettings()
+                    }
+                }
+            }
             LabeledContent(Localized.text("general.version"), value: appVersion)
+            if let issue = store.persistenceIssue {
+                Section(Localized.text("config.persistenceSection")) {
+                    Label(persistenceIssueDescription(issue), systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                        .textSelection(.enabled)
+                    HStack {
+                        Button(Localized.text("config.retrySave")) { store.retrySave() }
+                        Button(Localized.text("config.dismissIssue")) {
+                            store.dismissPersistenceIssue()
+                        }
+                    }
+                }
+            }
             Section(Localized.text("diagnostics.section")) {
                 LabeledContent(Localized.text("diagnostics.status")) {
                     DiagnosticsSummaryView()
@@ -109,6 +133,18 @@ struct SettingsView: View {
 
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.20.1"
+    }
+
+    private func persistenceIssueDescription(_ issue: ConfigPersistenceIssue) -> String {
+        switch issue {
+        case let .loadFailed(message):
+            return Localized.format("config.loadFailed", message)
+        case let .saveFailed(message):
+            return Localized.format("config.saveFailed", message)
+        case let .corruptConfigRecovered(backupPath):
+            guard let backupPath else { return Localized.text("config.corruptRecoveredNoBackup") }
+            return Localized.format("config.corruptRecovered", backupPath)
+        }
     }
 
     private var buttonsTab: some View {

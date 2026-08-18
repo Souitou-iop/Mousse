@@ -2,6 +2,8 @@
 "menu.reverseScroll" = "スクロール方向を反転";
 "menu.smoothScroll" = "なめらかスクロール";
 "menu.grantAccessibility" = "⚠️ アクセシビリティを許可…";
+"menu.grantInputMonitoring" = "⚠️ 入力監視を許可…";
+"menu.configSaveFailed" = "設定を保存できませんでした";
 "menu.settings" = "設定…";
 "menu.quit" = "Mousse を終了";
 "tab.general" = "一般";
@@ -14,6 +16,7 @@
 "general.language.system" = "システムに従う";
 "general.launchAtLogin" = "ログイン時に起動";
 "general.accessibility" = "アクセシビリティ";
+"general.inputMonitoring" = "入力監視";
 "general.granted" = "許可済み";
 "general.grant" = "許可する…";
 "general.version" = "バージョン";
@@ -32,6 +35,9 @@
 "diagnostics.initializing" = "初期化中";
 "diagnostics.healthy" = "正常";
 "diagnostics.recovering" = "復旧中";
+"diagnostics.waitingForPermission" = "許可待ち";
+"diagnostics.failed" = "初期化失敗";
+"diagnostics.inputMonitoringRequired" = "入力監視の許可が必要";
 "diagnostics.recoveries" = "復旧回数";
 "diagnostics.recoveryCount" = "起動後 %d 回";
 "diagnostics.recoveryCountAt" = "起動後 %d 回 · 最終 %@";
@@ -44,6 +50,13 @@
 "diagnostics.miceSection" = "検出されたマウス";
 "diagnostics.noMice" = "マウスが検出されていません";
 "diagnostics.miceDescription" = "接続中のマウスのみ表示します。イベント元のデバイスは推測しません。";
+"config.persistenceSection" = "設定の保存";
+"config.retrySave" = "保存を再試行";
+"config.dismissIssue" = "閉じる";
+"config.saveFailed" = "設定を保存できませんでした：%@";
+"config.loadFailed" = "保存済み設定を読み込めなかったため、元のファイルを保護する目的で自動保存を停止しました：%@";
+"config.corruptRecovered" = "保存済み設定を読み込めなかったため、既定値を使用し、元のファイルを %@ にバックアップしました。";
+"config.corruptRecoveredNoBackup" = "保存済み設定を読み込めなかったため既定値を使用しましたが、元のファイルをバックアップできませんでした。";
 "pointer.globalSection" = "グローバル設定";
 "pointer.manage" = "Mousse でポインタを管理";
 "pointer.manageDescription" = "オフの場合、システムのポインタ設定は変更されません。";

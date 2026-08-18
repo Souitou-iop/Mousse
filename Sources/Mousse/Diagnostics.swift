@@ -1,12 +1,19 @@
 import Foundation
 
 enum EventTapHealth: Equatable, Sendable {
+    case waitingForPermission
     case initializing
     case healthy
     case recovering
+    case failed
 
-    static func resolve(hasTap: Bool, tapEnabled: Bool, lastRecoveryAt: Date?, now: Date) -> EventTapHealth {
+    static func resolve(accessibilityTrusted: Bool, hasTap: Bool, tapEnabled: Bool,
+                        rebuildPending: Bool, creationFailed: Bool,
+                        lastRecoveryAt: Date?, now: Date) -> EventTapHealth {
+        guard accessibilityTrusted else { return .waitingForPermission }
+        if creationFailed { return .failed }
         guard hasTap else { return .initializing }
+        if rebuildPending { return .recovering }
         let recentlyRecovered = lastRecoveryAt.map { now.timeIntervalSince($0) < 2 } ?? false
         return tapEnabled && !recentlyRecovered ? .healthy : .recovering
     }
@@ -41,6 +48,7 @@ struct LastTriggeredAction: Equatable, Sendable {
 
 struct EngineDiagnosticsSnapshot: Equatable, Sendable {
     let accessibilityTrusted: Bool
+    let inputMonitoringTrusted: Bool
     let engineEnabled: Bool
     let eventTapHealth: EventTapHealth
     let recoveryCount: Int

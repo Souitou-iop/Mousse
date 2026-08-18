@@ -117,6 +117,14 @@ struct DiagnosticsView: View {
                     ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
                 color: model.snapshot.accessibilityTrusted ? .green : .orange)
             DiagnosticRow(
+                label: Localized.text("general.inputMonitoring"),
+                value: model.snapshot.inputMonitoringTrusted
+                    ? Localized.text("general.granted")
+                    : Localized.text("diagnostics.required"),
+                systemImage: model.snapshot.inputMonitoringTrusted
+                    ? "checkmark.circle.fill" : "exclamationmark.triangle.fill",
+                color: model.snapshot.inputMonitoringTrusted ? .green : .orange)
+            DiagnosticRow(
                 label: Localized.text("diagnostics.engine"),
                 value: model.snapshot.engineEnabled
                     ? Localized.text("diagnostics.enabled")
@@ -179,25 +187,31 @@ struct DiagnosticsView: View {
 
     private var eventTapLabel: String {
         switch model.snapshot.eventTapHealth {
+        case .waitingForPermission: return Localized.text("diagnostics.waitingForPermission")
         case .initializing: return Localized.text("diagnostics.initializing")
         case .healthy: return Localized.text("diagnostics.healthy")
         case .recovering: return Localized.text("diagnostics.recovering")
+        case .failed: return Localized.text("diagnostics.failed")
         }
     }
 
     private var eventTapIcon: String {
         switch model.snapshot.eventTapHealth {
+        case .waitingForPermission: return "lock.trianglebadge.exclamationmark.fill"
         case .initializing: return "clock.fill"
         case .healthy: return "checkmark.circle.fill"
         case .recovering: return "arrow.clockwise.circle.fill"
+        case .failed: return "xmark.octagon.fill"
         }
     }
 
     private var eventTapColor: Color {
         switch model.snapshot.eventTapHealth {
+        case .waitingForPermission: return .orange
         case .initializing: return .orange
         case .healthy: return .green
         case .recovering: return .blue
+        case .failed: return .red
         }
     }
 
@@ -294,6 +308,7 @@ struct DiagnosticsSummaryView: View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             let snapshot = EventTapEngine.shared.diagnosticsSnapshot()
             let healthy = snapshot.accessibilityTrusted
+                && snapshot.inputMonitoringTrusted
                 && snapshot.eventTapHealth == .healthy
                 && snapshot.engineEnabled
             Label(
@@ -307,11 +322,16 @@ struct DiagnosticsSummaryView: View {
 
     private func summaryLabel(_ snapshot: EngineDiagnosticsSnapshot) -> String {
         if !snapshot.accessibilityTrusted { return Localized.text("diagnostics.required") }
+        if !snapshot.inputMonitoringTrusted {
+            return Localized.text("diagnostics.inputMonitoringRequired")
+        }
         if !snapshot.engineEnabled { return Localized.text("diagnostics.disabled") }
         switch snapshot.eventTapHealth {
+        case .waitingForPermission: return Localized.text("diagnostics.waitingForPermission")
         case .initializing: return Localized.text("diagnostics.initializing")
         case .healthy: return Localized.text("diagnostics.healthy")
         case .recovering: return Localized.text("diagnostics.recovering")
+        case .failed: return Localized.text("diagnostics.failed")
         }
     }
 }

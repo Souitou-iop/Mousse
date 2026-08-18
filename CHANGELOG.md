@@ -2,6 +2,22 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.26.1] - 2026-08-18
+
+### 修复 / Fixed
+
+- **权限与事件 tap 恢复增强**：权限未授予时不再无限等待；区分辅助功能与输入监控状态，并在事件 tap 无法重新启用、睡眠唤醒或显示器变化后自动重建。
+- **Permission and event-tap recovery**: no longer waits forever when permission is missing; distinguishes Accessibility from Input Monitoring and rebuilds the event tap after failed re-enable, wake, or display changes.
+- **配置保存错误可见**：保存失败会在设置页和菜单栏提示并支持重试；损坏配置会先备份原文件再恢复默认值，无法读取或备份时不会自动覆盖原文件。
+- **Visible configuration persistence failures**: save errors are surfaced in Settings and the menu bar with retry support; corrupt configs are backed up before defaults are restored, and unreadable files are never overwritten automatically.
+
+### 改进 / Improved
+
+- **诊断信息完善**：新增输入监控权限、事件 tap 等待/失败状态和配置持久化状态，五种界面语言同步更新。
+- **Improved diagnostics**: added Input Monitoring permission, event-tap waiting/failure states, and configuration persistence status across all five localized interfaces.
+
+[0.26.1]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.26.1
+
 ## [0.26.0] - 2026-08-18
 
 ### 改进 / Improved

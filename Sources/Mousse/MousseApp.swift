@@ -40,6 +40,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if !AccessibilityPermission.isTrusted {
             AccessibilityPermission.request() // shows the system prompt once
+        } else if !InputMonitoringPermission.isTrusted {
+            InputMonitoringPermission.request()
         }
         EventTapEngine.shared.start(config: ConfigStore.shared.config)
         PointerSettingsController.shared.start(config: ConfigStore.shared.config)

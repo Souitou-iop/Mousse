@@ -2,6 +2,8 @@
 "menu.reverseScroll" = "Invertir desplazamiento";
 "menu.smoothScroll" = "Desplazamiento suave";
 "menu.grantAccessibility" = "⚠️ Conceder Accesibilidad…";
+"menu.grantInputMonitoring" = "⚠️ Conceder monitorización de entrada…";
+"menu.configSaveFailed" = "No se pudieron guardar los ajustes";
 "menu.settings" = "Ajustes…";
 "menu.quit" = "Salir de Mousse";
 "tab.general" = "General";
@@ -14,6 +16,7 @@
 "general.language.system" = "Predeterminado del sistema";
 "general.launchAtLogin" = "Abrir al iniciar sesión";
 "general.accessibility" = "Accesibilidad";
+"general.inputMonitoring" = "Monitorización de entrada";
 "general.granted" = "Concedido";
 "general.grant" = "Conceder…";
 "general.version" = "Versión";
@@ -32,6 +35,9 @@
 "diagnostics.initializing" = "Inicializando";
 "diagnostics.healthy" = "Correcto";
 "diagnostics.recovering" = "Recuperando";
+"diagnostics.waitingForPermission" = "Esperando permiso";
+"diagnostics.failed" = "Error de inicialización";
+"diagnostics.inputMonitoringRequired" = "Se requiere monitorización de entrada";
 "diagnostics.recoveries" = "Recuperaciones";
 "diagnostics.recoveryCount" = "%d desde el inicio";
 "diagnostics.recoveryCountAt" = "%d desde el inicio · última a las %@";
@@ -44,6 +50,13 @@
 "diagnostics.miceSection" = "Ratones detectados";
 "diagnostics.noMice" = "No se detectó ningún ratón";
 "diagnostics.miceDescription" = "Solo muestra ratones conectados; Mousse no deduce qué dispositivo generó un evento.";
+"config.persistenceSection" = "Almacenamiento de configuración";
+"config.retrySave" = "Reintentar guardado";
+"config.dismissIssue" = "Descartar";
+"config.saveFailed" = "Mousse no pudo guardar los ajustes: %@";
+"config.loadFailed" = "Mousse no pudo leer la configuración guardada y no la sobrescribirá automáticamente: %@";
+"config.corruptRecovered" = "La configuración guardada no se pudo leer. Se cargaron los valores predeterminados y el archivo original se guardó en %@.";
+"config.corruptRecoveredNoBackup" = "La configuración guardada no se pudo leer. Se cargaron los valores predeterminados, pero no se pudo guardar una copia del archivo original.";
 "pointer.globalSection" = "Ajustes globales";
 "pointer.manage" = "Gestionar el puntero con Mousse";
 "pointer.manageDescription" = "Al desactivarlo, Mousse no modifica los ajustes del puntero del sistema.";

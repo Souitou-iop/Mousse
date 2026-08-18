@@ -28,6 +28,19 @@ struct MenuContent: View {
             Divider()
         }
 
+        if !InputMonitoringPermission.isTrusted {
+            Button(Localized.text("menu.grantInputMonitoring")) {
+                _ = InputMonitoringPermission.request()
+                InputMonitoringPermission.openSettings()
+            }
+            Divider()
+        }
+
+        if store.persistenceIssue != nil {
+            Label(Localized.text("menu.configSaveFailed"), systemImage: "exclamationmark.triangle.fill")
+            Divider()
+        }
+
         Button(Localized.text("menu.settings")) {
             // Dock presence while the Settings window is open (minimize/reopen needs it); the
             // window closing drops it again (see AppDelegate.settingsWindowClosed).

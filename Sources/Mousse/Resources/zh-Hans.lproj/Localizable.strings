@@ -2,6 +2,8 @@
 "menu.reverseScroll" = "反转滚动方向";
 "menu.smoothScroll" = "平滑滚动";
 "menu.grantAccessibility" = "⚠️ 授予辅助功能权限…";
+"menu.grantInputMonitoring" = "⚠️ 授予输入监控权限…";
+"menu.configSaveFailed" = "设置未能保存";
 "menu.settings" = "设置…";
 "menu.quit" = "退出 Mousse";
 "tab.general" = "常规";
@@ -14,6 +16,7 @@
 "general.language.system" = "跟随系统";
 "general.launchAtLogin" = "登录时打开";
 "general.accessibility" = "辅助功能";
+"general.inputMonitoring" = "输入监控";
 "general.granted" = "已授权";
 "general.grant" = "授予权限…";
 "general.version" = "版本";
@@ -32,6 +35,9 @@
 "diagnostics.initializing" = "正在初始化";
 "diagnostics.healthy" = "正常";
 "diagnostics.recovering" = "正在恢复";
+"diagnostics.waitingForPermission" = "正在等待权限";
+"diagnostics.failed" = "初始化失败";
+"diagnostics.inputMonitoringRequired" = "需要输入监控权限";
 "diagnostics.recoveries" = "恢复次数";
 "diagnostics.recoveryCount" = "本次启动后 %d 次";
 "diagnostics.recoveryCountAt" = "本次启动后 %d 次 · 最近 %@";
@@ -44,6 +50,13 @@
 "diagnostics.miceSection" = "检测到的鼠标";
 "diagnostics.noMice" = "未检测到鼠标";
 "diagnostics.miceDescription" = "这里只列出已连接鼠标；Mousse 不推测具体事件来自哪台设备。";
+"config.persistenceSection" = "配置存储";
+"config.retrySave" = "重试保存";
+"config.dismissIssue" = "忽略提示";
+"config.saveFailed" = "Mousse 无法保存设置：%@";
+"config.loadFailed" = "Mousse 无法读取已有配置，为避免覆盖原文件，暂时不会自动保存：%@";
+"config.corruptRecovered" = "已保存的配置无法读取，现已载入默认设置，并把原文件备份到 %@。";
+"config.corruptRecoveredNoBackup" = "已保存的配置无法读取，现已载入默认设置，但未能备份原文件。";
 "pointer.globalSection" = "全局设置";
 "pointer.manage" = "由 Mousse 管理指针";
 "pointer.manageDescription" = "关闭时，Mousse 不会改变系统的指针设置。";

@@ -2,6 +2,8 @@
 "menu.reverseScroll" = "Reverse Scrolling";
 "menu.smoothScroll" = "Smooth Scrolling";
 "menu.grantAccessibility" = "⚠️ Grant Accessibility…";
+"menu.grantInputMonitoring" = "⚠️ Grant Input Monitoring…";
+"menu.configSaveFailed" = "Settings could not be saved";
 "menu.settings" = "Settings…";
 "menu.quit" = "Quit Mousse";
 "tab.general" = "General";
@@ -14,6 +16,7 @@
 "general.language.system" = "System Default";
 "general.launchAtLogin" = "Launch at login";
 "general.accessibility" = "Accessibility";
+"general.inputMonitoring" = "Input Monitoring";
 "general.granted" = "Granted";
 "general.grant" = "Grant…";
 "general.version" = "Version";
@@ -32,6 +35,9 @@
 "diagnostics.initializing" = "Initializing";
 "diagnostics.healthy" = "Healthy";
 "diagnostics.recovering" = "Recovering";
+"diagnostics.waitingForPermission" = "Waiting for Permission";
+"diagnostics.failed" = "Setup Failed";
+"diagnostics.inputMonitoringRequired" = "Input Monitoring Required";
 "diagnostics.recoveries" = "Recoveries";
 "diagnostics.recoveryCount" = "%d since launch";
 "diagnostics.recoveryCountAt" = "%d since launch · last at %@";
@@ -44,6 +50,13 @@
 "diagnostics.miceSection" = "Detected Mice";
 "diagnostics.noMice" = "No mouse detected";
 "diagnostics.miceDescription" = "Lists connected mice only; Mousse does not infer which device produced an event.";
+"config.persistenceSection" = "Configuration Storage";
+"config.retrySave" = "Retry Save";
+"config.dismissIssue" = "Dismiss";
+"config.saveFailed" = "Mousse could not save your settings: %@";
+"config.loadFailed" = "Mousse could not read the saved configuration and will not overwrite it automatically: %@";
+"config.corruptRecovered" = "The saved configuration was unreadable. Defaults were loaded and the original was backed up to %@.";
+"config.corruptRecoveredNoBackup" = "The saved configuration was unreadable. Defaults were loaded, but the original file could not be backed up.";
 "pointer.globalSection" = "Global Settings";
 "pointer.manage" = "Manage pointer with Mousse";
 "pointer.manageDescription" = "When off, Mousse leaves the system's pointer settings unchanged.";

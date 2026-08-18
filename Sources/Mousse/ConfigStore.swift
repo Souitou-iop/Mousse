@@ -1,10 +1,21 @@
 import Foundation
 import Combine
+import OSLog
+
+enum ConfigPersistenceIssue: Equatable, Sendable {
+    case loadFailed(String)
+    case saveFailed(String)
+    case corruptConfigRecovered(backupPath: String?)
+}
 
 /// Loads/saves `AppConfig` as JSON in Application Support and pushes changes to the engine.
 /// `@MainActor` so SwiftUI can bind to it directly.
 @MainActor
 final class ConfigStore: ObservableObject {
+
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.mousse.app",
+        category: "Config")
 
     static let shared = ConfigStore()
 
@@ -26,16 +37,27 @@ final class ConfigStore: ObservableObject {
         }
     }
 
+    @Published private(set) var persistenceIssue: ConfigPersistenceIssue?
+
     private let fileURL: URL
 
     /// Non-nil exactly while a change is written-pending — `flushPendingSave()` keys off that.
     private var saveTask: Task<Void, Never>?
+    /// Do not overwrite the only copy of a config that could not be read or backed up. The explicit
+    /// Retry Save button is the user's confirmation to replace it with the current in-memory config.
+    private var protectsUnreadableConfig = false
 
     private init() {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = support.appendingPathComponent("Mousse", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var initialIssue: ConfigPersistenceIssue?
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        } catch {
+            initialIssue = .saveFailed(error.localizedDescription)
+            Self.logger.error("Could not create config directory: \(error.localizedDescription, privacy: .private)")
+        }
         fileURL = dir.appendingPathComponent("config.json")
 
         // One-time migration: the app was called SilkMouse (and QmouseFix before that) — adopt
@@ -48,12 +70,37 @@ final class ConfigStore: ObservableObject {
             try? FileManager.default.copyItem(at: legacy, to: fileURL)
         }
 
-        if let data = try? Data(contentsOf: fileURL),
-           let loaded = try? JSONDecoder().decode(AppConfig.self, from: data) {
-            config = loaded
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            do {
+                let data = try Data(contentsOf: fileURL)
+                do {
+                    config = try JSONDecoder().decode(AppConfig.self, from: data)
+                } catch {
+                    let backupURL = Self.corruptBackupURL(for: fileURL)
+                    let backupPath: String?
+                    do {
+                        try FileManager.default.copyItem(at: fileURL, to: backupURL)
+                        backupPath = backupURL.path
+                    } catch {
+                        backupPath = nil
+                        protectsUnreadableConfig = true
+                        Self.logger.error(
+                            "Could not back up corrupt config: \(error.localizedDescription, privacy: .private)")
+                    }
+                    config = AppConfig()
+                    initialIssue = .corruptConfigRecovered(backupPath: backupPath)
+                    Self.logger.error("Config could not be decoded; defaults loaded and backup attempted")
+                }
+            } catch {
+                config = AppConfig()
+                protectsUnreadableConfig = true
+                initialIssue = .loadFailed(error.localizedDescription)
+                Self.logger.error("Config could not be read: \(error.localizedDescription, privacy: .private)")
+            }
         } else {
             config = AppConfig()
         }
+        persistenceIssue = initialIssue
         Localized.language = config.language
     }
 
@@ -77,8 +124,35 @@ final class ConfigStore: ObservableObject {
         save()
     }
 
-    private func save() {
-        guard let data = try? JSONEncoder().encode(config) else { return }
-        try? data.write(to: fileURL, options: .atomic)
+    func retrySave() {
+        saveTask?.cancel()
+        saveTask = nil
+        save(force: true)
+    }
+
+    func dismissPersistenceIssue() {
+        persistenceIssue = nil
+    }
+
+    private func save(force: Bool = false) {
+        guard force || !protectsUnreadableConfig else { return }
+        do {
+            let data = try JSONEncoder().encode(config)
+            try data.write(to: fileURL, options: .atomic)
+            protectsUnreadableConfig = false
+            if case .saveFailed = persistenceIssue { persistenceIssue = nil }
+            if case .loadFailed = persistenceIssue { persistenceIssue = nil }
+            if case .corruptConfigRecovered = persistenceIssue { persistenceIssue = nil }
+        } catch {
+            persistenceIssue = .saveFailed(error.localizedDescription)
+            Self.logger.error("Config save failed: \(error.localizedDescription, privacy: .private)")
+        }
+    }
+
+    private static func corruptBackupURL(for url: URL) -> URL {
+        let stamp = ISO8601DateFormatter().string(from: Date())
+            .replacingOccurrences(of: ":", with: "-")
+        return url.deletingLastPathComponent()
+            .appendingPathComponent("config-corrupt-\(stamp).json")
     }
 }

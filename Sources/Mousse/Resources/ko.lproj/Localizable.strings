@@ -2,6 +2,8 @@
 "menu.reverseScroll" = "스크롤 방향 반전";
 "menu.smoothScroll" = "부드러운 스크롤";
 "menu.grantAccessibility" = "⚠️ 손쉬운 사용 권한 부여…";
+"menu.grantInputMonitoring" = "⚠️ 입력 모니터링 권한 부여…";
+"menu.configSaveFailed" = "설정을 저장하지 못했습니다";
 "menu.settings" = "설정…";
 "menu.quit" = "Mousse 종료";
 "tab.general" = "일반";
@@ -14,6 +16,7 @@
 "general.language.system" = "시스템 기본값";
 "general.launchAtLogin" = "로그인 시 실행";
 "general.accessibility" = "손쉬운 사용";
+"general.inputMonitoring" = "입력 모니터링";
 "general.granted" = "권한 부여됨";
 "general.grant" = "권한 부여…";
 "general.version" = "버전";
@@ -32,6 +35,9 @@
 "diagnostics.initializing" = "초기화 중";
 "diagnostics.healthy" = "정상";
 "diagnostics.recovering" = "복구 중";
+"diagnostics.waitingForPermission" = "권한 대기 중";
+"diagnostics.failed" = "초기화 실패";
+"diagnostics.inputMonitoringRequired" = "입력 모니터링 권한 필요";
 "diagnostics.recoveries" = "복구 횟수";
 "diagnostics.recoveryCount" = "실행 후 %d회";
 "diagnostics.recoveryCountAt" = "실행 후 %d회 · 최근 %@";
@@ -44,6 +50,13 @@
 "diagnostics.miceSection" = "감지된 마우스";
 "diagnostics.noMice" = "감지된 마우스 없음";
 "diagnostics.miceDescription" = "연결된 마우스만 표시하며 이벤트를 생성한 장치를 추정하지 않습니다.";
+"config.persistenceSection" = "설정 저장";
+"config.retrySave" = "저장 다시 시도";
+"config.dismissIssue" = "닫기";
+"config.saveFailed" = "설정을 저장하지 못했습니다: %@";
+"config.loadFailed" = "저장된 설정을 읽지 못해 원본 파일을 보호하기 위해 자동 저장을 중지했습니다: %@";
+"config.corruptRecovered" = "저장된 설정을 읽을 수 없어 기본값을 불러오고 원본 파일을 %@에 백업했습니다.";
+"config.corruptRecoveredNoBackup" = "저장된 설정을 읽을 수 없어 기본값을 불러왔지만 원본 파일을 백업하지 못했습니다.";
 "pointer.globalSection" = "전역 설정";
 "pointer.manage" = "Mousse로 포인터 관리";
 "pointer.manageDescription" = "끄면 Mousse가 시스템 포인터 설정을 변경하지 않습니다.";

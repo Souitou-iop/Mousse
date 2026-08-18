@@ -243,17 +243,37 @@ final class DiagnosticsTests: XCTestCase {
 
     func testEventTapHealthTransitions() {
         let now = Date(timeIntervalSince1970: 100)
-        XCTAssertEqual(EventTapHealth.resolve(hasTap: false, tapEnabled: false,
-                                               lastRecoveryAt: nil, now: now), .initializing)
-        XCTAssertEqual(EventTapHealth.resolve(hasTap: true, tapEnabled: true,
-                                               lastRecoveryAt: nil, now: now), .healthy)
-        XCTAssertEqual(EventTapHealth.resolve(hasTap: true, tapEnabled: false,
-                                               lastRecoveryAt: nil, now: now), .recovering)
         XCTAssertEqual(EventTapHealth.resolve(
-            hasTap: true, tapEnabled: true,
+            accessibilityTrusted: false, hasTap: false, tapEnabled: false,
+            rebuildPending: false, creationFailed: false,
+            lastRecoveryAt: nil, now: now), .waitingForPermission)
+        XCTAssertEqual(EventTapHealth.resolve(
+            accessibilityTrusted: true, hasTap: false, tapEnabled: false,
+            rebuildPending: false, creationFailed: false,
+            lastRecoveryAt: nil, now: now), .initializing)
+        XCTAssertEqual(EventTapHealth.resolve(
+            accessibilityTrusted: true, hasTap: true, tapEnabled: true,
+            rebuildPending: false, creationFailed: false,
+            lastRecoveryAt: nil, now: now), .healthy)
+        XCTAssertEqual(EventTapHealth.resolve(
+            accessibilityTrusted: true, hasTap: true, tapEnabled: false,
+            rebuildPending: false, creationFailed: false,
+            lastRecoveryAt: nil, now: now), .recovering)
+        XCTAssertEqual(EventTapHealth.resolve(
+            accessibilityTrusted: true, hasTap: true, tapEnabled: true,
+            rebuildPending: true, creationFailed: false,
+            lastRecoveryAt: nil, now: now), .recovering)
+        XCTAssertEqual(EventTapHealth.resolve(
+            accessibilityTrusted: true, hasTap: false, tapEnabled: false,
+            rebuildPending: false, creationFailed: true,
+            lastRecoveryAt: nil, now: now), .failed)
+        XCTAssertEqual(EventTapHealth.resolve(
+            accessibilityTrusted: true, hasTap: true, tapEnabled: true,
+            rebuildPending: false, creationFailed: false,
             lastRecoveryAt: Date(timeIntervalSince1970: 99), now: now), .recovering)
         XCTAssertEqual(EventTapHealth.resolve(
-            hasTap: true, tapEnabled: true,
+            accessibilityTrusted: true, hasTap: true, tapEnabled: true,
+            rebuildPending: false, creationFailed: false,
             lastRecoveryAt: Date(timeIntervalSince1970: 97), now: now), .healthy)
     }
 
