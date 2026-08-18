@@ -33,6 +33,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// keeps the Mac awake.
     private var noNapActivity: NSObjectProtocol?
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // MenuBarExtra apps have no document windows. Keep the process alive while Control Center
+        // reconnects a status-item scene, including after stale status-item cache recovery.
+        ProcessInfo.processInfo.automaticTerminationSupportEnabled = true
+        ProcessInfo.processInfo.disableAutomaticTermination("Mousse owns a menu-bar status item")
         NSApp.setActivationPolicy(.accessory) // pure menu-bar app; Dock appears only with Settings
         noNapActivity = ProcessInfo.processInfo.beginActivity(
             options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],

@@ -54,6 +54,7 @@ final class EventTapEngine {
     private var tapRebuildPending = false
     private var tapCreationFailed = false
     private var nextTapCreationAttemptAt = Date.distantPast
+    private var lastPermissionGateState: Bool?
 
     // Snapshot read by the tap callback thread; guarded by `lock`.
     private let lock = OSAllocatedUnfairLock()
@@ -407,9 +408,25 @@ final class EventTapEngine {
 
     /// Periodically poll for a silently-disabled tap. 2s is invisible to the user yet costs nothing.
     private func startWatchdog() {
-        let timer = Timer(timeInterval: 2.0, repeats: true) { [weak self] _ in self?.reEnableTap() }
+        let timer = Timer(timeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.reEnableTap()
+            self?.refreshPermissionState()
+        }
         RunLoop.main.add(timer, forMode: .common)
         watchdog = timer
+    }
+
+    private func refreshPermissionState() {
+        let granted = MoussePermissionGate.isGranted
+        lock.lock()
+        let changed = lastPermissionGateState != granted
+        lastPermissionGateState = granted
+        lock.unlock()
+        guard changed else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.reload(ConfigStore.shared.config)
+        }
     }
 
     /// Start learning a physical button. The event tap owns capture so the press, drag, and release
@@ -496,12 +513,13 @@ final class EventTapEngine {
         // Disabling the engine or re-assigning the gesture button hides the button-up of an
         // in-flight drag from the gesture — it would stay stuck `down` and hijack every later
         // drag into Space switches. Cancel it the same way wake/device-change do.
-        if (enabled && !config.enabled) || spaceDragButton != config.spaceDragButton {
+        let effectiveEnabled = config.enabled && MoussePermissionGate.isGranted
+        if (enabled && !effectiveEnabled) || spaceDragButton != config.spaceDragButton {
             pendingDragCancel = true
             pendingAutoScrollCancel = true
         }
         pendingTriggerCancel = true
-        enabled = config.enabled
+        enabled = effectiveEnabled
         reverseScroll = config.reverseScroll
         scrollMode = config.scrollMode
         scrollSmoothness = config.scrollSmoothness

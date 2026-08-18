@@ -39,3 +39,9 @@ enum InputMonitoringPermission {
         NSWorkspace.shared.open(url)
     }
 }
+
+enum MoussePermissionGate {
+    static var isGranted: Bool {
+        AccessibilityPermission.isTrusted && InputMonitoringPermission.isTrusted
+    }
+}

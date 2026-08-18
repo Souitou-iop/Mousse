@@ -17,7 +17,7 @@ SWIFT="/usr/bin/swift"
 
 APP_NAME="Mousse"
 BUNDLE_ID="com.mousse.app"
-VERSION="0.26.2"
+VERSION="0.26.5"
 BUILD_TRIPLE="arm64-apple-macosx15.0"
 SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 OUT="build/${APP_NAME}.app"
@@ -44,6 +44,8 @@ cat > "$OUT/Contents/Info.plist" <<PLIST
     <key>CFBundleExecutable</key><string>${APP_NAME}</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
+    <key>LSUIElement</key><true/>
+    <key>NSPrincipalClass</key><string>NSApplication</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
     <key>CFBundleVersion</key><string>${VERSION}</string>
     <key>LSMinimumSystemVersion</key><string>15.0</string>

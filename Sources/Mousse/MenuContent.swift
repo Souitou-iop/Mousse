@@ -6,12 +6,18 @@ struct MenuContent: View {
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        Toggle(Localized.text("menu.enabled"), isOn: $store.config.enabled)
+        Toggle(Localized.text("menu.enabled"), isOn: Binding(
+            get: { store.config.enabled && MoussePermissionGate.isGranted },
+            set: { enabled in
+                guard MoussePermissionGate.isGranted else { return }
+                store.config.enabled = enabled
+            }))
+        .disabled(!MoussePermissionGate.isGranted)
 
         Divider()
 
         Toggle(Localized.text("menu.reverseScroll"), isOn: $store.config.reverseScroll)
-            .disabled(!store.config.enabled)
+            .disabled(!store.config.enabled || !MoussePermissionGate.isGranted)
 
         Toggle(Localized.text("menu.smoothScroll"), isOn: Binding(
             get: { store.config.scrollMode != .standard },
@@ -19,7 +25,7 @@ struct MenuContent: View {
                 store.config.scrollMode = isSmooth ? .smooth : .standard
             }
         ))
-        .disabled(!store.config.enabled)
+        .disabled(!store.config.enabled || !MoussePermissionGate.isGranted)
 
         Divider()
 

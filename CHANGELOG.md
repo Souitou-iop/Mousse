@@ -2,6 +2,17 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.26.5] - 2026-08-18
+
+### 修复 / Fixed
+
+- **菜单栏状态项恢复**：保留原 `com.mousse.app` 身份，补齐正式 App 的菜单栏元数据，并通过完整清理 Control Center 与 `cfprefsd` 的损坏状态项缓存恢复菜单栏显示。
+- **Menu-bar status-item recovery**: preserved the original `com.mousse.app` identity, completed the release bundle's menu-bar metadata, and restored visibility by fully clearing the corrupted Control Center and `cfprefsd` status-item state.
+- **未授权时禁止启用**：辅助功能或输入监控未授权时，“启用 Mousse”显示为关闭且不可操作，引擎也保持停用；授权状态变化后自动刷新。
+- **Disabled until authorized**: the Enable Mousse control is off and unavailable until Accessibility and Input Monitoring are granted; the engine remains inactive and refreshes automatically when permission state changes.
+
+[0.26.5]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.26.5
+
 ## [0.26.1] - 2026-08-18
 
 ### 修复 / Fixed

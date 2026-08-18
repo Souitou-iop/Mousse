@@ -29,7 +29,13 @@ struct SettingsView: View {
                     Text(language.label).tag(language)
                 }
             }
-            Toggle(Localized.text("general.enable"), isOn: $store.config.enabled)
+            Toggle(Localized.text("general.enable"), isOn: Binding(
+                get: { store.config.enabled && MoussePermissionGate.isGranted },
+                set: { enabled in
+                    guard MoussePermissionGate.isGranted else { return }
+                    store.config.enabled = enabled
+                }))
+                .disabled(!MoussePermissionGate.isGranted)
             Toggle(Localized.text("general.launchAtLogin"), isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, newValue in
                     LoginItem.setEnabled(newValue)
