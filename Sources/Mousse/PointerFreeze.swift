@@ -20,6 +20,7 @@ final class PointerFreeze {
     private init() {}
 
     private var tap: CFMachPort?
+    private var source: CFRunLoopSource?
     private var origin = CGPoint.zero
     private var isFrozen = false
     private var savedSuppression = 0.25
@@ -31,7 +32,8 @@ final class PointerFreeze {
     /// Create the tap on the engine's tap-thread run loop (idempotent). Must be called from that
     /// thread, before `freeze` can be used. The tap starts disabled — it only does work while frozen.
     func install(on runLoop: CFRunLoop?) {
-        guard tap == nil, let runLoop else { return }
+        guard let runLoop else { return }
+        uninstall(from: nil)
         let mask: CGEventMask =
             (1 << CGEventType.mouseMoved.rawValue) |
             (1 << CGEventType.leftMouseDragged.rawValue) |
@@ -50,10 +52,39 @@ final class PointerFreeze {
             return
         }
         tap = created
-        if let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, created, 0) {
-            CFRunLoopAddSource(runLoop, source, .commonModes)
+        if let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, created, 0) {
+            source = src
+            CFRunLoopAddSource(runLoop, src, .commonModes)
         }
         CGEvent.tapEnable(tap: created, enable: false)
+    }
+
+    /// Explicitly remove and invalidate the event tap and run-loop source.
+    func uninstall(from runLoop: CFRunLoop?) {
+        if isFrozen {
+            unfreeze()
+        }
+        if let tap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            if let source, let runLoop {
+                CFRunLoopRemoveSource(runLoop, source, .commonModes)
+            }
+            CFMachPortInvalidate(tap)
+            self.tap = nil
+            self.source = nil
+        }
+    }
+
+    /// Reset any active freeze state immediately (e.g. across sleep/wake/device-change).
+    func reset() {
+        if isFrozen {
+            isFrozen = false
+            if let tap {
+                CGEvent.tapEnable(tap: tap, enable: false)
+            }
+            CGWarpMouseCursorPosition(origin)
+            setSuppression(savedSuppression)
+        }
     }
 
     /// Anchor the pointer at `position` and hold it there until `unfreeze`. Idempotent.

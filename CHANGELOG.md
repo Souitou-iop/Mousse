@@ -2,6 +2,17 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.26.6] - 2026-08-19
+
+### 修复 / Fixed
+
+- **显示器休眠唤醒点击恢复**：显式注销旧 EventTap 与 RunLoop 资源，杜绝 WindowServer 悬挂钩子卡死全局点击；增加唤醒通知防抖并缩短瞬态重建重试延迟，确保屏幕点亮后秒级响应。
+- **Display wake click recovery**: explicitly uninstalls and invalidates stale event taps and run-loop sources to prevent orphaned hooks from stalling global clicks in WindowServer; adds wake notification debouncing and reduces transient tap recreation backoff for instant responsiveness upon display power-on.
+- **指针锁定状态自愈**：屏幕唤醒或手势取消时强制重置指针锁定状态与全局输入抑制时间，避免手势残留导致光标行为异常。
+- **Pointer freeze state self-healing**: resets pointer freeze state and system event suppression interval on wake or gesture cancellation, preventing stale gesture artifacts from affecting cursor interactions.
+
+[0.26.6]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.26.6
+
 ## [0.26.5] - 2026-08-18
 
 ### 修复 / Fixed

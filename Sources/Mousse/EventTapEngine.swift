@@ -55,6 +55,7 @@ final class EventTapEngine {
     private var tapCreationFailed = false
     private var nextTapCreationAttemptAt = Date.distantPast
     private var lastPermissionGateState: Bool?
+    private var wakeDebounceWorkItem: DispatchWorkItem?
 
     // Snapshot read by the tap callback thread; guarded by `lock`.
     private let lock = OSAllocatedUnfairLock()
@@ -239,6 +240,7 @@ final class EventTapEngine {
     private func requestInputCancel() {
         let mouseCancellation: ((CaptureOutcome<Int>) -> Void)?
         let keyboardCancellation: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
+        PointerFreeze.shared.reset()
         lock.lock()
         pendingDragCancel = true
         pendingAutoScrollCancel = true
@@ -313,6 +315,17 @@ final class EventTapEngine {
     /// On wake, re-enable the tap AND rebuild the scroll animator's display link, which macOS
     /// invalidates across sleep (leaving smooth scroll dead until it eventually self-heals).
     @objc func handleWake() {
+        // Debounce rapid successive screen/wake notifications (e.g. multi-display wake bursts)
+        wakeDebounceWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.performWakeRecovery()
+        }
+        wakeDebounceWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: item)
+    }
+
+    private func performWakeRecovery() {
         requestEventTapRebuild(reason: "wake or display change")
         scrollAnimator.handleWake()
         magnifier.endNow()
@@ -349,14 +362,14 @@ final class EventTapEngine {
             lock.unlock()
             return
         }
+        tapRebuildPending = true
+        tapCreationFailed = false
         guard let runLoop = eventTapRunLoop else {
-            let shouldStart = thread == nil
+            let shouldStart = thread == nil && Date() >= nextTapCreationAttemptAt
             lock.unlock()
             if shouldStart, AccessibilityPermission.isTrusted { startTapThreadIfNeeded() }
             return
         }
-        tapRebuildPending = true
-        tapCreationFailed = false
         lock.unlock()
 
         Self.logger.error("Rebuilding event tap: \(reason, privacy: .public)")
@@ -588,7 +601,7 @@ final class EventTapEngine {
         // Try briefly, then yield the thread. The main-thread watchdog starts a fresh attempt after
         // permission changes, instead of keeping a high-priority thread in an infinite sleep loop.
         var created: CFMachPort?
-        let delays: [TimeInterval] = [0, 0.25, 0.5, 1, 2]
+        let delays: [TimeInterval] = [0, 0.1, 0.25, 0.5, 1.0]
         for delay in delays {
             guard AccessibilityPermission.isTrusted else { break }
             if delay > 0 { Thread.sleep(forTimeInterval: delay) }
@@ -607,7 +620,7 @@ final class EventTapEngine {
                 let trusted = AccessibilityPermission.isTrusted
                 tapCreationFailed = trusted
                 nextTapCreationAttemptAt = trusted
-                    ? Date().addingTimeInterval(10) : .distantPast
+                    ? Date().addingTimeInterval(1.0) : .distantPast
             }
             lock.unlock()
             Self.logger.error("Event tap creation failed; waiting before the next attempt")
@@ -625,15 +638,24 @@ final class EventTapEngine {
             if thread === Thread.current {
                 thread = nil
                 tapCreationFailed = true
-                nextTapCreationAttemptAt = Date().addingTimeInterval(10)
+                nextTapCreationAttemptAt = Date().addingTimeInterval(1.0)
             }
             lock.unlock()
+            CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
+            if let keyboardTap {
+                CGEvent.tapEnable(tap: keyboardTap, enable: false)
+                CFMachPortInvalidate(keyboardTap)
+            }
             return
         }
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+        let runLoop = CFRunLoopGetCurrent()
+        CFRunLoopAddSource(runLoop, source, .commonModes)
+        var keyboardSource: CFRunLoopSource?
         if let keyboardTap,
-           let keyboardSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, keyboardTap, 0) {
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), keyboardSource, .commonModes)
+           let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, keyboardTap, 0) {
+            keyboardSource = src
+            CFRunLoopAddSource(runLoop, src, .commonModes)
             CGEvent.tapEnable(tap: keyboardTap, enable: false)
         } else {
             NSLog("Mousse: keyboard capture event tap could not be created")
@@ -651,7 +673,6 @@ final class EventTapEngine {
         ) { [weak self] _ in
             self?.handleEdgeScrollTick()
         }
-        let runLoop = CFRunLoopGetCurrent()
         CFRunLoopAddTimer(runLoop, triggerTimer, .commonModes)
         CFRunLoopAddTimer(runLoop, edgeScrollTimer, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
@@ -665,6 +686,21 @@ final class EventTapEngine {
         lock.unlock()
         PointerFreeze.shared.install(on: runLoop)
         CFRunLoopRun()
+
+        // Clean up the event tap and sources explicitly so WindowServer does not leave orphaned hooks
+        PointerFreeze.shared.uninstall(from: runLoop)
+        CFRunLoopRemoveTimer(runLoop, triggerTimer, .commonModes)
+        CFRunLoopRemoveTimer(runLoop, edgeScrollTimer, .commonModes)
+        CFRunLoopRemoveSource(runLoop, source, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: false)
+        CFMachPortInvalidate(tap)
+        if let keyboardTap {
+            if let keyboardSource {
+                CFRunLoopRemoveSource(runLoop, keyboardSource, .commonModes)
+            }
+            CGEvent.tapEnable(tap: keyboardTap, enable: false)
+            CFMachPortInvalidate(keyboardTap)
+        }
 
         lock.lock()
         let shouldRestart = tapRebuildPending
