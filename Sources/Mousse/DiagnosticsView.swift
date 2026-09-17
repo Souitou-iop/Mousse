@@ -25,8 +25,6 @@ struct DiagnosticsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model = DiagnosticsViewModel()
 
-    private let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
-
     var body: some View {
         VStack(spacing: 0) {
             HStack {
@@ -52,7 +50,6 @@ struct DiagnosticsView: View {
         }
         .frame(width: 540, height: 500)
         .onAppear { model.refresh() }
-        .onReceive(timer) { _ in model.refresh() }
     }
 
     private var pointerSection: some View {

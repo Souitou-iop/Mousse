@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 @testable import Mousse
 
@@ -35,6 +36,18 @@ final class PointerSettingsControllerTests: XCTestCase {
             ]
         }
         return backend
+    }
+
+    @MainActor
+    func testDiagnosticsRefreshDoesNotPublishWhenSnapshotIsUnchanged() {
+        let controller = PointerSettingsController(backend: backend())
+        var changeCount = 0
+        let observation = controller.objectWillChange.sink { changeCount += 1 }
+
+        _ = controller.diagnosticsSnapshot(refreshActual: true)
+
+        XCTAssertEqual(changeCount, 0)
+        withExtendedLifetime(observation) {}
     }
 
     func testResolverUsesGlobalThenPerAppOverrides() {

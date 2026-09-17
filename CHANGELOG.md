@@ -2,6 +2,17 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.26.7] - 2026-09-17
+
+### 修复 / Fixed
+
+- **隐藏设置窗口内存泄漏**：移除指针设置页与诊断页常驻的 0.5 秒定时刷新，改为仅在页面显示时刷新，避免窗口关闭后 SwiftUI Observation 跟踪对象持续累积。
+- **Hidden settings-window memory leak**: removed persistent 0.5-second refresh timers from Pointer Settings and Diagnostics, refreshing only when the views appear so hidden windows no longer accumulate SwiftUI Observation tracking objects.
+- **诊断状态通知去重**：仅在指针诊断快照实际变化时更新 `@Published` 状态，阻止无效重绘广播和长期运行后的闭包、KeyPath 与字典堆积。
+- **Deduplicated diagnostic state updates**: publishes pointer diagnostic snapshots only when their values change, preventing redundant redraw notifications and long-running closure, key-path, and dictionary accumulation.
+
+[0.26.7]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.26.7
+
 ## [0.26.6] - 2026-08-19
 
 ### 修复 / Fixed

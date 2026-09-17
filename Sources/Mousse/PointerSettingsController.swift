@@ -423,7 +423,10 @@ final class PointerSettingsController: ObservableObject {
     }
 
     func diagnosticsSnapshot(refreshActual: Bool = false) -> PointerDiagnosticsSnapshot {
-        if refreshActual { snapshot = engine.refreshDiagnostics() }
+        if refreshActual {
+            let refreshedSnapshot = engine.refreshDiagnostics()
+            if refreshedSnapshot != snapshot { snapshot = refreshedSnapshot }
+        }
         return snapshot
     }
 

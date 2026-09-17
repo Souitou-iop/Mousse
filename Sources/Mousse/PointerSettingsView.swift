@@ -7,8 +7,6 @@ struct PointerSettingsView: View {
     @ObservedObject private var controller = PointerSettingsController.shared
     @State private var editingID: UUID?
 
-    private let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
-
     var body: some View {
         if let editingID,
            let index = store.config.pointerAppProfiles.firstIndex(where: { $0.id == editingID }) {
@@ -18,9 +16,7 @@ struct PointerSettingsView: View {
                 onBack: { self.editingID = nil })
         } else {
             overview
-                .onReceive(timer) { _ in
-                    _ = controller.diagnosticsSnapshot(refreshActual: true)
-                }
+                .onAppear { _ = controller.diagnosticsSnapshot(refreshActual: true) }
         }
     }
 
