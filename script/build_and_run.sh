@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="Mousse"
-BUILD_TRIPLE="arm64-apple-macosx15.0"
+BUILD_TRIPLE="arm64-apple-macosx26.0"
 VERSION="$(awk -F'"' '/^VERSION=/ {print $2; exit}' "$ROOT_DIR/build-app.sh")"
 [ -n "$VERSION" ] || { echo "Error: could not read version from build-app.sh" >&2; exit 1; }
 APP_BUNDLE="$ROOT_DIR/dist/$APP_NAME.app"
@@ -78,7 +78,7 @@ stage_app() {
     plutil -insert CFBundleShortVersionString -string "$VERSION" "$plist"
     plutil -insert CFBundleVersion -string "$VERSION" "$plist"
     plutil -insert CFBundleIconFile -string "AppIcon" "$plist"
-    plutil -insert LSMinimumSystemVersion -string "15.0" "$plist"
+    plutil -insert LSMinimumSystemVersion -string "26.0" "$plist"
     plutil -insert LSUIElement -bool true "$plist"
     plutil -insert NSPrincipalClass -string "NSApplication" "$plist"
 

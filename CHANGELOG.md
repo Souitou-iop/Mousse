@@ -2,6 +2,15 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.26.8] - 2026-09-24
+
+### 变更 / Changed
+
+- **最低系统要求提高至 macOS 26**：Release、Debug staging、SwiftPM 与 GitHub Actions 统一以 `arm64-apple-macosx26.0` 构建，应用 `LSMinimumSystemVersion` 与 Mach-O `minos` 均为 `26.0`，不再支持 macOS 15。
+- **Minimum system requirement raised to macOS 26**: Release, debug staging, SwiftPM, and GitHub Actions now all build for `arm64-apple-macosx26.0`; both `LSMinimumSystemVersion` and Mach-O `minos` are `26.0`, dropping macOS 15 support.
+
+[0.26.8]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.26.8
+
 ## [0.26.7] - 2026-09-17
 
 ### 修复 / Fixed

@@ -1,7 +1,7 @@
 # Mousse
 
 <p align="center">
-  <b>面向 Apple 芯片 Mac 与 macOS 15+ 的轻量级、单进程菜单栏鼠标增强工具。</b>
+  <b>面向 Apple 芯片 Mac 与 macOS 26+ 的轻量级、单进程菜单栏鼠标增强工具。</b>
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 
 ---
 
-**Mousse** 是一款专为 Apple 芯片 Mac 与 macOS 15+（Sequoia 及后续版本）设计的轻量级、单进程菜单栏鼠标增强工具。它为普通 USB 和蓝牙鼠标补齐了 macOS 原生缺失的核心体验：平滑滚动、按键动作重映射、指针加速度接管、Windows 风格自动滚动以及拖拽切换 Space 手势，且**无需后台常驻 Daemon 辅助进程、无需许可证联网验证、无需破坏性修改系统底层配置**。
+**Mousse** 是一款专为 Apple 芯片 Mac 与 macOS 26+ 设计的轻量级、单进程菜单栏鼠标增强工具。它为普通 USB 和蓝牙鼠标补齐了 macOS 原生缺失的核心体验：平滑滚动、按键动作重映射、指针加速度接管、Windows 风格自动滚动以及拖拽切换 Space 手势，且**无需后台常驻 Daemon 辅助进程、无需许可证联网验证、无需破坏性修改系统底层配置**。
 
 > [!NOTE]
 > 本仓库为 **Ha Minh Quang ([@MinhQuang28](https://github.com/MinhQuang28))** 原项目 [Mousse](https://github.com/MinhQuang28/Mousse) 的增强 Fork 版本。
@@ -56,7 +56,7 @@
 - 🌐 **五国语言与现代 macOS 外观**：
   - 支持 **简体中文**、**English**、**日本語**、**한국어**、**Español**（随系统自动切换或手动指定）。
   - 打开设置时显示 Dock 图标并支持窗口最小化，关闭后自动退出 Dock 恢复纯菜单栏模式；界面划分为**常规**、**按钮**、**滚动**、**指针**、**手势** 5 大页面。
-  - 完美适配 macOS 15 (Sequoia) 及 macOS 26+ 系统新外观。
+  - 完美适配 macOS 26+ 系统新外观。
 
 ---
 
@@ -77,7 +77,7 @@
 
 ### 系统要求
 - Apple 芯片 Mac（`arm64`）。
-- macOS 15.0 (Sequoia) 或更高版本。
+- macOS 26.0 或更高版本。
 - **辅助功能权限**（系统设置 → 隐私与安全性 → 辅助功能）。
 
 ### 方式一：下载预构建应用（推荐）

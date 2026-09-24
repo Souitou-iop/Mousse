@@ -17,7 +17,7 @@
 
 ---
 
-**Mousse** is a lightweight, single-process menu bar utility for Apple Silicon Macs running macOS 15+ (Sequoia and later). It brings essential mouse enhancements to standard USB and Bluetooth mice — smooth scrolling, customizable button remapping, pointer acceleration management, Windows-style auto-scrolling, and Space-switching gestures — without background helper daemons, license servers, or system configuration tampering.
+**Mousse** is a lightweight, single-process menu bar utility for Apple Silicon Macs running macOS 26 or later. It brings essential mouse enhancements to standard USB and Bluetooth mice — smooth scrolling, customizable button remapping, pointer acceleration management, Windows-style auto-scrolling, and Space-switching gestures — without background helper daemons, license servers, or system configuration tampering.
 
 > [!NOTE]
 > This repository is an enhanced fork of the original [Mousse](https://github.com/MinhQuang28/Mousse) created by **Ha Minh Quang ([@MinhQuang28](https://github.com/MinhQuang28))**.
@@ -55,7 +55,7 @@ Compared to the upstream project, this fork adds significant capabilities, perfo
 - 🌐 **Multilingual & Modern macOS Interface**:
   - 5 UI languages supported: **English**, **Simplified Chinese (简体中文)**, **Japanese (日本語)**, **Korean (한국어)**, and **Spanish (Español)**.
   - Dock-aware Settings window with minimize support, organized into 5 intuitive tabs: **General**, **Buttons**, **Scroll**, **Pointer**, and **Gestures**.
-  - Adaptive system appearance on macOS 15 through macOS 26+.
+  - Adaptive system appearance on macOS 26+.
 
 ---
 
@@ -76,7 +76,7 @@ Compared to the upstream project, this fork adds significant capabilities, perfo
 
 ### Requirements
 - Apple Silicon Mac (`arm64`).
-- macOS 15.0 (Sequoia) or later.
+- macOS 26.0 or later.
 - **Accessibility Permission** (System Settings → Privacy & Security → Accessibility).
 
 ### Option 1: Download Pre-Built App (Recommended)
