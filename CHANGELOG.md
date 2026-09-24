@@ -2,6 +2,20 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.26.9] - 2026-09-24
+
+### 新增 / Added
+
+- **自然方向关闭 Mission Control / App Exposé**：在 macOS 26+ 上，Space 垂直拖拽会按照触控板习惯关闭当前覆盖层：向下关闭 Mission Control，向上关闭 App Exposé；无法检测覆盖层状态时保留原有切换行为。
+- **Natural-direction Mission Control / App Exposé dismissal**: on macOS 26+, vertical Space drags close the active overlay in the trackpad direction: down closes Mission Control and up closes App Exposé; the legacy toggle behavior remains when overlay detection is unavailable.
+
+### 修复 / Fixed
+
+- **连续 Space flick 不再被冷却时间吞掉**：每次新的拖拽会重新开始横向切换冷却，连续快速拖拽可以各自触发一次 Space 切换。
+- **Rapid successive Space flicks**: each new drag starts a fresh horizontal-switch cooldown, so consecutive quick drags can each trigger their own Space change.
+
+[0.26.9]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.26.9
+
 ## [0.26.8] - 2026-09-24
 
 ### 变更 / Changed

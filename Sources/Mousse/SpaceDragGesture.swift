@@ -2,7 +2,9 @@ import QuartzCore
 
 /// Hold a mouse button and drag to drive Spaces/Mission Control like the trackpad gesture:
 ///   • horizontal drag → switch Spaces (one jump per `threshold` px, paced by a cooldown)
-///   • vertical drag   → up = Mission Control, down = App Exposé
+///   • vertical drag   → up = Mission Control, down = App Exposé; while the overlay is showing
+///     (detectable on macOS 26+), only the natural reverse direction closes it — down closes
+///     Mission Control, up closes App Exposé — like the real trackpad gesture
 /// The active axis is locked at the start of each drag so a swipe never does both.
 ///
 /// Click-vs-drag: the same button can ALSO carry a normal remap. A quick click (no real drag) is
@@ -38,6 +40,16 @@ final class SpaceDragGesture {
         CGEvent(source: nil)?.location ?? .zero
     }
 
+    // Injection seams so tests can exercise the vertical decision without touching WindowServer
+    // (the overlay probe) or posting synthesized keystrokes (the action). Production defaults are
+    // the real implementations; tests override both.
+    /// Whether Mission Control / App Exposé is showing; nil = undetectable (pre-macOS 26).
+    var overlayProbe: () -> Bool? = { SystemActions.exposeOverlayIsOpen() }
+    /// Posts a vertical action. Defaults to the real RemapAction path.
+    var verticalActionProbe: (RemapAction) -> Void = { $0.post() }
+    /// Test-only read of the remembered opener (the close direction depends on it).
+    var verticalOpenerForTesting: RemapAction? { verticalOpener }
+
     private let dockSwipe = DockSwipeSynthesizer()
     private var followingFinger = false // this drag is driving a live dock-swipe transition
     private var swipeScale = 0.0        // originOffset per pixel, computed once per drag
@@ -69,6 +81,19 @@ final class SpaceDragGesture {
     private var lastVTrigger = 0.0
     private var smoothedVel = 0.0        // EMA of drag speed along the active axis (px/s)
     private var lastDragTime = 0.0
+    // The action that opened the currently-showing Exposé overlay; nil = none/unknown. Decides
+    // which drag direction closes it. Deliberately NOT reset per drag or in cancel(): a follow-up
+    // drag must still be able to close an overlay the previous drag opened. Known limitation: we
+    // can't see WHICH overlay is showing, so if ours closes externally (window click) and the
+    // OTHER one is later opened by keyboard/trackpad, the remembered opener picks the wrong close
+    // direction until the next overlay we open ourselves overwrites it.
+    private var verticalOpener: RemapAction?
+    // Paces the overlay probe (a WindowServer round-trip) when triggerVertical keeps declining —
+    // e.g. a sustained "wrong-direction" drag while the overlay is open re-qualifies every
+    // `vThreshold` px, which unpaced means ~20 probes/s on the event-tap thread. The successful
+    // path is already paced by `vCooldown`.
+    private var lastVProbe = 0.0
+    private let vProbeCooldown = 0.15
 
     var isActive: Bool { down }
     var hasDragged: Bool { dragged }
@@ -101,6 +126,10 @@ final class SpaceDragGesture {
         axis = .undecided
         accX = 0; accY = 0
         smoothedVel = 0
+        // The horizontal cooldown paces switches WITHIN a drag; a new drag is a new intent, so
+        // rapid successive flicks hop one Space each instead of the second being swallowed.
+        // (`lastVTrigger` deliberately persists — it guards mid-animation re-toggles.)
+        lastHSwitch = 0
         return true
     }
 
@@ -182,10 +211,11 @@ final class SpaceDragGesture {
             }
         } else {
             accY += deltaY
-            if now - lastVTrigger >= vCooldown, abs(accY) >= vThreshold {
-                triggerVertical(up: accY < 0)
+            if now - lastVTrigger >= vCooldown, now - lastVProbe >= vProbeCooldown,
+               abs(accY) >= vThreshold {
+                lastVProbe = now
+                if triggerVertical(up: accY < 0) { lastVTrigger = now }
                 accY = 0
-                lastVTrigger = now
             }
         }
         return true
@@ -207,8 +237,7 @@ final class SpaceDragGesture {
                 lastHSwitch = now
             }
         } else if now - lastVTrigger >= vCooldown {
-            triggerVertical(up: acc < 0)
-            lastVTrigger = now
+            if triggerVertical(up: acc < 0) { lastVTrigger = now }
         }
     }
 
@@ -216,8 +245,31 @@ final class SpaceDragGesture {
         (left ? SystemActions.spaceLeft : SystemActions.spaceRight)()
     }
 
-    private func triggerVertical(up: Bool) {
-        // Via RemapAction so the Dock-SPI-unavailable fallback (synthesized Ctrl+↑/↓) applies here too.
-        (up ? RemapAction.missionControl : RemapAction.appExpose).post()
+    /// Fire the vertical action for the drag direction. Returns false when the drag does nothing
+    /// (dragging further "open" while the overlay is already showing), so callers don't burn the
+    /// cooldown on a no-op. Posts via RemapAction so the Dock-SPI-unavailable fallback
+    /// (synthesized Ctrl+↑/↓) applies here too.
+    @discardableResult
+    func triggerVertical(up: Bool) -> Bool {
+        // Overlay state undetectable (pre-macOS 26): keep the legacy unconditional toggle.
+        guard let overlayOpen = overlayProbe() else {
+            verticalActionProbe(up ? RemapAction.missionControl : RemapAction.appExpose)
+            return true
+        }
+        if !overlayOpen {
+            let action: RemapAction = up ? .missionControl : .appExpose
+            verticalActionProbe(action)
+            verticalOpener = action
+            return true
+        }
+        // Overlay is open — the opener toggles it closed, but only in the natural direction
+        // (down closes Mission Control, up closes App Exposé), like the real trackpad gesture.
+        // Opener unknown (overlay opened by keyboard/trackpad): assume the drag direction closes.
+        let opener = verticalOpener ?? (up ? RemapAction.appExpose : RemapAction.missionControl)
+        let closes = opener == .missionControl ? !up : up
+        guard closes else { return false }
+        verticalActionProbe(opener)
+        verticalOpener = nil
+        return true
     }
 }
