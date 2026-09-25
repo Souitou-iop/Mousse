@@ -2,6 +2,20 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.27.0] - 2026-09-26
+
+### 新增 / Added
+
+- **快甩减速尾巴**：连续甩动（fast scroll）触发 12,000 px/s 输出上限后，此前页面会以恒速排空剩余距离然后戛然而止；现在一旦积压距离可以被"从上限速度开始的拖拽减速滑行"覆盖，动画器会将其重新规划为纯减速滑行，让每次甩动以当前平滑度曲线（Snappy/Balanced/Floaty 及精确/快速修饰档）自身的自然减速度收尾，消除"匀速飞行后撞墙急停"。同时修复排空期间同向新滚轮格从静止重新起速的中途顿挫（`planSpeedLocked` 报告真实输出速度）。单次甩动的计划距离上限由 100,000 px 收紧为上限速度 × 1.5 s（18,000 px）——持续滑动仍会不断补足积压，长距离飞行不受影响。
+- **Ceiling decelerating tail**: once a fast-scroll fling was throttled by the 12,000 px/s output ceiling, the view used to drain flat at the ceiling and stop dead; now, as soon as the remaining backlog fits a drag coast started from the ceiling speed, the animator re-plans it as a pure coast so every fling ends with the active profile's own natural deceleration (Snappy/Balanced/Floaty and the Precise/Quick modifier profiles), instead of hitting a wall. Also fixes a follow-up same-direction notch mid-drain re-planning from rest (`planSpeedLocked` reports the real output speed). The per-plan distance cap tightens from 100,000 px to ceiling × 1.5 s (18,000 px) — sustained swiping keeps topping the backlog up, so long-distance flings are unaffected.
+
+### 改进 / Improved
+
+- **滚轮格级显示器跨度缓存**：新增 `ScreenSpanResolver`，把每个滚轮格在事件 tap 线程上约 16 µs 的 `CGGetDisplaysWithPoint` + 像素尺寸查询降为矩形包含测试缓存；缓存随光标应用缓存一同失效（唤醒、显示器变化、Space/应用切换），TTL 仅作兜底。屏幕尺寸灵敏度缩放与快速滚动窗口尺寸的结果不变。
+- **Per-notch display-span cache**: the new `ScreenSpanResolver` replaces the ~16 µs `CGGetDisplaysWithPoint` + pixel-size query on the event-tap thread for every wheel notch with a cached rect-containment test; the cache flushes alongside the cursor-app cache (wake, display change, Space/app switch) with a TTL safety net. Screen-size sensitivity scaling and the quick-scroll window size are unchanged.
+
+[0.27.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.27.0
+
 ## [0.26.9] - 2026-09-24
 
 ### 新增 / Added

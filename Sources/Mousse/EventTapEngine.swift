@@ -151,6 +151,7 @@ final class EventTapEngine {
     private var buttonTriggerTimer: CFRunLoopTimer?
     private var eventTapRunLoop: CFRunLoop?
     private let cursorApp = CursorAppResolver() // tap-thread only, like the animator
+    private let screenSpans = ScreenSpanResolver() // tap-thread only; flushed with `cursorApp`
 
     /// Start the tap thread (idempotent). Apply `config`.
     func start(config: AppConfig) {
@@ -994,7 +995,10 @@ final class EventTapEngine {
             cancelAutoScroll()
             autoScrollExitPassThrough.reset()
         }
-        if cursorFlush { cursorApp.invalidate() }
+        if cursorFlush { // tap thread — both resolvers' caches live there
+            cursorApp.invalidate()
+            screenSpans.invalidate()
+        }
         if triggerCancel {
             buttonTriggers.cancelAll()
             scheduleButtonTriggerTimer()
@@ -1286,7 +1290,7 @@ final class EventTapEngine {
             var profile = ScrollProfile.forSmoothness(smoothness)
             var forceGlide = false
             if modQuick {
-                profile = .quick(screenSpan: screenSpan(at: event.location, vertical: lineV != 0))
+                profile = .quick(screenSpan: screenSpans.span(at: event.location, vertical: lineV != 0))
                 forceGlide = true
             } else if modPrecise {
                 profile = .precise
@@ -1294,7 +1298,7 @@ final class EventTapEngine {
             }
             let baseline = lineV != 0 ? 1080.0 : 1920.0
             let sizeFactor = modQuick ? 1.0
-                : screenSpan(at: event.location, vertical: lineV != 0) / baseline
+                : screenSpans.span(at: event.location, vertical: lineV != 0) / baseline
             let sens = profile.sensitivity(slider: speed, screenSizeFactor: sizeFactor)
 
             // Notched mouse: Smooth and Smooth-step both drive the animator (momentum vs crisp N-line
@@ -1426,16 +1430,8 @@ extension EventTapEngine {
     /// Scale a continuous (high-res) mouse's deltas by the Scroll-speed slider and flip them for
     /// reverse, in place. Neutral speed (0.5, the slider default) maps to gain 1.0 so the mouse keeps
     /// its native feel until the user actually moves the slider.
-    /// Pixel span of the display under `point` — feeds screen-size sensitivity scaling and the
-    /// quick-scroll window size. Falls back to the 1080p baseline when the lookup misses.
-    fileprivate func screenSpan(at point: CGPoint, vertical: Bool) -> Double {
-        var display: CGDirectDisplayID = 0
-        var count: UInt32 = 0
-        guard CGGetDisplaysWithPoint(point, 1, &display, &count) == .success, count > 0 else {
-            return vertical ? 1080 : 1920
-        }
-        return Double(vertical ? CGDisplayPixelsHigh(display) : CGDisplayPixelsWide(display))
-    }
+    /// (The per-notch display-span lookup this extension used to carry moved into
+    /// `ScreenSpanResolver` — a cached rect-containment test instead of a CG query every notch.)
 
     /// Post a fresh continuous (pixel) event with the slider gain / reverse sign applied and the
     /// axes optionally swapped — for the hi-res path whenever the original can't pass through
