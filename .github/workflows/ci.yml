@@ -41,6 +41,9 @@ jobs:
           set -euo pipefail
           export DEVELOPER_DIR="$(xcode-select -p)"
           tools/package-release.sh
+          version="$(awk -F'"' '/^VERSION=/ {print $2; exit}' build-app.sh)"
+          mkdir -p dist
+          cp "build/Mousse-${version}.zip" dist/Mousse.zip
           (cd dist && shasum -a 256 Mousse.zip > Mousse.zip.sha256)
 
       - name: Validate release archive
