@@ -1,6 +1,7 @@
 "menu.enabled" = "启用 Mousse";
 "menu.reverseScroll" = "反转滚动方向";
 "menu.smoothScroll" = "平滑滚动";
+"menu.pointerAcceleration" = "指针加速";
 "menu.grantAccessibility" = "⚠️ 授予辅助功能权限…";
 "menu.grantInputMonitoring" = "⚠️ 授予输入监控权限…";
 "menu.configSaveFailed" = "设置未能保存";
@@ -188,6 +189,11 @@
 "buttons.removeButtonMessage" = "这会删除该按钮及其全部触发方式映射。";
 "buttons.doubleClickInterval" = "双击间隔：%d 毫秒";
 "buttons.holdDuration" = "长按时长：%d 毫秒";
+"buttons.excludedApps" = "排除的应用";
+"buttons.noExcludedApps" = "当前对所有应用生效";
+"buttons.addExcludedApp" = "添加应用…";
+"buttons.exclude" = "排除";
+"buttons.excludedAppsDescription" = "指针位于这些应用中时按键映射不生效，按键保持原生行为。";
 "apps.excluded" = "应用滚动";
 "apps.noExcluded" = "暂无应用滚动设置";
 "apps.exclude" = "添加";

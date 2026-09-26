@@ -81,6 +81,35 @@ final class PointerSettingsControllerTests: XCTestCase {
                 matchedProfileBundleID: "com.apple.Terminal"))
     }
 
+    func testMenuAccelerationToggleEngagesPointerManagement() {
+        // Turning acceleration ON from the menu while management was off engages management.
+        var off = AppConfig()
+        off.pointerControlEnabled = false
+        off.pointerAccelerationEnabled = true
+        let turnedOn = PointerSettingsResolver.applyMenuAccelerationToggle(false, to: off)
+        XCTAssertFalse(turnedOn.pointerAccelerationEnabled)
+        XCTAssertTrue(turnedOn.pointerControlEnabled,
+                      "flipping the menu switch must engage pointer management")
+
+        // Management already on: only the acceleration flag changes.
+        var on = AppConfig()
+        on.pointerControlEnabled = true
+        on.pointerAccelerationEnabled = false
+        let reEnabled = PointerSettingsResolver.applyMenuAccelerationToggle(true, to: on)
+        XCTAssertTrue(reEnabled.pointerAccelerationEnabled)
+        XCTAssertTrue(reEnabled.pointerControlEnabled)
+
+        // Enabling acceleration must not silently turn management OFF, and other fields survive.
+        var custom = AppConfig()
+        custom.pointerControlEnabled = true
+        custom.pointerSpeedMultiplier = 1.75
+        custom.scrollSpeed = 1.2
+        let toggled = PointerSettingsResolver.applyMenuAccelerationToggle(false, to: custom)
+        XCTAssertTrue(toggled.pointerControlEnabled)
+        XCTAssertEqual(toggled.pointerSpeedMultiplier, 1.75)
+        XCTAssertEqual(toggled.scrollSpeed, 1.2)
+    }
+
     func testResolverDisablesManagementWithEitherMasterSwitch() {
         var config = AppConfig()
         config.pointerControlEnabled = false

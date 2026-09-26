@@ -27,6 +27,15 @@ struct MenuContent: View {
         ))
         .disabled(!store.config.enabled || !MoussePermissionGate.isGranted)
 
+        Toggle(Localized.text("menu.pointerAcceleration"), isOn: Binding(
+            get: { store.config.pointerAccelerationEnabled },
+            // The pointer subsystem only does anything while pointer management is on, so flipping
+            // this switch from the menu also engages it — otherwise the toggle would look dead.
+            set: { store.config = PointerSettingsResolver.applyMenuAccelerationToggle($0,
+                                                                                    to: store.config) }
+        ))
+        .disabled(!store.config.enabled || !MoussePermissionGate.isGranted)
+
         Divider()
 
         if !AccessibilityPermission.isTrusted {

@@ -1,6 +1,7 @@
 "menu.enabled" = "Mousse 사용";
 "menu.reverseScroll" = "스크롤 방향 반전";
 "menu.smoothScroll" = "부드러운 스크롤";
+"menu.pointerAcceleration" = "포인터 가속";
 "menu.grantAccessibility" = "⚠️ 손쉬운 사용 권한 부여…";
 "menu.grantInputMonitoring" = "⚠️ 입력 모니터링 권한 부여…";
 "menu.configSaveFailed" = "설정을 저장하지 못했습니다";
@@ -188,6 +189,11 @@
 "buttons.removeButtonMessage" = "이 버튼과 모든 트리거 매핑이 삭제됩니다.";
 "buttons.doubleClickInterval" = "더블 클릭 간격: %d ms";
 "buttons.holdDuration" = "길게 누름 시간: %d ms";
+"buttons.excludedApps" = "제외할 앱";
+"buttons.noExcludedApps" = "모든 앱에서 적용됩니다";
+"buttons.addExcludedApp" = "앱 추가…";
+"buttons.exclude" = "제외";
+"buttons.excludedAppsDescription" = "포인터가 이 앱 위에 있는 동안에는 버튼 매핑이 적용되지 않고 버튼이 원래 동작을 유지합니다.";
 "apps.excluded" = "앱별 스크롤";
 "apps.noExcluded" = "앱별 스크롤 설정 없음";
 "apps.exclude" = "추가";

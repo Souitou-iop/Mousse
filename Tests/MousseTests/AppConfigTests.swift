@@ -90,6 +90,7 @@ final class AppConfigTests: XCTestCase {
         config.configuredButtons = [3, 6]
         config.mappings = [ButtonMapping(buttonNumber: 6, trigger: .doubleClick,
                                          action: .missionControl)]
+        config.buttonMappingExcludedBundleIDs = ["com.apple.Safari", "com.example.ide"]
 
         let decoded = try roundTrip(config)
         XCTAssertEqual(decoded.enabled, false)
@@ -113,6 +114,16 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.scrollSmoothness, .floaty)
         XCTAssertEqual(decoded.configuredButtons, [3, 6])
         XCTAssertEqual(decoded.mappings, config.mappings)
+        XCTAssertEqual(decoded.buttonMappingExcludedBundleIDs, ["com.apple.Safari", "com.example.ide"])
+    }
+
+    /// A config saved before the button-mapping exclusion existed must default to an empty list
+    /// (mappings apply everywhere), not throw.
+    func testButtonMappingExclusionDefaultsToEmpty() throws {
+        let decoded = try roundTrip(AppConfig())
+        XCTAssertEqual(decoded.buttonMappingExcludedBundleIDs, [])
+        let json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(AppConfig())) as? [String: Any]
+        XCTAssertTrue((json?["buttonMappingExcludedBundleIDs"] as? [String])?.isEmpty ?? false)
     }
 
     /// An old config saved before a setting existed must decode with that setting at its default,
@@ -484,6 +495,22 @@ final class AppConfigTests: XCTestCase {
             profiles: [terminal.bundleID: terminal],
             excluded: [], globalReverse: true),
             .init(mousseScrollEnabled: false, reverseScroll: false))
+    }
+
+    func testButtonMappingBypassOnlyForListedApps() {
+        let excluded: Set<String> = ["com.example.Editor", "com.apple.Safari"]
+        XCTAssertTrue(EventTapEngine.isButtonMappingBypassed(
+            bundleID: "com.example.Editor", excluded: excluded))
+        XCTAssertTrue(EventTapEngine.isButtonMappingBypassed(
+            bundleID: "com.apple.Safari", excluded: excluded))
+        XCTAssertFalse(EventTapEngine.isButtonMappingBypassed(
+            bundleID: "com.example.Browser", excluded: excluded))
+        // No resolvable app → never bypassed, even with a populated list.
+        XCTAssertFalse(EventTapEngine.isButtonMappingBypassed(
+            bundleID: nil, excluded: excluded))
+        // Empty list → mappings apply everywhere, even for a would-be match.
+        XCTAssertFalse(EventTapEngine.isButtonMappingBypassed(
+            bundleID: "com.example.Editor", excluded: []))
     }
 
     // MARK: - Config export/import

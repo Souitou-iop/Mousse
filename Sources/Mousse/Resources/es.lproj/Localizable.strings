@@ -1,6 +1,7 @@
 "menu.enabled" = "Activar Mousse";
 "menu.reverseScroll" = "Invertir desplazamiento";
 "menu.smoothScroll" = "Desplazamiento suave";
+"menu.pointerAcceleration" = "Aceleración del puntero";
 "menu.grantAccessibility" = "⚠️ Conceder Accesibilidad…";
 "menu.grantInputMonitoring" = "⚠️ Conceder monitorización de entrada…";
 "menu.configSaveFailed" = "No se pudieron guardar los ajustes";
@@ -188,6 +189,11 @@
 "buttons.removeButtonMessage" = "Se quitarán este botón y todas sus asignaciones de disparadores.";
 "buttons.doubleClickInterval" = "Intervalo de doble clic: %d ms";
 "buttons.holdDuration" = "Duración de mantener: %d ms";
+"buttons.excludedApps" = "Apps excluidas";
+"buttons.noExcludedApps" = "Se aplican en todas las apps";
+"buttons.addExcludedApp" = "Añadir app…";
+"buttons.exclude" = "Excluir";
+"buttons.excludedAppsDescription" = "Las asignaciones de botones se omiten mientras el puntero está sobre estas apps: los botones conservan su comportamiento normal.";
 "apps.excluded" = "Desplazamiento por app";
 "apps.noExcluded" = "Sin ajustes de desplazamiento por app";
 "apps.exclude" = "Añadir";

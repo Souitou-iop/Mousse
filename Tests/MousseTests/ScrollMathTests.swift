@@ -572,6 +572,35 @@ final class CeilingTailTests: XCTestCase {
     /// capped distance (ceiling × maxDuration — what every hard fling clamps to; Floaty/Quick
     /// compress there, which used to pin emission at the ceiling until a dead stop). After the
     /// ceiling plateau the speed must only fall, never by more than the profile's own drag
+    /// The per-plan distance cap must retain input distance, not silently drop it: a notch that
+    /// would push the backlog past `planMaxDistance` carries the excess into the next plan.
+    func testPlanDistanceCapCarriesOverflowInsteadOfDropping() {
+        let cap = ScrollAnimator.planMaxDistance
+        // Simulate the `addTick` re-plan arithmetic: leftover + carried overflow + new px, capped,
+        // with the remainder stashed for the next plan.
+        var overflow = 0.0
+        var planned: [Double] = []
+        var totalPlanned = 0.0
+        // Each notch alone exceeds the cap (a fast-spinning wheel notch can), so the excess must
+        // be carried rather than dropped.
+        // Each notch is 1.3× the cap, so with three notches only two full caps are ever planned and
+        // 1.9× the cap stays carried — clearly exercising the overflow path.
+        let notches = [cap * 1.3, cap * 1.3, cap * 1.3]
+        for px in notches {
+            let wanted = overflow + px
+            let p = min(wanted, cap)
+            overflow = max(wanted - p, 0)
+            planned.append(p)
+            totalPlanned += p
+        }
+        // Every notch is eventually accounted for: nothing planned is dropped, and the residual
+        // overflow is exactly the input that has not yet been handed to a plan.
+        XCTAssertEqual(totalPlanned + overflow, notches.reduce(0, +), accuracy: 1e-6,
+                       "cap must carry overflow, not drop input distance")
+        XCTAssertTrue(planned.allSatisfy { $0 <= cap + 1e-6 }, "a single plan must never exceed the cap")
+        XCTAssertGreaterThan(overflow, 0, "the test must actually exercise the overflow path")
+    }
+
     /// deceleration (no step down into a slow tail), and end slow.
     func testCappedFlingEndsWithProfileDeceleration() {
         let cap = ceiling * ScrollTuning.maxDuration

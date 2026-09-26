@@ -1,6 +1,7 @@
 "menu.enabled" = "Enable Mousse";
 "menu.reverseScroll" = "Reverse Scrolling";
 "menu.smoothScroll" = "Smooth Scrolling";
+"menu.pointerAcceleration" = "Pointer Acceleration";
 "menu.grantAccessibility" = "⚠️ Grant Accessibility…";
 "menu.grantInputMonitoring" = "⚠️ Grant Input Monitoring…";
 "menu.configSaveFailed" = "Settings could not be saved";
@@ -188,6 +189,11 @@
 "buttons.removeButtonMessage" = "This removes the button and all of its trigger mappings.";
 "buttons.doubleClickInterval" = "Double-click interval: %d ms";
 "buttons.holdDuration" = "Hold duration: %d ms";
+"buttons.excludedApps" = "Excluded apps";
+"buttons.noExcludedApps" = "Mappings apply in every app";
+"buttons.addExcludedApp" = "Add App…";
+"buttons.exclude" = "Exclude";
+"buttons.excludedAppsDescription" = "Button mappings are bypassed while the pointer is over these apps — the buttons keep their normal behaviour.";
 "apps.excluded" = "App scrolling";
 "apps.noExcluded" = "No app-specific scrolling";
 "apps.exclude" = "Add";

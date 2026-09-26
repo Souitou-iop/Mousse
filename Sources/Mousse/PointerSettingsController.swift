@@ -75,6 +75,18 @@ struct PointerSettingsTarget: Equatable, Sendable {
 }
 
 enum PointerSettingsResolver {
+    /// Menu-bar quick switch for global pointer acceleration. Mutates `config` in place and
+    /// returns it: flipping acceleration also engages pointer management when it was off, so the
+    /// switch always has a visible effect (the pointer subsystem is inert while management is off).
+    /// Enabling pointer management never turns acceleration back on by itself — this only ever
+    /// writes `pointerControlEnabled = true` alongside the requested acceleration value.
+    static func applyMenuAccelerationToggle(_ enabled: Bool, to config: AppConfig) -> AppConfig {
+        var updated = config
+        updated.pointerAccelerationEnabled = enabled
+        if !updated.pointerControlEnabled { updated.pointerControlEnabled = true }
+        return updated
+    }
+
     static func resolve(config: AppConfig, frontmostBundleID: String?) -> PointerSettingsTarget? {
         guard config.enabled, config.pointerControlEnabled else { return nil }
         let profile = frontmostBundleID.flatMap { bundleID in

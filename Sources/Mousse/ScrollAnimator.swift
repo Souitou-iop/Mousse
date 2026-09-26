@@ -110,6 +110,13 @@ final class ScrollAnimator: NSObject {
     /// `ceilingTail`); continued swiping keeps topping the backlog up, so sustained flings fly.
     static let planMaxDistance = maxOutputSpeed * ScrollTuning.maxDuration
 
+    /// Input distance that overflowed `planMaxDistance` and is waiting for the current plan to
+    /// drain before it becomes the next plan. Without this, a fast-spinning notch landing on an
+    /// almost-full backlog would silently truncate the user's input distance; with it, the excess
+    /// is carried over instead of dropped (kept same-axis/same-sign only — like `leftover`, a
+    /// reversal starts fresh). Caller holds `lock`.
+    private var planOverflow = 0.0
+
     /// Output speed of the current plan (caller holds `lock`) — what the page actually moves
     /// at, for seeding the next notch. The plan's own curve is wrong in two throttled cases:
     /// once its clock has run out with backlog left it reads 0 while the page moves at the
@@ -199,6 +206,7 @@ final class ScrollAnimator: NSObject {
         planEmitted = 0
         planPrevTime = 0
         planRate = 1
+        planOverflow = 0
     }
 
     /// Feed a wheel notch (line deltas, already direction-corrected). In Smooth-step mode each notch
@@ -266,8 +274,13 @@ final class ScrollAnimator: NSObject {
             if !analysis.isSequenceStart { leftover = max(p.total - planEmitted, 0) }
             v0 = planSpeedLocked(p, at: planTime)
         }
-        let p = HybridPlan(distance: min(leftover + px, ScrollAnimator.planMaxDistance), initialSpeed: v0,
-                              profile: profile)
+        // Consume the current glide's leftover plus any distance carried over from a previous
+        // overflow (both same-axis/same-sign; a reversal starts fresh below). Anything past the
+        // cap is stashed, not dropped, so rapid high-speed notches can't lose input distance.
+        let wanted = leftover + planOverflow + px
+        let planned = min(wanted, ScrollAnimator.planMaxDistance)
+        planOverflow = max(wanted - planned, 0)
+        let p = HybridPlan(distance: planned, initialSpeed: v0, profile: profile)
         plan = p
         planStart = now
         planPrevTime = 0
@@ -276,7 +289,7 @@ final class ScrollAnimator: NSObject {
         planAxisIsV = axisIsV
         planSign = sign
         planProfile = profile
-        if analysis.isSequenceStart { carryV = 0; carryH = 0 }
+        if analysis.isSequenceStart { carryV = 0; carryH = 0; planOverflow = 0 }
         lastMotionTime = now
         let action = wakeActionLocked(now: now)
         lock.unlock()

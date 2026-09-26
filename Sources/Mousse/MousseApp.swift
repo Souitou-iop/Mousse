@@ -1,9 +1,20 @@
 import SwiftUI
 
+/// Process entry: CLI subcommands (`Mousse status`, `Mousse set ...`, `Mousse quit`) branch off
+/// here and exit BEFORE AppKit/SwiftUI start — a CLI invocation never creates an event tap,
+/// animator, or menu-bar scene. The running GUI instance stays the single owner of all engine
+/// state; the CLI is a short-lived client that talks to it over the command socket.
+@main
+enum MousseEntry {
+    static func main() {
+        CLICommand.runIfRequested(CommandLine.arguments) // exits for CLI subcommands
+        MousseApp.main()
+    }
+}
+
 /// Mousse — a lean, single-process menu-bar mouse utility for Apple silicon and macOS 26+.
 /// Original codebase (not derived from any other app). Pointer control uses a narrowly wrapped
 /// IOHID service SPI; the rest of the app uses public macOS APIs.
-@main
 struct MousseApp: App {
 
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -49,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         EventTapEngine.shared.start(config: ConfigStore.shared.config)
         PointerSettingsController.shared.start(config: ConfigStore.shared.config)
+        CommandServer.shared.start() // local CLI socket; owns no engine state, see CommandServer
         // When the Settings window closes, drop the Dock presence again.
         NotificationCenter.default.addObserver(self, selector: #selector(settingsWindowClosed),
                                                name: NSWindow.willCloseNotification, object: nil)
@@ -73,6 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        CommandServer.shared.stop() // unlink the socket before the process goes away
         PointerSettingsController.shared.stopAndRestore()
         // The config write is debounced; a change made in the last half second is still in flight.
         ConfigStore.shared.flushPendingSave()

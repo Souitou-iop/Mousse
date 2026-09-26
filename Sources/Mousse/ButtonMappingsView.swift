@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Global button mappings grouped by physical button, with one action per trigger type.
 struct ButtonMappingsView: View {
@@ -9,7 +10,8 @@ struct ButtonMappingsView: View {
             mappings: $store.config.mappings,
             configuredButtons: $store.config.configuredButtons,
             holdDuration: $store.config.holdDuration,
-            doubleClickInterval: $store.config.doubleClickInterval)
+            doubleClickInterval: $store.config.doubleClickInterval,
+            excludedBundleIDs: $store.config.buttonMappingExcludedBundleIDs)
     }
 }
 
@@ -20,6 +22,7 @@ struct MappingEditor: View {
     @Binding var configuredButtons: [Int]
     @Binding var holdDuration: Double
     @Binding var doubleClickInterval: Double
+    @Binding var excludedBundleIDs: [String]
 
     @State private var highlightedButton: Int?
     @State private var buttonPendingDeletion: Int?
@@ -92,6 +95,8 @@ struct MappingEditor: View {
             }
 
             Divider()
+            exclusionSection
+            Divider()
             timingControls
         }
         .alert(Localized.text("buttons.removeButtonTitle"),
@@ -107,6 +112,50 @@ struct MappingEditor: View {
             }
         } message: {
             Text(Localized.text("buttons.removeButtonMessage"))
+        }
+    }
+
+    /// Apps where the button mappings are bypassed: the pointer sits over one of these and the
+    /// remapped buttons keep their native behavior (same model as the scroll exceptions list).
+    private var exclusionSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(Localized.text("buttons.excludedApps"))
+                .font(.headline)
+            if excludedBundleIDs.isEmpty {
+                Text(Localized.text("buttons.noExcludedApps"))
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(excludedBundleIDs, id: \.self) { bundleID in
+                HStack {
+                    AppRow(bundleID: bundleID)
+                    Spacer()
+                    Button {
+                        excludedBundleIDs.removeAll { $0 == bundleID }
+                    } label: {
+                        Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(Localized.text("apps.remove"))
+                }
+            }
+            Button(Localized.text("buttons.addExcludedApp"), action: addExcludedApp)
+            Text(Localized.text("buttons.excludedAppsDescription"))
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func addExcludedApp() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.prompt = Localized.text("buttons.exclude")
+        guard panel.runModal() == .OK else { return }
+        for url in panel.urls {
+            guard let id = Bundle(url: url)?.bundleIdentifier else { continue }
+            if !excludedBundleIDs.contains(id) { excludedBundleIDs.append(id) }
         }
     }
 

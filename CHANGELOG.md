@@ -2,6 +2,31 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## [0.28.1] - 2026-09-26
+
+### 新增 / Added
+
+- **自定义按键映射支持按应用排除**：设置 → 按钮 中新增「排除的应用」列表。指针位于这些应用时，整组自定义按键映射（单击 / 双击 / 长按）都按原生行为下发，不再被 Mousse 拦截或改写；列表为空时映射对所有应用生效（默认，向后兼容）。与滚动例外同一心智模型，列表随配置持久化。
+- **菜单栏指针加速开关**：菜单栏下拉新增「指针加速」快捷开关，一键全局开关指针加速，与设置 → 指针中的同名选项为同一配置、双向同步。指针子系统仅在「由 Mousse 管理指针」开启时生效，因此从菜单翻转该开关会自动接管指针管理，避免开关看起来无效。
+- **Per-app exclusion for custom button mappings**: the Buttons tab gains an "Excluded apps" list. While the pointer is over one of these apps, the entire custom button-mapping set (click / double-click / hold) passes through natively instead of being intercepted or rewritten; an empty list keeps mappings active everywhere (the default, fully backward-compatible). Same model as the scroll exceptions, persisted with the config.
+- **Menu-bar pointer-acceleration switch**: the menu-bar dropdown gains a "Pointer Acceleration" quick switch that toggles global pointer acceleration, backed by the same setting as Settings → Pointer (kept in sync both ways). The pointer subsystem only acts while "Manage pointer with Mousse" is on, so flipping this switch from the menu also engages pointer management — otherwise the switch would look dead.
+
+[0.28.1]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.28.1
+
+## [0.28.0] - 2026-09-26
+
+### 新增 / Added
+
+- **本地命令行接口（CLI）**：`Mousse` 二进制现在同时是菜单栏应用与命令行客户端。运行中的应用在用户 Application Support 目录监听一个 Unix-domain socket（`mousse.sock`，权限 0600，退出时清理），`Mousse status`、`Mousse diagnostics`、`Mousse get <key>`、`Mousse set <key> <value>`、`Mousse quit` 即可查询与修改运行状态；每个回复都是单个 JSON 对象，`Mousse help` 自文档化（命令与全部可写键），便于 AI/脚本自动化。可写键为固定白名单（`enabled`、`reverseScroll`、`scrollAcceleration`、`smoothHighRes`、`edgeScroll`、`scrollSpeed`、`zoomSpeed`、`edgeScrollSpeed`、`scrollMode`、`scrollSmoothness`），类型与范围经服务端校验，拒绝时返回说明性错误。
+- **Local command-line interface**: the `Mousse` binary is now both the menu-bar app and a CLI client. The running app listens on a Unix-domain socket in its Application Support directory (`mousse.sock`, mode 0600, unlinked on quit); `Mousse status`, `Mousse diagnostics`, `Mousse get <key>`, `Mousse set <key> <value>`, and `Mousse quit` inspect and drive it live, one JSON object per reply, with `Mousse help` documenting the whole surface for AI/script automation. Writable keys are a fixed whitelist (`enabled`, `reverseScroll`, `scrollAcceleration`, `smoothHighRes`, `edgeScroll`, `scrollSpeed`, `zoomSpeed`, `edgeScrollSpeed`, `scrollMode`, `scrollSmoothness`) with server-side type/range validation and descriptive rejections.
+
+### 说明 / Notes
+
+- **单进程设想不变**：CLI 子命令在 AppKit/SwiftUI 启动之前分岔，客户端进程存活毫秒级、不创建 event tap/动画器/菜单栏，不产生任何 launchd 或登录项注册（系统设置的后台项列表保持原样）；socket 服务只是运行中 app 内的一条线程。所有配置写入走 Settings UI 同一条赋值路径（实时重载 + 持久化），崩溃残留的 socket 文件在启动时探测并替换，存活的对端 socket 会被尊重（拒绝重复服务）。
+- **Single-process design unchanged**: CLI subcommands branch off before AppKit/SwiftUI start — the client process lives for milliseconds and creates no event tap, animator, or menu-bar scene, and registers nothing with launchd or as a login item (the system's background-items list is untouched); the socket server is one thread inside the running app. Every config write lands through the same property assignment the Settings UI uses (live reload + persistence); stale socket files from a crash are probed and replaced at startup, while a socket owned by a live peer is respected.
+
+[0.28.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.28.0
+
 ## [0.27.0] - 2026-09-26
 
 ### 新增 / Added

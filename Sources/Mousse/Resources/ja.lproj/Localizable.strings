@@ -1,6 +1,7 @@
 "menu.enabled" = "Mousse を有効にする";
 "menu.reverseScroll" = "スクロール方向を反転";
 "menu.smoothScroll" = "なめらかスクロール";
+"menu.pointerAcceleration" = "ポインタ加速";
 "menu.grantAccessibility" = "⚠️ アクセシビリティを許可…";
 "menu.grantInputMonitoring" = "⚠️ 入力監視を許可…";
 "menu.configSaveFailed" = "設定を保存できませんでした";
@@ -188,6 +189,11 @@
 "buttons.removeButtonMessage" = "このボタンと、そのすべてのトリガー割り当てが削除されます。";
 "buttons.doubleClickInterval" = "ダブルクリック間隔：%d ms";
 "buttons.holdDuration" = "長押し時間：%d ms";
+"buttons.excludedApps" = "除外するアプリ";
+"buttons.noExcludedApps" = "すべてのアプリで有効です";
+"buttons.addExcludedApp" = "アプリを追加…";
+"buttons.exclude" = "除外";
+"buttons.excludedAppsDescription" = "ポインタがこれらのアプリ上にある間はボタンマッピングを適用せず、ボタン本来の動作になります。";
 "apps.excluded" = "アプリ別スクロール";
 "apps.noExcluded" = "アプリ別スクロール設定はありません";
 "apps.exclude" = "追加";

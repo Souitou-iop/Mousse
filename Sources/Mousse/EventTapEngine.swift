@@ -121,6 +121,10 @@ final class EventTapEngine {
         "com.microsoft.edgemac", "com.vivaldi.Vivaldi", "com.brave.Browser",
     ]
     private var buttonMappings = CompiledButtonMappings(AppConfig().mappings)
+    /// Apps where the button mappings are bypassed entirely — a remapped button keeps its native
+    /// behavior while the pointer is over one of these. Read on the tap thread with the rest of the
+    /// per-event snapshot, resolved from the cursor app's bundle ID (same resolver as scrolling).
+    private var buttonMappingExcludedBundleIDs: Set<String> = []
     private var pendingDragCancel = false // set on wake/device-change, consumed on the tap thread
     private var pendingAutoScrollCancel = false
     private var pendingTriggerCancel = false
@@ -571,6 +575,7 @@ final class EventTapEngine {
         gameBypass = config.gameBypass
         gameBundleIDs = Set(config.gameBundleIDs)
         buttonMappings = CompiledButtonMappings(config.mappings)
+        buttonMappingExcludedBundleIDs = Set(config.buttonMappingExcludedBundleIDs)
         (captureCancellation, keyboardCaptureCancellation) = cancelCaptureLocked()
         let keyboardTap = keyboardCaptureTap
         lock.unlock()
@@ -952,6 +957,7 @@ final class EventTapEngine {
         let on = enabled
         let capturing = captureKind == .mouse
         let mappings = buttonMappings
+        let mappingExcluded = buttonMappingExcludedBundleIDs
         let globalReverse = reverseScroll
         let mode = scrollMode
         let smoothness = scrollSmoothness
@@ -1076,6 +1082,20 @@ final class EventTapEngine {
             if gBypass, let id = cursorID, gBundles.contains(id) {
                 return Unmanaged.passUnretained(event)
             }
+        }
+
+        // Per-app button-mapping exclusion (apps in `buttonMappingExcludedBundleIDs` keep the
+        // button's native behavior). Scoped to the remappable button stream only; the cursor app
+        // is resolved only when the list is non-empty.
+        switch type {
+        case .otherMouseDown, .otherMouseUp, .otherMouseDragged:
+            if Self.isButtonMappingBypassed(
+                bundleID: mappingExcluded.isEmpty ? nil : cursorApp.bundleID(at: event.location),
+                excluded: mappingExcluded) {
+                return Unmanaged.passUnretained(event)
+            }
+        default:
+            break
         }
 
         switch type {
@@ -1326,6 +1346,14 @@ final class EventTapEngine {
         default:
             return Unmanaged.passUnretained(event)
         }
+    }
+
+    /// Whether the button mappings should be bypassed for this cursor app. Pure so the tap thread
+    /// and the tests share one definition. A nil bundle ID (no resolvable app — desktop, menu bar,
+    /// a not-yet-resolved window) is never bypassed: only an explicit match disables the remaps.
+    static func isButtonMappingBypassed(bundleID: String?, excluded: Set<String>) -> Bool {
+        guard let bundleID else { return false }
+        return excluded.contains(bundleID)
     }
 
     struct ResolvedScrollAppSettings: Equatable {

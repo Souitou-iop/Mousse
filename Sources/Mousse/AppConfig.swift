@@ -184,6 +184,8 @@ struct AppConfig: Codable, Sendable, Equatable {
                                          // panels — smoothing stays on, we transpose ourselves
     var configuredButtons: [Int] = [4, 5] // persists empty button groups in the mapping editor
     var mappings: [ButtonMapping] = AppConfig.defaultMappings
+    var buttonMappingExcludedBundleIDs: [String] = [] // apps where button mappings are bypassed
+                                                      // entirely: the button keeps its native behavior
     var pointerControlEnabled: Bool = false
     var pointerAccelerationEnabled: Bool = true
     var pointerSpeedMultiplier: Double = 1.0
@@ -216,6 +218,7 @@ extension AppConfig {
         case showAutoScrollHUD
         case spaceDragButton, spaceDragThreshold, spaceDragReverse, spaceDragFollowFinger, spaceDragLockPointer
         case excludedBundleIDs, scrollAppProfiles, verticalToHorizontalBundleIDs, configuredButtons, mappings
+        case buttonMappingExcludedBundleIDs
         case pointerControlEnabled, pointerAccelerationEnabled, pointerSpeedMultiplier
         case pointerAppProfiles
         case remoteDesktopBypass, remoteDesktopBundleIDs
@@ -269,6 +272,8 @@ extension AppConfig {
             scrollAppProfiles = decodedProfiles.compactMap(\.value)
         }
         verticalToHorizontalBundleIDs = field([String].self, .verticalToHorizontalBundleIDs) ?? verticalToHorizontalBundleIDs
+        buttonMappingExcludedBundleIDs = field([String].self, .buttonMappingExcludedBundleIDs)
+            ?? buttonMappingExcludedBundleIDs
         if c.contains(.mappings) {
             if let decodedMappings = field([Lossy<ButtonMapping>].self, .mappings) {
                 mappings = decodedMappings.compactMap(\.value)
@@ -343,6 +348,7 @@ extension AppConfig {
         try c.encode(verticalToHorizontalBundleIDs, forKey: .verticalToHorizontalBundleIDs)
         try c.encode(configuredButtons, forKey: .configuredButtons)
         try c.encode(mappings, forKey: .mappings)
+        try c.encode(buttonMappingExcludedBundleIDs, forKey: .buttonMappingExcludedBundleIDs)
         try c.encode(pointerControlEnabled, forKey: .pointerControlEnabled)
         try c.encode(pointerAccelerationEnabled, forKey: .pointerAccelerationEnabled)
         try c.encode(pointerSpeedMultiplier, forKey: .pointerSpeedMultiplier)
