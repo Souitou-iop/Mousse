@@ -117,6 +117,20 @@ Launch Mousse to access the menu bar icon. Press `⌘,` to open Settings:
 
 ---
 
+## 🤖 CLI for Agents
+
+Mousse includes a local, JSON-producing CLI for scripts and AI agents. The app must already be running; the CLI does not launch a second instance. Typical commands are:
+
+```sh
+Mousse status
+Mousse diagnostics
+Mousse get scrollMode
+Mousse set scrollMode smooth
+Mousse set scrollSpeed 0.5
+```
+
+Agents should check both the process exit code and the JSON `ok` field. `Mousse help` prints the current command and configuration-key contract. See the dedicated [CLI for Agents guide](docs/cli-for-agents.md) for the workflow, supported values, protocol, and safety rules.
+
 ## 🛠 Development
 
 ```sh

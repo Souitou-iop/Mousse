@@ -118,6 +118,20 @@ Mousse を起動後、メニューバーのアイコンをクリックするか 
 
 ---
 
+## 🤖 Agent 向け CLI
+
+Mousse には、スクリプトや AI Agent 向けのローカル CLI があり、結果を JSON で返します。使用前に Mousse を起動しておく必要があり、CLI が別のインスタンスを起動することはありません。主なコマンド：
+
+```sh
+Mousse status
+Mousse diagnostics
+Mousse get scrollMode
+Mousse set scrollMode smooth
+Mousse set scrollSpeed 0.5
+```
+
+Agent はプロセスの終了コードと JSON の `ok` フィールドの両方を確認してください。`Mousse help` では、そのビルドで利用できるコマンドと設定キーの制約を確認できます。呼び出し手順、戻り値、設定値、プロトコル、安全ルールの詳細は[Agent 向け CLI ガイド](docs/cli-for-agents.md)を参照してください。
+
 ## 🛠 開発とテスト
 
 ```sh

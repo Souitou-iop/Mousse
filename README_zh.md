@@ -118,6 +118,20 @@ open build/Mousse.app
 
 ---
 
+## 🤖 面向 Agents 的 CLI
+
+Mousse 提供了一个面向脚本和 AI Agents 的本地 CLI，并以 JSON 输出结果。使用前必须先启动 Mousse；CLI 不会额外启动第二个实例。常用命令：
+
+```sh
+Mousse status
+Mousse diagnostics
+Mousse get scrollMode
+Mousse set scrollMode smooth
+Mousse set scrollSpeed 0.5
+```
+
+Agent 应同时检查进程退出码和 JSON 中的 `ok` 字段。`Mousse help` 会输出当前版本的命令和配置键约束。详细的调用流程、返回值、支持的配置值、协议和安全规则请参阅[面向 Agents 的 CLI 使用指南](docs/cli-for-agents.md)。
+
 ## 🛠 本地开发与测试
 
 ```sh
