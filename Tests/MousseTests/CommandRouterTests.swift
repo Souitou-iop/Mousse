@@ -105,7 +105,7 @@ final class CommandRouterTests: XCTestCase {
 
     func testGetAndSetAcceptExactlyTheWhitelistedKeys() {
         let supported = Set(CommandRouter.supportedKeys)
-        XCTAssertEqual(supported, ["enabled", "reverseScroll", "scrollAcceleration", "smoothHighRes",
+        XCTAssertEqual(supported, ["enabled", "reverseScroll", "reverseScrollHorizontal", "scrollAcceleration", "smoothHighRes",
                                    "edgeScroll", "scrollSpeed", "zoomSpeed", "edgeScrollSpeed",
                                    "scrollMode", "scrollSmoothness"])
         // The help text must mention every supported key — it is the CLI's discoverability.
@@ -117,7 +117,7 @@ final class CommandRouterTests: XCTestCase {
     // MARK: set — bool keys accept only real booleans
 
     func testSetBoolKeysAcceptTrueAndFalseOnly() {
-        for key in ["enabled", "reverseScroll", "scrollAcceleration", "smoothHighRes", "edgeScroll"] {
+        for key in ["enabled", "reverseScroll", "reverseScrollHorizontal", "scrollAcceleration", "smoothHighRes", "edgeScroll"] {
             for v in [true, false] {
                 let (response, _) = route(request(cmd: "set", key: key, value: v))
                 XCTAssertEqual(response["ok"] as? Bool, true, "\(key) = \(v)")
@@ -155,7 +155,7 @@ final class CommandRouterTests: XCTestCase {
     // MARK: set — enum keys accept only listed raw values
 
     func testSetEnumKeysValidateRawValues() {
-        for (key, good) in [("scrollMode", "smoothStep"), ("scrollSmoothness", "floaty")] {
+        for (key, good) in [("scrollMode", "native"), ("scrollMode", "standard"), ("scrollMode", "smooth"), ("scrollMode", "smoothStep"), ("scrollSmoothness", "floaty")] {
             let (ok, _) = route(request(cmd: "set", key: key, value: good))
             XCTAssertEqual(ok["ok"] as? Bool, true)
             XCTAssertEqual(delegate.sets.last?.value, .string(good))

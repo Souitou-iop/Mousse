@@ -1,25 +1,33 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The Settings window (⌘,) with five fixed-size preference tabs.
+/// The Settings window (⌘,) with fixed-size preference tabs.
 struct SettingsView: View {
     @EnvironmentObject var store: ConfigStore
+    @State private var selectedTab: Int
+    @ObservedObject private var tracker: DeviceTracker
     @State private var launchAtLogin = LoginItem.isEnabled
     @State private var configMessage: String?
     @State private var showingDiagnostics = false
     @State private var scrollEnhancementsExpanded = false
 
+    init(initialTab: Int = 0, tracker: DeviceTracker = .shared) {
+        _selectedTab = State(initialValue: initialTab)
+        _tracker = ObservedObject(wrappedValue: tracker)
+    }
+
     var body: some View {
-        TabView {
-            generalTab.tabItem  { Label(Localized.text("tab.general"), systemImage: "gearshape") }
-            buttonsTab.tabItem  { Label(Localized.text("tab.buttons"), systemImage: "computermouse") }
-            scrollTab.tabItem   { Label(Localized.text("tab.scroll"), systemImage: "scroll") }
-            pointerTab.tabItem  { Label(Localized.text("tab.pointer"), systemImage: "cursorarrow.motionlines") }
-            gesturesTab.tabItem { Label(Localized.text("tab.gestures"), systemImage: "hand.draw") }
+        TabView(selection: $selectedTab) {
+            generalTab.tabItem  { Label(Localized.text("tab.general"), systemImage: "gearshape") }.tag(0)
+            buttonsTab.tabItem  { Label(Localized.text("tab.buttons"), systemImage: "computermouse") }.tag(1)
+            scrollTab.tabItem   { Label(Localized.text("tab.scroll"), systemImage: "scroll") }.tag(2)
+            pointerTab.tabItem  { Label(Localized.text("tab.pointer"), systemImage: "cursorarrow.motionlines") }.tag(3)
+            DevicesView(tracker: tracker).tabItem { Label(Localized.text("tab.devices"), systemImage: "computermouse.fill") }.tag(5)
+            gesturesTab.tabItem { Label(Localized.text("tab.gestures"), systemImage: "hand.draw") }.tag(4)
         }
         .frame(width: 480, height: 480)
         .padding()
-        .background(SettingsWindowPatcher())
+        .background(SettingsWindowPatcher(devicesSelected: selectedTab == 5, tracker: tracker))
     }
 
     private var generalTab: some View {
@@ -67,8 +75,10 @@ struct SettingsView: View {
                         .textSelection(.enabled)
                     HStack {
                         Button(Localized.text("config.retrySave")) { store.retrySave() }
-                        Button(Localized.text("config.dismissIssue")) {
-                            store.dismissPersistenceIssue()
+                        if !store.saveIsBlocked {
+                            Button(Localized.text("config.dismissIssue")) {
+                                store.dismissPersistenceIssue()
+                            }
                         }
                     }
                 }
@@ -138,7 +148,7 @@ struct SettingsView: View {
     }
 
     private var appVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.20.1"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
     }
 
     private func persistenceIssueDescription(_ issue: ConfigPersistenceIssue) -> String {
@@ -164,46 +174,43 @@ struct SettingsView: View {
                 Picker(Localized.text("scroll.style"), selection: $store.config.scrollMode) {
                     ForEach(ScrollMode.allCases, id: \.self) { Text($0.label).tag($0) }
                 }
-                if store.config.scrollMode == .smooth {
+                if store.config.scrollMode.supportsSmoothness {
                     Picker(Localized.text("scroll.smoothness"), selection: $store.config.scrollSmoothness) {
                         ForEach(ScrollSmoothness.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
                     Text(Localized.text("scroll.smoothnessDescription"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                if store.config.scrollMode == .smoothStep {
+                if store.config.scrollMode.supportsLinesPerNotch {
                     Stepper(value: $store.config.scrollLines, in: 1...10) {
                         Text(Localized.format("scroll.linesPerNotch", store.config.scrollLines))
                     }
                 }
-                Text(Localized.text("scroll.styleDescription"))
+                Text(Localized.text(store.config.scrollMode == .native
+                                    ? "scroll.nativeDescription" : "scroll.styleDescription"))
                     .font(.caption).foregroundStyle(.secondary)
             }
 
             // 速度与方向 — how fast and which way the wheel scrolls.
             Section(Localized.text("scroll.speedSection")) {
-                if store.config.scrollMode == .smooth {
+                if store.config.scrollMode.supportsWheelSpeed {
+                    ScrollSpeedControl(speed: $store.config.scrollSpeed, mode: store.config.scrollMode)
+                }
+                if store.config.scrollMode.supportsAcceleration {
+                    Toggle(Localized.text("scroll.acceleration"), isOn: $store.config.scrollAcceleration)
+                }
+                Toggle(Localized.text("scroll.reverseVertical"), isOn: $store.config.reverseScroll)
+                Toggle(Localized.text("scroll.reverseHorizontal"), isOn: $store.config.reverseScrollHorizontal)
+                if store.config.scrollMode.supportsWheelZoom {
                     VStack(alignment: .leading) {
-                        Text(Localized.format("scroll.speedValue", store.config.scrollSpeed))
-                        // Floor of 0.05 (not 0.2): high-res "continuous" mice natively scroll fast,
-                        // and their gain is speed/0.5 — a 0.2 floor still meant 40% of native, too
-                        // fast for slow scrollers. 0.05 → 10% of native. Finer step at the low end.
-                        Slider(value: $store.config.scrollSpeed, in: 0.05...3.0, step: 0.05) {
-                            Text(Localized.text("scroll.speed"))
+                        Text(Localized.format("scroll.zoomSpeedValue", store.config.zoomSpeed))
+                        // Cmd+wheel pinch-zoom sensitivity — independent of the scroll-speed slider so
+                        // a fast scroll feel doesn't force an aggressive zoom.
+                        Slider(value: $store.config.zoomSpeed, in: 0.2...6.0, step: 0.1) {
+                            Text(Localized.text("scroll.zoomSpeed"))
                         } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
                           maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
                     }
-                    Toggle(Localized.text("scroll.acceleration"), isOn: $store.config.scrollAcceleration)
-                }
-                Toggle(Localized.text("scroll.reverse"), isOn: $store.config.reverseScroll)
-                VStack(alignment: .leading) {
-                    Text(Localized.format("scroll.zoomSpeedValue", store.config.zoomSpeed))
-                    // Cmd+wheel pinch-zoom sensitivity — independent of the scroll-speed slider so
-                    // a fast scroll feel doesn't force an aggressive zoom.
-                    Slider(value: $store.config.zoomSpeed, in: 0.2...6.0, step: 0.1) {
-                        Text(Localized.text("scroll.zoomSpeed"))
-                    } minimumValueLabel: { Text(Localized.text("scroll.slow")).font(.caption) }
-                      maximumValueLabel: { Text(Localized.text("scroll.fast")).font(.caption) }
                 }
             }
 
@@ -253,13 +260,15 @@ struct SettingsView: View {
                         .font(.caption).foregroundStyle(.secondary)
                     Toggle(Localized.text("scroll.showAutoScrollHUD"),
                            isOn: $store.config.showAutoScrollHUD)
-                    if store.config.scrollMode != .standard {
+                    if store.config.scrollMode.supportsHighResSmoothing {
                         Toggle(Localized.text("scroll.smoothHighRes"), isOn: $store.config.smoothHighRes)
                         Text(Localized.text("scroll.smoothHighResDescription"))
                             .font(.caption).foregroundStyle(.secondary)
                     }
-                    Text(Localized.text("scroll.modifierDescription"))
-                        .font(.caption).foregroundStyle(.secondary)
+                    if store.config.scrollMode != .native {
+                        Text(Localized.text("scroll.modifierDescription"))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                 }
             }
 
@@ -303,26 +312,87 @@ struct SettingsView: View {
 /// patches its style mask the moment the view attaches to the window: adds the minimize traffic
 /// light, drops resizability (no zoom button), and tags the window so AppDelegate can watch it.
 private struct SettingsWindowPatcher: NSViewRepresentable {
+    let devicesSelected: Bool
+    let tracker: DeviceTracker
     func makeNSView(context: Context) -> NSView {
-        SettingsWindowProbeView()
+        let view = SettingsWindowProbeView(tracker: tracker)
+        view.devicesSelected = devicesSelected
+        return view
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: ()) {
+        (nsView as? SettingsWindowProbeView)?.releaseDemand()
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
+        (nsView as? SettingsWindowProbeView)?.devicesSelected = devicesSelected
         guard let window = nsView.window else { return }
         SettingsWindowConfiguration.apply(to: window)
     }
 }
 
 private final class SettingsWindowProbeView: NSView {
+    private let tracker: DeviceTracker
+    init(tracker: DeviceTracker) { self.tracker = tracker; super.init(frame: .zero) }
+    required init?(coder: NSCoder) { return nil }
+    var devicesSelected = false { didSet { updateDemand() } }
+    private var observers: [NSObjectProtocol] = []
+    private var closing = false
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        guard let window else { return }
+        observers.forEach { NotificationCenter.default.removeObserver($0) }
+        observers = []
+        guard let window else { tracker.setTabOpen(false); return }
         SettingsWindowConfiguration.apply(to: window)
+        for name in [NSWindow.didChangeOcclusionStateNotification, NSWindow.didMiniaturizeNotification,
+                     NSWindow.didDeminiaturizeNotification, NSWindow.didBecomeKeyNotification] {
+            observers.append(NotificationCenter.default.addObserver(forName: name, object: window,
+                queue: .main) { [weak self] _ in
+                    if name == NSWindow.didBecomeKeyNotification { self?.closing = false }
+                    self?.updateDemand()
+                })
+        }
+        observers.append(NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification,
+            object: window, queue: .main) { [weak self] _ in
+                self?.closing = true
+                self?.tracker.setTabOpen(false)
+            })
+        for name in [NSApplication.didHideNotification, NSApplication.didUnhideNotification] {
+            observers.append(NotificationCenter.default.addObserver(forName: name, object: nil,
+                queue: .main) { [weak self] _ in self?.updateDemand() })
+        }
+        updateDemand()
     }
+
+    func releaseDemand() {
+        closing = true
+        observers.forEach { NotificationCenter.default.removeObserver($0) }
+        observers = []
+        tracker.setTabOpen(false)
+    }
+
+    private func updateDemand() {
+        // The representable updates during SwiftUI rendering; publish tracker state afterwards.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.tracker.setTabOpen(SettingsWindowConfiguration.devicesTabIsVisible(
+                selected: self.devicesSelected, windowVisible: self.window?.isVisible ?? false,
+                miniaturized: self.window?.isMiniaturized ?? false,
+                occlusionVisible: self.window?.occlusionState.contains(.visible) ?? false,
+                appHidden: NSApp.isHidden, closing: self.closing))
+        }
+    }
+    deinit { observers.forEach { NotificationCenter.default.removeObserver($0) } }
 }
 
 enum SettingsWindowConfiguration {
     static let identifier = NSUserInterfaceItemIdentifier("com.mousse.settings")
+
+    static func devicesTabIsVisible(selected: Bool, windowVisible: Bool, miniaturized: Bool,
+                                    occlusionVisible: Bool, appHidden: Bool, closing: Bool) -> Bool {
+        selected && windowVisible && !miniaturized && occlusionVisible && !appHidden && !closing
+    }
 
     static func apply(to window: NSWindow) {
         window.identifier = identifier

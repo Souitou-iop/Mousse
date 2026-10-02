@@ -236,3 +236,23 @@
 "media.playPause" = "再生/一時停止";
 "media.next" = "次のトラック";
 "media.previous" = "前のトラック";
+
+"scroll.reverseVertical" = "縦スクロールを反転";
+"scroll.reverseHorizontal" = "横スクロールを反転";
+
+"tab.devices" = "デバイス";
+"devices.disabled" = "Mousse の処理は無効です。この画面では引き続きマウスの検出と設定の編集ができます。";
+"devices.permission" = "デバイス別設定には入力監視の許可が必要です。許可されるまでは共通のスクロール設定を使用します。";
+"devices.connected" = "接続済み";
+"devices.empty" = "マウスが検出されません。";
+"devices.create" = "設定を作成";
+"devices.offline" = "未接続";
+"devices.custom" = "個別スクロール設定";
+"devices.description" = "個別設定のないマウスは共通設定を使用します。同じモデルは設定を共有します。マウスを切り替えた直後の最初のスクロールは、前のマウスの設定を使用する場合があります。";
+"config.importDuplicateDeviceProfile" = "デバイス設定のキーが重複しています：%@";
+
+"scroll.mode.native" = "ネイティブ（macOS）";
+"scroll.nativeDescription" = "ネイティブは元のマウスホイールイベントを保持し、共通・デバイス別の方向反転のみ適用します。速度調整、平滑化、Cmd ズーム、Shift/Option/Control の拡張、通常のアプリ別方向・軸設定は適用しません。トラックパッドと安全な除外は維持します。ボタン割り当て、明示的な自動・端スクロール、ボタンを押しながらホイールで行う音量操作は利用できます。";
+
+"scroll.speedStandardNote" = "速度は高解像度ホイールの倍率を調整します。標準モードの通常のノッチ移動量は macOS が制御し、このスライダーでは変わりません。";
+"scroll.speedStepNote" = "速度は高解像度ホイールの倍率を調整します。なめらかステップの通常のノッチ移動量は「ノッチあたりの行数」で設定します。";

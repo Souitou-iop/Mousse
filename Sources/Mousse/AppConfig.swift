@@ -64,12 +64,31 @@ struct PointerAppProfile: Codable, Identifiable, Equatable, Sendable {
 
 /// How the mouse wheel scrolls.
 enum ScrollMode: String, Codable, Sendable, CaseIterable {
+    case native      // Original wheel stream; only base per-axis direction is applied.
     case standard    // OS stepped wheel — raw passthrough; each notch jumps instantly
     case smooth      // trackpad-style eased momentum
     case smoothStep  // Windows-browser style: each notch eases a fixed N-line step, no coast
 
+    var isSmooth: Bool { self == .smooth || self == .smoothStep }
+    var supportsWheelSpeed: Bool { self != .native }
+    var supportsWheelZoom: Bool { self != .native }
+    var supportsSmoothness: Bool { self == .smooth }
+    var supportsAcceleration: Bool { self == .smooth }
+    var supportsLinesPerNotch: Bool { self == .smoothStep }
+    var supportsHighResSmoothing: Bool { isSmooth }
+    var wheelSpeedNoteKey: String? {
+        switch self {
+        case .standard: return "scroll.speedStandardNote"
+        case .smoothStep: return "scroll.speedStepNote"
+        default: return nil
+        }
+    }
+
+    static func fromSmoothToggle(_ enabled: Bool) -> ScrollMode { enabled ? .smooth : .standard }
+
     var label: String {
         switch self {
+        case .native:     return Localized.text("scroll.mode.native")
         case .standard:   return Localized.text("scroll.mode.standard")
         case .smooth:     return Localized.text("scroll.mode.smooth")
         case .smoothStep: return Localized.text("scroll.mode.smoothStep")
@@ -118,20 +137,22 @@ struct ButtonMapping: Codable, Identifiable, Equatable, Sendable {
     }
 }
 
-/// Per-app scroll exceptions. The two switches are independent: Mousse scrolling controls the
-/// optimized processing chain, while reverse scrolling can flip an otherwise native wheel stream.
+/// Per-app scroll exceptions. Direction controls also apply to an otherwise native wheel stream.
 struct ScrollAppProfile: Codable, Identifiable, Equatable, Sendable {
     var id = UUID()
     var bundleID: String
     var mousseScrollEnabled = false
     var reverseScroll = false
+    var reverseScrollHorizontal = false
 
     init(id: UUID = UUID(), bundleID: String,
-         mousseScrollEnabled: Bool = false, reverseScroll: Bool = false) {
+         mousseScrollEnabled: Bool = false, reverseScroll: Bool = false,
+         reverseScrollHorizontal: Bool? = nil) {
         self.id = id
         self.bundleID = bundleID
         self.mousseScrollEnabled = mousseScrollEnabled
         self.reverseScroll = reverseScroll
+        self.reverseScrollHorizontal = reverseScrollHorizontal ?? reverseScroll
     }
 
     init(from decoder: Decoder) throws {
@@ -141,6 +162,7 @@ struct ScrollAppProfile: Codable, Identifiable, Equatable, Sendable {
         mousseScrollEnabled = (try? c.decodeIfPresent(Bool.self,
                                                        forKey: .mousseScrollEnabled)) ?? false
         reverseScroll = (try? c.decodeIfPresent(Bool.self, forKey: .reverseScroll)) ?? false
+        reverseScrollHorizontal = (try? c.decodeIfPresent(Bool.self, forKey: .reverseScrollHorizontal)) ?? reverseScroll
     }
 }
 
@@ -152,6 +174,7 @@ struct AppConfig: Codable, Sendable, Equatable {
     var language: AppLanguage = .system
     var enabled: Bool = true
     var reverseScroll: Bool = false
+    var reverseScrollHorizontal: Bool = false
     var scrollMode: ScrollMode = .smooth
     var scrollSmoothness: ScrollSmoothness = .balanced // Smooth mode curve profile (derived)
     var scrollSpeed: Double = 0.5       // 0.05 (slowest) … 3.0 (fast); Smooth mode: sensitivity
@@ -195,6 +218,43 @@ struct AppConfig: Codable, Sendable, Equatable {
     var gameBypass: Bool = true
     var gameBundleIDs: [String] = AppConfig.defaultGameBundleIDs
 
+    // The menu and legacy CLI write historically flipped both axes; publish one config change.
+    mutating func setLegacyScrollReversal(_ value: Bool) {
+        reverseScroll = value
+        reverseScrollHorizontal = value
+    }
+
+    var deviceProfiles: [DeviceProfile] = []
+
+    var scrollSettings: ScrollDeviceSettings {
+        get {
+            var settings = ScrollDeviceSettings()
+            settings.reverseScroll = reverseScroll
+            settings.reverseScrollHorizontal = reverseScrollHorizontal
+            settings.scrollMode = scrollMode
+            settings.scrollSmoothness = scrollSmoothness
+            settings.scrollSpeed = scrollSpeed
+            settings.scrollLines = scrollLines
+            settings.scrollAcceleration = scrollAcceleration
+            settings.smoothHighRes = smoothHighRes
+            settings.zoomSpeed = zoomSpeed
+            return settings
+        }
+        set {
+            var settings = newValue
+            settings.clampToUIRanges()
+            reverseScroll = settings.reverseScroll
+            reverseScrollHorizontal = settings.reverseScrollHorizontal
+            scrollMode = settings.scrollMode
+            scrollSmoothness = settings.scrollSmoothness
+            scrollSpeed = settings.scrollSpeed
+            scrollLines = settings.scrollLines
+            scrollAcceleration = settings.scrollAcceleration
+            smoothHighRes = settings.smoothHighRes
+            zoomSpeed = settings.zoomSpeed
+        }
+    }
+
     /// Sensible defaults so the app is useful on first launch.
     static let defaultMappings: [ButtonMapping] = [
         ButtonMapping(buttonNumber: 4, action: .spaceLeft),
@@ -212,7 +272,8 @@ struct AppConfig: Codable, Sendable, Equatable {
 /// a broken mapping is dropped, the rest survive. Encoding stays synthesized.
 extension AppConfig {
     enum CodingKeys: String, CodingKey {
-        case language, enabled, reverseScroll, scrollMode, scrollSmoothness, smoothScroll, scrollSpeed, scrollLines
+        case deviceProfiles
+        case language, enabled, reverseScroll, reverseScrollHorizontal, scrollMode, scrollSmoothness, smoothScroll, scrollSpeed, scrollLines
         case scrollAcceleration, smoothHighRes, zoomSpeed, doubleClickInterval, holdDuration
         case edgeScroll, edgeScrollSpeed, autoScrollSpeed, autoScrollBaseSpeed, autoScrollClickDelay
         case showAutoScrollHUD
@@ -234,6 +295,7 @@ extension AppConfig {
         language           = field(AppLanguage.self, .language)      ?? language
         enabled            = field(Bool.self,   .enabled)            ?? enabled
         reverseScroll      = field(Bool.self,   .reverseScroll)      ?? reverseScroll
+        reverseScrollHorizontal = field(Bool.self, .reverseScrollHorizontal) ?? reverseScroll
         // Prefer scrollMode; fall back to the legacy `smoothScroll` bool if that's all we have.
         if let mode = field(ScrollMode.self, .scrollMode) {
             scrollMode = mode
@@ -304,6 +366,7 @@ extension AppConfig {
             ]
             gameBundleIDs = ids.filter { !legacyGames.contains($0) }
         }
+        deviceProfiles = field([Lossy<DeviceProfile>].self, .deviceProfiles)?.compactMap(\.value) ?? []
         let savedButtons = field([Int].self, .configuredButtons) ?? []
         configuredButtons = Array(Set((savedButtons + mappings.map(\.buttonNumber)).filter { $0 >= 3 })).sorted()
 
@@ -320,9 +383,11 @@ extension AppConfig {
     // Custom encode because `smoothScroll` is a decode-only legacy key with no backing property.
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(deviceProfiles, forKey: .deviceProfiles)
         try c.encode(language, forKey: .language)
         try c.encode(enabled, forKey: .enabled)
         try c.encode(reverseScroll, forKey: .reverseScroll)
+        try c.encode(reverseScrollHorizontal, forKey: .reverseScrollHorizontal)
         try c.encode(scrollMode, forKey: .scrollMode)
         try c.encode(scrollSmoothness, forKey: .scrollSmoothness)
         try c.encode(scrollSpeed, forKey: .scrollSpeed)

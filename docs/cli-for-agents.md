@@ -77,9 +77,10 @@ The accepted values in the current protocol are:
 | `edgeScroll` | `true` or `false` |
 | `edgeScrollSpeed` | Number from `50` to `2400` |
 | `enabled` | `true` or `false` |
-| `reverseScroll` | `true` or `false` |
+| `reverseScroll` | `true` or `false`; legacy writes set BOTH axes, reads return vertical |
+| `reverseScrollHorizontal` | `true` or `false`; horizontal only |
 | `scrollAcceleration` | `true` or `false` |
-| `scrollMode` | `standard`, `smooth`, or `smoothStep` |
+| `scrollMode` | `native`, `standard`, `smooth`, or `smoothStep` |
 | `scrollSmoothness` | `snappy`, `balanced`, or `floaty` |
 | `scrollSpeed` | Number from `0.05` to `3.0` |
 | `smoothHighRes` | `true` or `false` |
@@ -164,3 +165,35 @@ The socket is available only while the app is running and is restricted to the l
 - Do not call `quit` unless the user or workflow explicitly requires stopping Mousse.
 - Do not write configuration files directly when the same change is available through `set`.
 - Treat unknown keys, rejected values, and a missing app as failures requiring a new decision, not as permission to guess.
+
+
+## Device profiles, Native and direction compatibility
+
+`get reverseScroll` reads the global vertical value. For compatibility, `set reverseScroll true/false` writes **both global axes**; the menu reverse switch does the same. `get/set reverseScrollHorizontal` is independent. To request vertical-only reversal with the old writer, set `reverseScroll true`, then set `reverseScrollHorizontal false`. Always inspect both keys when verifying a legacy write. These commands change global defaults, not a matched device profile.
+
+The `native` raw value is additive; existing `standard` and legacy `smoothScroll:false` are not migrated. Native keeps the original physical wheel event, with only device/global reversal; no Mousse speed gain, smoothing, Cmd zoom, modifier enhancement or ordinary per-app transposition/reversal. It preserves flags, timestamp and source user data rather than reposting a synthetic wheel. Phased trackpads, terminal hard passthrough, iPhone Mirroring's original-event path and configured remote-desktop/game safety bypasses remain protected. Explicit button mappings, auto/edge scrolling and held-button wheel volume actions remain available.
+
+Normal modes resolve **device/global base → explicit app override → hard safety passthrough** (increasing priority). Native ignores ordinary app overrides but keeps safety rules. A device profile is keyed by USB/Bluetooth `vendor:product`; identical models share one profile. The first event after switching mice can use the previous profile because HID and CGEvent streams are unordered. Input Monitoring is required for attribution; an unknown active key resolves to the global base, and the existing permission gate can suspend the engine.
+
+Tracking runs for `(enabled && profiles exist) || Devices page actually visible`. A visible page can discover devices while processing is disabled; closing, minimizing/hiding the window, switching tabs or hiding the app releases UI demand. Missing-permission retries occur only while tracking is needed. There are **no device-profile write commands**: create, edit offline, and delete profiles through Settings; JSON import rejects duplicate profile keys.
+
+`diagnostics` additionally reports:
+
+| Field | Meaning |
+| --- | --- |
+| `activeDeviceKey` | Most recent HID wheel/pan model key, or `null` when unknown/stopped. |
+| `matchedDeviceProfileKey` | Matching saved model profile key, or `null` for global fallback. |
+| `baseScrollSettings` | Device/global base parameters **before** application overrides, hard bypasses or runtime modifiers; not the final per-app behavior. |
+
+Changing scroll context clears the previous inertia and not-yet-executed queued zoom tasks. An already admitted down/up pair finishes; cancellation cannot retract it. Read-only diagnostics do not prove that an individual physical event used a profile, nor that hardware switching, wake recovery, mirroring or long-running memory behavior passed runtime acceptance.
+
+### Source-rendered settings previews
+
+The README images are isolated settings-content source previews (native window toolbar excluded), not captures of the running app. `SettingsPreviewTests` renders the real SwiftUI views via an offscreen NSHostingView/AppKit host, using disabled temporary configuration and an injected fake DeviceTracker. Device data are examples. It does not start AppDelegate/EventTap or modify user configuration. Default tests skip image generation; opt in explicitly:
+
+```sh
+MOUSSE_SETTINGS_PREVIEW_DIR=/absolute/external/output/directory \
+  swift test --disable-sandbox --filter SettingsPreviewTests
+```
+
+Inspect generated images before replacing documentation previews; a successful build is not evidence that native controls rendered correctly. Full-app UI and hardware acceptance are separate.

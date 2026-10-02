@@ -236,3 +236,23 @@
 "media.playPause" = "재생/일시정지";
 "media.next" = "다음 트랙";
 "media.previous" = "이전 트랙";
+
+"scroll.reverseVertical" = "세로 스크롤 반전";
+"scroll.reverseHorizontal" = "가로 스크롤 반전";
+
+"tab.devices" = "기기";
+"devices.disabled" = "Mousse 처리가 꺼져 있습니다. 이 화면에서 마우스를 감지하고 프로필을 편집할 수 있습니다.";
+"devices.permission" = "기기별 설정에는 입력 모니터링 권한이 필요합니다. 권한이 없으면 전역 스크롤 설정을 사용합니다.";
+"devices.connected" = "연결됨";
+"devices.empty" = "감지된 마우스가 없습니다.";
+"devices.create" = "프로필 만들기";
+"devices.offline" = "연결 안 됨";
+"devices.custom" = "사용자 지정 스크롤 설정";
+"devices.description" = "프로필이 없는 마우스는 전역 설정을 사용합니다. 같은 모델은 프로필을 공유합니다. 마우스를 바꾼 직후 첫 스크롤은 이전 마우스 설정을 사용할 수 있습니다.";
+"config.importDuplicateDeviceProfile" = "중복된 기기 프로필 키: %@";
+
+"scroll.mode.native" = "네이티브 (macOS)";
+"scroll.nativeDescription" = "네이티브 모드는 원래 마우스 휠 이벤트를 유지하며 전역 또는 기기별 방향 반전만 적용합니다. 휠 속도 조절, 부드럽게 하기, Cmd 확대/축소, Shift/Option/Control 기능 및 일반 앱별 방향·축 변환 규칙은 적용하지 않습니다. 트랙패드와 안전 우회는 유지됩니다. 버튼 매핑, 직접 켠 자동·가장자리 스크롤 및 버튼을 누른 채 휠로 음량을 조절하는 기능은 계속 사용할 수 있습니다.";
+
+"scroll.speedStandardNote" = "속도는 고해상도 휠 배율을 조절합니다. 표준 모드의 일반 휠 한 칸 이동 거리는 macOS가 제어하며 이 슬라이더로 바뀌지 않습니다.";
+"scroll.speedStepNote" = "속도는 고해상도 휠 배율을 조절합니다. 부드러운 단계 모드의 일반 휠 이동 거리는 칸당 줄 수로 설정합니다.";

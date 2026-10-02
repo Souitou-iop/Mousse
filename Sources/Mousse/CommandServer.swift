@@ -274,6 +274,7 @@ struct AppCommandDelegate: CommandRouter.Delegate {
                 "scrollSpeed": config.scrollSpeed,
                 "zoomSpeed": config.zoomSpeed,
                 "reverseScroll": config.reverseScroll,
+                "reverseScrollHorizontal": config.reverseScrollHorizontal,
                 "accessibilityTrusted": snap.accessibilityTrusted,
                 "inputMonitoringTrusted": snap.inputMonitoringTrusted,
                 "eventTapHealth": AppCommandDelegate.healthName(snap.eventTapHealth),
@@ -294,6 +295,8 @@ struct AppCommandDelegate: CommandRouter.Delegate {
                 "recoveryCount": snap.recoveryCount,
                 "mice": snap.detectedMice.map { ["id": $0.id, "name": $0.name] },
             ]
+            payload.merge(Self.deviceScrollDiagnostics(config: ConfigStore.shared.config,
+                                                       activeKey: DeviceTracker.shared.activeDeviceKey())) { _, new in new }
             if let at = snap.lastRecoveryAt { payload["lastRecoveryAt"] = AppCommandDelegate.iso.string(from: at) }
             if let pointer = snap.pointerBundleID { payload["pointerBundleID"] = pointer }
             if let last = snap.lastAction {
@@ -307,12 +310,30 @@ struct AppCommandDelegate: CommandRouter.Delegate {
         }
     }
 
+    static func deviceScrollDiagnostics(config: AppConfig, activeKey: String?) -> [String: Any] {
+        let matched = config.deviceProfiles.first { $0.id == activeKey }
+        let effective = matched?.settings ?? config.scrollSettings
+        var payload: [String: Any] = ["activeDeviceKey": activeKey as Any? ?? NSNull()]
+        payload["matchedDeviceProfileKey"] = matched?.id as Any? ?? NSNull()
+        payload["baseScrollSettings"] = [
+            "reverseScroll": effective.reverseScroll,
+            "reverseScrollHorizontal": effective.reverseScrollHorizontal,
+            "scrollMode": effective.scrollMode.rawValue,
+            "scrollSmoothness": effective.scrollSmoothness.rawValue,
+            "scrollSpeed": effective.scrollSpeed, "scrollLines": effective.scrollLines,
+            "scrollAcceleration": effective.scrollAcceleration,
+            "smoothHighRes": effective.smoothHighRes, "zoomSpeed": effective.zoomSpeed,
+        ] as [String: Any]
+        return payload
+    }
+
     func get(key: String) -> CommandRouter.ConfigValue? {
         onMain {
             let config = ConfigStore.shared.config
             switch key {
             case "enabled":            return .bool(config.enabled)
             case "reverseScroll":      return .bool(config.reverseScroll)
+            case "reverseScrollHorizontal": return .bool(config.reverseScrollHorizontal)
             case "scrollAcceleration": return .bool(config.scrollAcceleration)
             case "smoothHighRes":      return .bool(config.smoothHighRes)
             case "edgeScroll":         return .bool(config.edgeScroll)
@@ -330,7 +351,8 @@ struct AppCommandDelegate: CommandRouter.Delegate {
         onMain {
             switch (key, value) {
             case ("enabled", .bool(let v)):            ConfigStore.shared.config.enabled = v
-            case ("reverseScroll", .bool(let v)):      ConfigStore.shared.config.reverseScroll = v
+            case ("reverseScroll", .bool(let v)):      ConfigStore.shared.config.setLegacyScrollReversal(v)
+            case ("reverseScrollHorizontal", .bool(let v)): ConfigStore.shared.config.reverseScrollHorizontal = v
             case ("scrollAcceleration", .bool(let v)): ConfigStore.shared.config.scrollAcceleration = v
             case ("smoothHighRes", .bool(let v)):      ConfigStore.shared.config.smoothHighRes = v
             case ("edgeScroll", .bool(let v)):         ConfigStore.shared.config.edgeScroll = v

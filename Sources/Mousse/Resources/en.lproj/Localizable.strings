@@ -236,3 +236,23 @@
 "media.playPause" = "Play / Pause";
 "media.next" = "Next Track";
 "media.previous" = "Previous Track";
+
+"scroll.reverseVertical" = "Reverse Vertical Scrolling";
+"scroll.reverseHorizontal" = "Reverse Horizontal Scrolling";
+
+"tab.devices" = "Devices";
+"devices.disabled" = "Mousse processing is off. You can still detect mice and edit profiles here.";
+"devices.permission" = "Per-device profiles need Input Monitoring. Until granted, mice use global scroll settings.";
+"devices.connected" = "Connected";
+"devices.empty" = "No mouse detected.";
+"devices.create" = "Create profile";
+"devices.offline" = "Offline";
+"devices.custom" = "Custom scroll settings";
+"devices.description" = "Mice without a profile use global scroll settings. Identical models share a profile. After switching mice, the first scroll event may use the previous mouse’s settings.";
+"config.importDuplicateDeviceProfile" = "Duplicate device profile key: %@";
+
+"scroll.mode.native" = "Native (macOS)";
+"scroll.nativeDescription" = "Native uses the original mouse-wheel event with only global/device direction reversal. Mousse does not adjust wheel speed, smooth it, synthesize Cmd zoom, apply Shift/Option/Control enhancements, or apply ordinary app direction/axis rules. Trackpads and safety bypasses stay untouched. Button mappings, explicit auto/edge scrolling and held-button wheel volume controls remain available.";
+
+"scroll.speedStandardNote" = "Speed adjusts high-resolution wheel gain. Normal notched-wheel distance in Standard is controlled by macOS, not this slider.";
+"scroll.speedStepNote" = "Speed adjusts high-resolution wheel gain. Normal notch distance in Smooth-step is set by Lines per notch, not this slider.";

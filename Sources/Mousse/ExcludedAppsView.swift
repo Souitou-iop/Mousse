@@ -46,8 +46,10 @@ struct ExcludedAppsContent: View {
                     }
                     Toggle(Localized.text("apps.mousseScroll"),
                            isOn: $profile.mousseScrollEnabled)
-                    Toggle(Localized.text("apps.reverseScroll"),
+                    Toggle(Localized.text("scroll.reverseVertical"),
                            isOn: $profile.reverseScroll)
+                    Toggle(Localized.text("scroll.reverseHorizontal"),
+                           isOn: $profile.reverseScrollHorizontal)
                 }
             }
             Button(Localized.text("apps.add"), action: addApp)

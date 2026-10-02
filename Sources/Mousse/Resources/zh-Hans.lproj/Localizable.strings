@@ -236,3 +236,23 @@
 "media.playPause" = "播放/暂停";
 "media.next" = "下一曲";
 "media.previous" = "上一曲";
+
+"scroll.reverseVertical" = "反转垂直滚动";
+"scroll.reverseHorizontal" = "反转水平滚动";
+
+"tab.devices" = "设备";
+"devices.disabled" = "Mousse 处理已关闭，仍可在此发现鼠标和编辑配置。";
+"devices.permission" = "按设备配置需要输入监控权限。授权前，鼠标使用全局滚动设置。";
+"devices.connected" = "已连接";
+"devices.empty" = "未检测到鼠标。";
+"devices.create" = "创建配置";
+"devices.offline" = "未连接";
+"devices.custom" = "自定义滚动设置";
+"devices.description" = "未配置的鼠标使用全局滚动设置。同型号鼠标共享配置；切换鼠标后的第一个滚动事件可能沿用上一只鼠标的设置。";
+"config.importDuplicateDeviceProfile" = "重复的设备配置键：%@";
+
+"scroll.mode.native" = "原生（macOS）";
+"scroll.nativeDescription" = "原生模式保留鼠标滚轮原事件，仅应用全局或设备的方向反转。不调整滚轮速度、不平滑、不合成 Cmd 缩放、不启用 Shift/Option/Control 增强，也不应用普通应用的方向或轴转换规则。触控板及安全绕过保持不变；按钮映射、明确启用的自动/边缘滚动和按住按钮滚轮调音量仍可使用。";
+
+"scroll.speedStandardNote" = "速度调节高分辨率滚轮增益。标准模式普通刻度轮的每格距离由 macOS 控制，不受此滑块影响。";
+"scroll.speedStepNote" = "速度调节高分辨率滚轮增益。平滑步进模式普通刻度轮的距离由“每格行数”控制，不受此滑块影响。";

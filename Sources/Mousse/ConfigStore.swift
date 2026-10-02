@@ -31,6 +31,7 @@ final class ConfigStore: ObservableObject {
             // write is deferred: dragging one slider walks ~30 distinct values, and each atomic
             // write (encode, temp file, rename) is main-thread I/O nobody needs mid-drag.
             Localized.language = config.language
+            DeviceTracker.shared.configure(enabled: config.enabled, hasProfiles: !config.deviceProfiles.isEmpty)
             EventTapEngine.shared.reload(config)
             PointerSettingsController.shared.reload(config)
             scheduleSave()
@@ -38,6 +39,7 @@ final class ConfigStore: ObservableObject {
     }
 
     @Published private(set) var persistenceIssue: ConfigPersistenceIssue?
+    @Published private(set) var saveIsBlocked = false
 
     private let fileURL: URL
 
@@ -45,12 +47,15 @@ final class ConfigStore: ObservableObject {
     private var saveTask: Task<Void, Never>?
     /// Do not overwrite the only copy of a config that could not be read or backed up. The explicit
     /// Retry Save button is the user's confirmation to replace it with the current in-memory config.
-    private var protectsUnreadableConfig = false
+    private var protectsUnreadableConfig = false {
+        didSet { saveIsBlocked = protectsUnreadableConfig }
+    }
 
-    private init() {
+    init(fileURL configURL: URL? = nil) {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = support.appendingPathComponent("Mousse", isDirectory: true)
+        let dir = configURL?.deletingLastPathComponent()
+            ?? support.appendingPathComponent("Mousse", isDirectory: true)
         var initialIssue: ConfigPersistenceIssue?
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -58,12 +63,12 @@ final class ConfigStore: ObservableObject {
             initialIssue = .saveFailed(error.localizedDescription)
             Self.logger.error("Could not create config directory: \(error.localizedDescription, privacy: .private)")
         }
-        fileURL = dir.appendingPathComponent("config.json")
+        fileURL = configURL ?? dir.appendingPathComponent("config.json")
 
         // One-time migration: the app was called SilkMouse (and QmouseFix before that) — adopt
         // the newest prior config so a rename doesn't silently reset anyone's settings.
         // (Copy, not move: harmless leftover.)
-        if !FileManager.default.fileExists(atPath: fileURL.path),
+        if configURL == nil, !FileManager.default.fileExists(atPath: fileURL.path),
            let legacy = ["SilkMouse/config.json", "QmouseFix/config.json"]
                .map({ support.appendingPathComponent($0) })
                .first(where: { FileManager.default.fileExists(atPath: $0.path) }) {
@@ -101,6 +106,7 @@ final class ConfigStore: ObservableObject {
             config = AppConfig()
         }
         persistenceIssue = initialIssue
+        saveIsBlocked = protectsUnreadableConfig
         Localized.language = config.language
     }
 
@@ -131,6 +137,7 @@ final class ConfigStore: ObservableObject {
     }
 
     func dismissPersistenceIssue() {
+        guard !protectsUnreadableConfig else { return }
         persistenceIssue = nil
     }
 
@@ -149,8 +156,8 @@ final class ConfigStore: ObservableObject {
         }
     }
 
-    private static func corruptBackupURL(for url: URL) -> URL {
-        let stamp = ISO8601DateFormatter().string(from: Date())
+    static func corruptBackupURL(for url: URL, at date: Date = Date()) -> URL {
+        let stamp = ISO8601DateFormatter().string(from: date)
             .replacingOccurrences(of: ":", with: "-")
         return url.deletingLastPathComponent()
             .appendingPathComponent("config-corrupt-\(stamp).json")

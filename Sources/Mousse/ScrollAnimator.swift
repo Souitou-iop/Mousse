@@ -110,6 +110,11 @@ final class ScrollAnimator: NSObject {
     /// `ceilingTail`); continued swiping keeps topping the backlog up, so sustained flings fly.
     static let planMaxDistance = maxOutputSpeed * ScrollTuning.maxDuration
 
+    /// A same-direction notch arriving after the analyzer's quiet-window reset must keep the
+    /// unfinished glide when it is still visibly moving; otherwise the new plan contains only the
+    /// new notch and a fast fling drops to a slow coast for one frame.
+    static let keepLeftoverSpeed = 250.0
+
     /// Input distance that overflowed `planMaxDistance` and is waiting for the current plan to
     /// drain before it becomes the next plan. Without this, a fast-spinning notch landing on an
     /// almost-full backlog would silently truncate the user's input distance; with it, the excess
@@ -189,6 +194,19 @@ final class ScrollAnimator: NSObject {
     }
     private static let pixelGainKnee = 800.0 // px/s of input speed that still gets the full gain
 
+    static func fixedStepDelta(lineDelta: Double, pixelsPerLine: Double) -> Double {
+        guard lineDelta != 0 else { return 0 }
+        return (lineDelta > 0 ? 1 : -1) * pixelsPerLine
+    }
+
+    static func dominantAxisIsVertical(lineV: Double, lineH: Double) -> Bool {
+        abs(lineV) >= abs(lineH)
+    }
+
+    static func shouldKeepPlanLeftover(sequenceStart: Bool, speed: Double) -> Bool {
+        !sequenceStart || speed >= keepLeftoverSpeed
+    }
+
     /// A fresh tick landed while the glide was coasting: hand the momentum stream back to a
     /// gesture. Only flags a pending `momentum ended` if that stream actually emitted its `began` —
     /// `mode` flips to `.momentum` one frame before the first momentum event is posted, and a tick
@@ -219,16 +237,18 @@ final class ScrollAnimator: NSObject {
 
         if stepped {
             let dist = Double(lines) * pixelsPerLine
+            let stepV = Self.fixedStepDelta(lineDelta: lineV, pixelsPerLine: dist)
+            let stepH = Self.fixedStepDelta(lineDelta: lineH, pixelsPerLine: dist)
             lock.lock()
             omega = omegaStep
             phaselessStream = false
             clearPlanLocked()
             interruptMomentumLocked()
             // Reversing direction: drop the opposing remainder AND velocity so the flip is immediate.
-            if lineV != 0, (lineV > 0) != (remV > 0) { remV = 0; carryV = 0; velV = 0 }
-            if lineH != 0, (lineH > 0) != (remH > 0) { remH = 0; carryH = 0; velH = 0 }
-            remV = clampDist(remV + lineV * dist)
-            remH = clampDist(remH + lineH * dist)
+            if stepV != 0, (stepV > 0) != (remV > 0) { remV = 0; carryV = 0; velV = 0 }
+            if stepH != 0, (stepH > 0) != (remH > 0) { remH = 0; carryH = 0; velH = 0 }
+            remV = clampDist(remV + stepV)
+            remH = clampDist(remH + stepH)
             lineUnitPx = dist // this step's px per device line, for the legacy line fields
             lastMotionTime = now
             let action = wakeActionLocked(now: now)
@@ -237,7 +257,7 @@ final class ScrollAnimator: NSObject {
             return
         }
 
-        let axisIsV = lineV != 0
+        let axisIsV = Self.dominantAxisIsVertical(lineV: lineV, lineH: lineH)
         let sign: Double = axisIsV ? (lineV > 0 ? 1 : -1) : (lineH > 0 ? 1 : -1)
 
         lock.lock()
@@ -271,8 +291,10 @@ final class ScrollAnimator: NSObject {
         var v0 = 0.0
         if let p = plan, planAxisIsV == axisIsV, planSign == sign {
             let planTime = min((now - planStart) * planRate, p.duration)
-            if !analysis.isSequenceStart { leftover = max(p.total - planEmitted, 0) }
             v0 = planSpeedLocked(p, at: planTime)
+            if Self.shouldKeepPlanLeftover(sequenceStart: analysis.isSequenceStart, speed: v0) {
+                leftover = max(p.total - planEmitted, 0)
+            }
         }
         // Consume the current glide's leftover plus any distance carried over from a previous
         // overflow (both same-axis/same-sign; a reversal starts fresh below). Anything past the
@@ -289,7 +311,7 @@ final class ScrollAnimator: NSObject {
         planAxisIsV = axisIsV
         planSign = sign
         planProfile = profile
-        if analysis.isSequenceStart { carryV = 0; carryH = 0; planOverflow = 0 }
+        if analysis.isSequenceStart { carryV = 0; carryH = 0 }
         lastMotionTime = now
         let action = wakeActionLocked(now: now)
         lock.unlock()

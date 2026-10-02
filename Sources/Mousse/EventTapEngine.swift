@@ -59,8 +59,15 @@ final class EventTapEngine {
 
     // Snapshot read by the tap callback thread; guarded by `lock`.
     private let lock = OSAllocatedUnfairLock()
+    // Serialize physical-wheel handling with reload cancellation so an old snapshot cannot
+    // restart output after reload has cancelled it. Always acquire before `lock`.
+    private let scrollSessionLock = OSAllocatedUnfairLock()
+    private var scrollSessionContext: ScrollSessionContext?
+    private var scrollSessionBundleID: String?
     private var enabled = true
+    private var scrollDeviceProfiles: [String: ScrollDeviceSettings] = [:]
     private var reverseScroll = false
+    private var reverseScrollHorizontal = false
     private var scrollMode: ScrollMode = .smooth
     private var scrollSmoothness: ScrollSmoothness = .balanced
     private var scrollSpeed = 0.5
@@ -115,6 +122,8 @@ final class EventTapEngine {
         "com.github.wez.wezterm", "com.mitchellh.ghostty",
         "org.alacritty", "co.zeit.hyper", "app.tabby",
     ]
+    // iPhone Mirroring interprets original wheel events as touch swipes and rejects reposts.
+    private static let passthroughBundleIDs: Set<String> = ["com.apple.ScreenContinuity"]
     private var verticalToHorizontalBundleIDs: Set<String> = []
     private static let chromiumBundlePrefixes = [
         "com.google.Chrome", "org.chromium.Chromium", "com.operasoftware.Opera",
@@ -135,7 +144,7 @@ final class EventTapEngine {
     private var lastTriggeredAction: LastTriggeredAction?
     private var autoScrollHUDGeneration: UInt64 = 0
 
-    /// Source for the fresh wheel events we post to reverse Standard-mode scrolling (see below).
+    /// Source for fresh wheel events that need a speed gain or axis swap.
     private let scrollSource = CGEventSource(stateID: .hidSystemState)
 
     /// Fractional line-delta carry for `postContinuous` (1 line ≈ 10 px). Without it, slow hi-res
@@ -370,15 +379,18 @@ final class EventTapEngine {
         tapRebuildPending = true
         tapCreationFailed = false
         guard let runLoop = eventTapRunLoop else {
-            let shouldStart = thread == nil && Date() >= nextTapCreationAttemptAt
+            tapRebuildPending = false
             lock.unlock()
-            if shouldStart, AccessibilityPermission.isTrusted { startTapThreadIfNeeded() }
+            if AccessibilityPermission.isTrusted { startTapThreadIfNeeded() }
             return
         }
         lock.unlock()
 
         Self.logger.error("Rebuilding event tap: \(reason, privacy: .public)")
-        CFRunLoopStop(runLoop)
+        // A queued stop survives the gap before CFRunLoopRun starts.
+        CFRunLoopPerformBlock(runLoop, CFRunLoopMode.commonModes.rawValue) {
+            CFRunLoopStop(CFRunLoopGetCurrent())
+        }
         CFRunLoopWakeUp(runLoop)
     }
 
@@ -527,18 +539,47 @@ final class EventTapEngine {
     func reload(_ config: AppConfig) {
         let captureCancellation: ((CaptureOutcome<Int>) -> Void)?
         let keyboardCaptureCancellation: ((CaptureOutcome<KeyboardCaptureResult>) -> Void)?
+        scrollSessionLock.lock()
+        defer { scrollSessionLock.unlock() }
         lock.lock()
+        let newAppProfiles = Dictionary(config.scrollAppProfiles.map { ($0.bundleID, $0) },
+                                        uniquingKeysWith: { _, last in last })
+        let newExcluded = Set(config.excludedBundleIDs).union(Self.terminalBundleIDs)
+        var scrollRulesChanged = false
+        if let context = scrollSessionContext {
+            let bundle = scrollSessionBundleID
+            let oldApp = Self.resolveScrollAppSettings(bundleID: bundle, profiles: scrollAppProfiles,
+                excluded: excludedBundleIDs, globalReverse: context.settings.reverseScroll,
+                globalReverseHorizontal: context.settings.reverseScrollHorizontal, mode: context.settings.scrollMode)
+            let newApp = Self.resolveScrollAppSettings(bundleID: bundle, profiles: newAppProfiles,
+                excluded: newExcluded, globalReverse: context.settings.reverseScroll,
+                globalReverseHorizontal: context.settings.reverseScrollHorizontal, mode: context.settings.scrollMode)
+            scrollRulesChanged = oldApp != newApp
+                || bundle.map { verticalToHorizontalBundleIDs.contains($0) != config.verticalToHorizontalBundleIDs.contains($0) } == true
+                || Self.isScrollSafetyBypassed(bundleID: bundle, remoteDesktopBypass: remoteDesktopBypass,
+                    remoteDesktopBundles: remoteDesktopBundleIDs, gameBypass: gameBypass, gameBundles: gameBundleIDs)
+                    != Self.isScrollSafetyBypassed(bundleID: bundle, remoteDesktopBypass: config.remoteDesktopBypass,
+                    remoteDesktopBundles: Set(config.remoteDesktopBundleIDs), gameBypass: config.gameBypass,
+                    gameBundles: Set(config.gameBundleIDs))
+        }
         // Disabling the engine or re-assigning the gesture button hides the button-up of an
         // in-flight drag from the gesture — it would stay stuck `down` and hijack every later
         // drag into Space switches. Cancel it the same way wake/device-change do.
         let effectiveEnabled = config.enabled && MoussePermissionGate.isGranted
+        let cancelWheel = Self.reloadInvalidatesScrollContext(scrollSessionContext, config: config)
+            || (scrollSessionContext != nil && (scrollRulesChanged || (enabled && !effectiveEnabled)))
         if (enabled && !effectiveEnabled) || spaceDragButton != config.spaceDragButton {
             pendingDragCancel = true
             pendingAutoScrollCancel = true
         }
         pendingTriggerCancel = true
         enabled = effectiveEnabled
+        scrollDeviceProfiles = [:]
+        for profile in config.deviceProfiles where scrollDeviceProfiles[profile.id] == nil {
+            scrollDeviceProfiles[profile.id] = profile.settings
+        }
         reverseScroll = config.reverseScroll
+        reverseScrollHorizontal = config.reverseScrollHorizontal
         scrollMode = config.scrollMode
         scrollSmoothness = config.scrollSmoothness
         scrollSpeed = config.scrollSpeed
@@ -564,11 +605,7 @@ final class EventTapEngine {
         spaceDragFollowFinger = config.spaceDragFollowFinger
         spaceDragLockPointer = config.spaceDragLockPointer
         excludedBundleIDs = Set(config.excludedBundleIDs).union(EventTapEngine.terminalBundleIDs)
-        var compiledScrollProfiles: [String: ScrollAppProfile] = [:]
-        for profile in config.scrollAppProfiles {
-            compiledScrollProfiles[profile.bundleID] = profile
-        }
-        scrollAppProfiles = compiledScrollProfiles
+        scrollAppProfiles = newAppProfiles
         verticalToHorizontalBundleIDs = Set(config.verticalToHorizontalBundleIDs)
         remoteDesktopBypass = config.remoteDesktopBypass
         remoteDesktopBundleIDs = Set(config.remoteDesktopBundleIDs)
@@ -579,6 +616,12 @@ final class EventTapEngine {
         (captureCancellation, keyboardCaptureCancellation) = cancelCaptureLocked()
         let keyboardTap = keyboardCaptureTap
         lock.unlock()
+        if cancelWheel {
+            scrollAnimator.endGestureNow()
+            magnifier.endWheelZoomNow()
+            scrollSessionContext = nil
+            scrollSessionBundleID = nil
+        }
         if shouldHideAutoScrollHUD {
             DispatchQueue.main.async {
                 AutoScrollHUDController.shared.hide(generation: hudGeneration)
@@ -953,24 +996,36 @@ final class EventTapEngine {
             return Unmanaged.passUnretained(event)
         }
 
+        let isScroll = type == .scrollWheel
+        if isScroll { scrollSessionLock.lock() }
+        defer { if isScroll { scrollSessionLock.unlock() } }
+
         lock.lock()
         let on = enabled
         let capturing = captureKind == .mouse
         let mappings = buttonMappings
         let mappingExcluded = buttonMappingExcludedBundleIDs
-        let globalReverse = reverseScroll
-        let mode = scrollMode
-        let smoothness = scrollSmoothness
-        let speed = scrollSpeed
-        let lines = scrollLines
-        let accelerate = scrollAcceleration
-        let smoothHiRes = smoothHighRes
+        // Non-wheel callbacks (especially high-rate drags) do not read or retain scroll state.
+        // Keep the wheel snapshot under the same lock as the shared button/cancellation state.
+        let deviceProfiles = isScroll ? scrollDeviceProfiles : [:]
+        var globalSettings = ScrollDeviceSettings()
+        if isScroll {
+            globalSettings.reverseScroll = reverseScroll
+            globalSettings.reverseScrollHorizontal = reverseScrollHorizontal
+            globalSettings.scrollMode = scrollMode
+            globalSettings.scrollSmoothness = scrollSmoothness
+            globalSettings.scrollSpeed = scrollSpeed
+            globalSettings.scrollLines = scrollLines
+            globalSettings.scrollAcceleration = scrollAcceleration
+            globalSettings.smoothHighRes = smoothHighRes
+            globalSettings.zoomSpeed = zoomSpeed
+        }
         let doubleInterval = doubleClickInterval
         let holdTime = holdDuration
         let autoClickDelay = autoScrollClickDelay
-        let excluded = excludedBundleIDs
-        let appScrollProfiles = scrollAppProfiles
-        let vToH = verticalToHorizontalBundleIDs
+        let excluded = isScroll ? excludedBundleIDs : []
+        let appScrollProfiles = isScroll ? scrollAppProfiles : [:]
+        let vToH = isScroll ? verticalToHorizontalBundleIDs : []
         let rdBypass = remoteDesktopBypass
         let rdBundles = remoteDesktopBundleIDs
         let gBypass = gameBypass
@@ -1161,9 +1216,7 @@ final class EventTapEngine {
             // Leave real trackpad gestures completely alone — they carry a scroll or momentum phase,
             // which a mouse wheel never does (high-resolution mice are "continuous" but phase-less, so
             // we must NOT gate on `isContinuous` here — that's what was skipping reverse on those mice).
-            let phase = event.getIntegerValueField(scrollPhaseField)
-            let momentumPhase = event.getIntegerValueField(scrollMomentumPhaseField)
-            guard phase == 0, momentumPhase == 0 else { return Unmanaged.passUnretained(event) }
+            guard Self.isPhysicalWheel(event) else { return Unmanaged.passUnretained(event) }
 
             // A real wheel input — used to reset the edge-scroll rest timer (user input first).
             lastRealWheelAt = CACurrentMediaTime()
@@ -1178,6 +1231,27 @@ final class EventTapEngine {
                     _ = holdScroll.handleScroll(lineDelta: Double(lineV != 0 ? lineV : lineH))
                     return nil
                 }
+            }
+
+            let deviceKey = DeviceTracker.shared.activeDeviceKey()
+            let effective = Self.resolveDeviceScrollSettings(activeKey: deviceKey,
+                                                            profiles: deviceProfiles, global: globalSettings)
+            if Self.updateScrollContext(&scrollSessionContext, deviceKey: deviceKey, settings: effective) {
+                scrollAnimator.endGestureNow()
+                magnifier.endWheelZoomNow()
+            }
+            let globalReverse = effective.reverseScroll
+            let globalReverseHorizontal = effective.reverseScrollHorizontal
+            let mode = effective.scrollMode
+            let smoothness = effective.scrollSmoothness
+            let speed = effective.scrollSpeed
+            let lines = effective.scrollLines
+            let accelerate = effective.scrollAcceleration
+            let smoothHiRes = effective.smoothHighRes
+            let zoomSpeed = effective.zoomSpeed
+            if mode == .native {
+                scrollAnimator.endGestureNow()
+                magnifier.endWheelZoomNow()
             }
 
             let isContinuous = event.getIntegerValueField(.scrollWheelEventIsContinuous) != 0
@@ -1202,39 +1276,39 @@ final class EventTapEngine {
                 ? (smoothHiRes && (mode == .smooth || mode == .smoothStep))
                 : (modQuick || modPrecise || mode == .smooth || mode == .smoothStep)
             let needsCursorID = !excluded.isEmpty || !appScrollProfiles.isEmpty
-                || modZoom || !vToH.isEmpty || smoothingPossible || rdBypass
+                || modZoom || !vToH.isEmpty || smoothingPossible || rdBypass || gBypass
             let cursorID = needsCursorID ? cursorApp.bundleID(at: event.location) : nil
-            if rdBypass, let id = cursorID, rdBundles.contains(id) {
+            scrollSessionBundleID = cursorID
+            if Self.isScrollSafetyBypassed(bundleID: cursorID, remoteDesktopBypass: rdBypass,
+                                           remoteDesktopBundles: rdBundles, gameBypass: gBypass,
+                                           gameBundles: gBundles) {
                 return Unmanaged.passUnretained(event)
             }
             let appSettings = EventTapEngine.resolveScrollAppSettings(
                 bundleID: cursorID,
                 profiles: appScrollProfiles,
                 excluded: excluded,
-                globalReverse: globalReverse)
-            // The two app switches are independent. With only reverse enabled, preserve the
+                globalReverse: globalReverse,
+                globalReverseHorizontal: globalReverseHorizontal, mode: mode)
+            if mode == .native {
+                return Unmanaged.passUnretained(Self.applyNativeWheel(event, settings: appSettings))
+            }
+            // Apply direction to the physical input axes before Shift/app transposition.
+            Self.reverseScrollInPlace(event, vertical: appSettings.reverseScroll,
+                                      horizontal: appSettings.reverseScrollHorizontal)
+            // The app switches are independent. With only reverse enabled, preserve the
             // native wheel stream and apply just its direction; do not enable smoothing, speed,
             // acceleration, zoom, modifiers or axis swapping.
             if !appSettings.mousseScrollEnabled {
-                if appSettings.reverseScroll {
-                    if isContinuous {
-                        postContinuous(event, gain: -1.0, transpose: false,
-                                       preserveFlags: true)
-                    } else {
-                        postNativeScroll(event, reverse: true, transpose: false,
-                                         preserveFlags: true)
-                    }
-                    return nil
-                }
                 return Unmanaged.passUnretained(event)
             }
-            let reverse = appSettings.reverseScroll
             // Axis-swap app (e.g. Nimble Commander's Brief panels): the wheel's vertical motion
             // should scroll HORIZONTALLY. We transpose the axes ourselves, so smoothing keeps
             // working — no need to rely on AppKit's transposition (which rejects phased gestures).
             // Shift toggles the swap (XOR): held over a normal app it scrolls horizontally, held
             // over an axis-swap app it restores vertical.
-            let transpose = (cursorID.map(vToH.contains) == true) != modShift
+            let transpose = Self.shouldTransposeScroll(appTransposes: cursorID.map(vToH.contains) == true,
+                                                      shift: modShift)
 
             // Cmd+scroll → real pinch zoom (works wherever a trackpad pinch works). Consumes the
             // wheel event entirely; the pinch ends itself after a short quiet period.
@@ -1242,20 +1316,19 @@ final class EventTapEngine {
                 // A pinch and a glide at once is disorienting — stop any in-flight coast first
                 // (idempotent no-op when nothing is gliding).
                 scrollAnimator.endGestureNow()
-                let dir = reverse ? -1.0 : 1.0
                 let mag: Double
                 if isContinuous {
                     // Point delta is pixels under BOTH driver conventions (fixedPt is fractional
                     // LINES per the CG contract, but pixels on e.g. Logitech-style drivers) — read
                     // the unambiguous field. Same 800 scale: point ≈ fixedPt on the hardware the
                     // constant was tuned on.
-                    mag = Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
-                               + event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)) * dir * zoomSpeed / 800.0
+                    mag = (Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1))
+                               + Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2))) * zoomSpeed / 800.0
                 } else {
                     // One notch = one comfortable zoom step ('s medium tick ÷ its 800 scale).
-                    let notches = event.getIntegerValueField(.scrollWheelEventDeltaAxis1)
-                                + event.getIntegerValueField(.scrollWheelEventDeltaAxis2)
-                    mag = Double(notches.signum()) * dir * 60.0 * zoomSpeed / 800.0
+                    let notches = Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis1))
+                                + Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis2))
+                    mag = (notches == 0 ? 0 : (notches > 0 ? 1.0 : -1.0)) * 60.0 * zoomSpeed / 800.0
                 }
                 let chromium = EventTapEngine.chromiumBundlePrefixes
                     .contains { cursorID?.hasPrefix($0) == true }
@@ -1275,70 +1348,53 @@ final class EventTapEngine {
                 // mice (MX Master 3) should leave this OFF so we don't fight their hardware flywheel.
                 let animated = mode == .smooth || mode == .smoothStep
                 if smoothHiRes, animated {
-                    let dir = reverse ? -1.0 : 1.0
                     // Point delta = pixels under both driver conventions; fixedPt would read as
                     // LINES (10× too slow) on contract-following drivers.
-                    var pxV = Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)) * dir
-                    var pxH = Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)) * dir
+                    var pxV = Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1))
+                    var pxH = Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2))
                     if transpose { swap(&pxV, &pxH) }
                     if pxV != 0 || pxH != 0 {
                         scrollAnimator.addPixels(pxV: pxV, pxH: pxH, speed: speed)
                         return nil // swallow; the animator drives the pixel scroll
                     }
                 }
-                // Any modification (slider gain, reverse, axis swap) must go out as a FRESH
-                // tagged event: in-place field edits are not honored on passthrough (macOS
-                // re-reads the original deltas — the same reason Standard-mode reverse posts
-                // fresh events). Neutral settings pass the original through untouched.
-                let gain = (speed / 0.5) * (reverse ? -1.0 : 1.0)
-                if transpose || gain != 1.0 {
+                let gain = speed / 0.5
+                if transpose || speed != 0.5 {
                     postContinuous(event, gain: gain, transpose: transpose)
                     return nil
                 }
                 return Unmanaged.passUnretained(event)
             }
 
-            let dir = reverse ? -1.0 : 1.0
-            var lineV = Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis1)) * dir
-            var lineH = Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis2)) * dir
+            var lineV = Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis1))
+            var lineH = Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis2))
             if transpose { swap(&lineV, &lineH) } // wheel scrolls the app horizontally
 
-            // Resolve the glide tuning: the smoothness setting, overridden by a held modifier.
-            // Quick/precise are DEFINED by their animation, so they force the glide even in
-            // Standard and Smooth-step modes ( does the same). maxSens is scaled ~10% by the
-            // display under the cursor so big screens fling proportionally farther.
-            var profile = ScrollProfile.forSmoothness(smoothness)
-            var forceGlide = false
-            if modQuick {
-                profile = .quick(screenSpan: screenSpans.span(at: event.location, vertical: lineV != 0))
-                forceGlide = true
-            } else if modPrecise {
-                profile = .precise
-                forceGlide = true
-            }
-            let baseline = lineV != 0 ? 1080.0 : 1920.0
-            let sizeFactor = modQuick ? 1.0
-                : screenSpans.span(at: event.location, vertical: lineV != 0) / baseline
-            let sens = profile.sensitivity(slider: speed, screenSizeFactor: sizeFactor)
-
-            // Notched mouse: Smooth and Smooth-step both drive the animator (momentum vs crisp N-line
-            // step); Standard falls through to raw passthrough below.
-            let animated = (mode == .smooth || mode == .smoothStep) || forceGlide
+            // Quick/precise force a glide even in Standard and Smooth-step. Resolve its tuning
+            // only when a nonzero tick will actually reach the animator; plain Standard and empty
+            // wheel events need no display-span lookup or sensitivity calculation.
+            let forceGlide = modQuick || modPrecise
+            let animated = mode.isSmooth || forceGlide
             if animated, lineV != 0 || lineH != 0 {
+                var profile = ScrollProfile.forSmoothness(smoothness)
+                if modQuick {
+                    profile = .quick(screenSpan: screenSpans.span(at: event.location, vertical: lineV != 0))
+                } else if modPrecise {
+                    profile = .precise
+                }
+                let baseline = lineV != 0 ? 1080.0 : 1920.0
+                let sizeFactor = modQuick ? 1.0
+                    : screenSpans.span(at: event.location, vertical: lineV != 0) / baseline
+                let sens = profile.sensitivity(slider: speed, screenSizeFactor: sizeFactor)
+
                 scrollAnimator.addTick(lineV: lineV, lineH: lineH,
                                        stepped: mode == .smoothStep && !forceGlide, lines: lines,
                                        profile: profile, minSens: sens.minSens, maxSens: sens.maxSens,
                                        accelerate: accelerate)
                 return nil // swallow; the animator drives the pixel scroll
             }
-            if reverse || transpose {
-                // macOS does NOT honor in-place delta edits on a passed-through wheel event — the
-                // system re-reads the original kernel deltas, so editing fields in place is
-                // invisible (this is why reverse worked in Smooth, which posts fresh events, but not
-                // in Standard). So build a FRESH wheel event carrying the reversed and/or
-                // axis-swapped line, pixel and fixed-point deltas, tag it so our tap skips it,
-                // post it, and swallow the original. (`lineV`/`lineH` are already adjusted above.)
-                postNativeScroll(event, reverse: reverse, transpose: transpose)
+            if transpose {
+                postNativeScroll(event, transpose: true)
                 return nil
             }
             return Unmanaged.passUnretained(event)
@@ -1356,35 +1412,118 @@ final class EventTapEngine {
         return excluded.contains(bundleID)
     }
 
+    struct ScrollSessionContext: Equatable {
+        let deviceKey: String?
+        let settings: ScrollDeviceSettings
+    }
+
+    /// Used by the physical-wheel path; a new device must not inherit another device's tick history.
+    static func updateScrollContext(_ context: inout ScrollSessionContext?, deviceKey: String?,
+                                    settings: ScrollDeviceSettings) -> Bool {
+        let next = ScrollSessionContext(deviceKey: deviceKey, settings: settings)
+        let changed = context != nil && context != next
+        context = next
+        return changed
+    }
+
+    static func reloadInvalidatesScrollContext(_ context: ScrollSessionContext?, config: AppConfig) -> Bool {
+        guard let context else { return false }
+        let settings = context.deviceKey.flatMap { key in config.deviceProfiles.first { $0.id == key }?.settings }
+            ?? config.scrollSettings
+        return settings != context.settings
+    }
+
+    static func resolveDeviceScrollSettings(activeKey: String?,
+                                            profiles: [String: ScrollDeviceSettings],
+                                            global: ScrollDeviceSettings) -> ScrollDeviceSettings {
+        activeKey.flatMap { profiles[$0] } ?? global
+    }
+
+    static func shouldTransposeScroll(appTransposes: Bool, shift: Bool) -> Bool {
+        appTransposes != shift
+    }
+
     struct ResolvedScrollAppSettings: Equatable {
         let mousseScrollEnabled: Bool
         let reverseScroll: Bool
+        var reverseScrollHorizontal: Bool = false
     }
 
     static func resolveScrollAppSettings(
         bundleID: String?,
         profiles: [String: ScrollAppProfile],
         excluded: Set<String>,
-        globalReverse: Bool
+        globalReverse: Bool,
+        globalReverseHorizontal: Bool? = nil,
+        mode: ScrollMode = .standard
     ) -> ResolvedScrollAppSettings {
         guard let bundleID else {
             return ResolvedScrollAppSettings(
-                mousseScrollEnabled: true, reverseScroll: globalReverse)
+                mousseScrollEnabled: mode != .native, reverseScroll: globalReverse,
+                reverseScrollHorizontal: globalReverseHorizontal ?? globalReverse)
         }
         // Terminal emulators remain hard exclusions because phased/synthetic scrolling can break
         // their alternate-screen and TUI input handling.
         if terminalBundleIDs.contains(bundleID) {
             return ResolvedScrollAppSettings(mousseScrollEnabled: false, reverseScroll: false)
         }
+        if mode == .native {
+            return ResolvedScrollAppSettings(mousseScrollEnabled: false, reverseScroll: globalReverse,
+                reverseScrollHorizontal: globalReverseHorizontal ?? globalReverse)
+        }
+        let requiresOriginalEvent = passthroughBundleIDs.contains(bundleID)
         if let profile = profiles[bundleID] {
             return ResolvedScrollAppSettings(
-                mousseScrollEnabled: profile.mousseScrollEnabled,
-                reverseScroll: profile.reverseScroll)
+                mousseScrollEnabled: profile.mousseScrollEnabled && !requiresOriginalEvent,
+                reverseScroll: profile.reverseScroll,
+                reverseScrollHorizontal: profile.reverseScrollHorizontal)
         }
         if excluded.contains(bundleID) {
             return ResolvedScrollAppSettings(mousseScrollEnabled: false, reverseScroll: false)
         }
-        return ResolvedScrollAppSettings(mousseScrollEnabled: true, reverseScroll: globalReverse)
+        return ResolvedScrollAppSettings(
+            mousseScrollEnabled: !requiresOriginalEvent, reverseScroll: globalReverse,
+            reverseScrollHorizontal: globalReverseHorizontal ?? globalReverse)
+    }
+
+    static func isPhysicalWheel(_ event: CGEvent) -> Bool {
+        event.getIntegerValueField(scrollPhaseField) == 0
+            && event.getIntegerValueField(scrollMomentumPhaseField) == 0
+    }
+
+    static func isScrollSafetyBypassed(bundleID: String?, remoteDesktopBypass: Bool,
+                                      remoteDesktopBundles: Set<String>, gameBypass: Bool,
+                                      gameBundles: Set<String>) -> Bool {
+        guard let bundleID else { return false }
+        return (remoteDesktopBypass && remoteDesktopBundles.contains(bundleID))
+            || (gameBypass && gameBundles.contains(bundleID))
+    }
+
+    /// Returns the exact original event: no repost, tag, modifier clearing or axis swap.
+    static func applyNativeWheel(_ event: CGEvent, settings: ResolvedScrollAppSettings) -> CGEvent {
+        guard isPhysicalWheel(event) else { return event }
+        reverseScrollInPlace(event, vertical: settings.reverseScroll,
+                             horizontal: settings.reverseScrollHorizontal)
+        return event
+    }
+
+    static func reverseScrollInPlace(_ event: CGEvent, vertical: Bool = true,
+                                     horizontal: Bool = true, transpose: Bool = false) {
+        guard vertical || horizontal || transpose else { return }
+        let lines: [CGEventField] = [.scrollWheelEventDeltaAxis1, .scrollWheelEventDeltaAxis2]
+        let fixed: [CGEventField] = [.scrollWheelEventFixedPtDeltaAxis1, .scrollWheelEventFixedPtDeltaAxis2]
+        let points: [CGEventField] = [.scrollWheelEventPointDeltaAxis1, .scrollWheelEventPointDeltaAxis2]
+        let signs: [Int64] = [vertical ? -1 : 1, horizontal ? -1 : 1]
+        let lineValues = lines.enumerated().map { event.getIntegerValueField($0.element) &* signs[$0.offset] }
+        let fixedValues = fixed.enumerated().map { event.getDoubleValueField($0.element) * Double(signs[$0.offset]) }
+        let pointValues = points.enumerated().map { event.getIntegerValueField($0.element) &* signs[$0.offset] }
+        for axis in 0..<2 {
+            let input = transpose ? 1 - axis : axis
+            // Line setters rewrite precise fields; snapshots and write order preserve them.
+            event.setIntegerValueField(lines[axis], value: lineValues[input])
+            event.setDoubleValueField(fixed[axis], value: fixedValues[input])
+            event.setIntegerValueField(points[axis], value: pointValues[input])
+        }
     }
 
     private func finishCaptureLocked(_ button: Int) -> ((CaptureOutcome<Int>) -> Void)? {
@@ -1461,11 +1600,15 @@ extension EventTapEngine {
     /// (The per-notch display-span lookup this extension used to carry moved into
     /// `ScreenSpanResolver` — a cached rect-containment test instead of a CG query every notch.)
 
-    /// Post a fresh continuous (pixel) event with the slider gain / reverse sign applied and the
-    /// axes optionally swapped — for the hi-res path whenever the original can't pass through
-    /// unmodified (in-place edits on a passthrough don't stick).
-    fileprivate func postContinuous(_ event: CGEvent, gain: Double, transpose: Bool,
-                                    preserveFlags: Bool = false) {
+    /// Post a fresh continuous event when a speed gain or axis swap applies.
+    fileprivate func postContinuous(_ event: CGEvent, gain: Double, transpose: Bool) {
+        Self.continuousScrollEvent(event, gain: gain, transpose: transpose,
+                                   lineCarryV: &contLineCarryV, lineCarryH: &contLineCarryH)?
+            .post(tap: .cghidEventTap)
+    }
+
+    static func continuousScrollEvent(_ event: CGEvent, gain: Double, transpose: Bool,
+                                      lineCarryV: inout Double, lineCarryH: inout Double) -> CGEvent? {
         var pV = Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)) * gain
         var pH = Double(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)) * gain
         // Line/fixedPt outputs are derived from the SAME point-field pixels (sanitized: the tap
@@ -1475,9 +1618,7 @@ extension EventTapEngine {
         var fV = sanitizedDelta(pV)
         var fH = sanitizedDelta(pH)
         if transpose { swap(&pV, &pH); swap(&fV, &fH) }
-        guard let out = CGEvent(scrollWheelEvent2Source: scrollSource, units: .pixel, wheelCount: 2,
-                                wheel1: int32Clamped(pV), wheel2: int32Clamped(pH),
-                                wheel3: 0) else { return }
+        guard let out = event.copy() else { return nil }
         out.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
         // Explicit line deltas (1 line ≈ 10 px) so terminals don't see a wheel line per event.
         // Carried across events, like the animator's lineCarry: slow scrolls (< 10 px/event)
@@ -1492,10 +1633,10 @@ extension EventTapEngine {
         // back out): the slider scales pixel motion, but the device still turned the same
         // amount, and line-based consumers should see the device's own line count.
         let lineDiv = 10 * max(abs(gain), 0.05)
-        contLineCarryV += fV / lineDiv
-        contLineCarryH += fH / lineDiv
-        let lv = contLineCarryV.rounded(.towardZero); contLineCarryV -= lv
-        let lh = contLineCarryH.rounded(.towardZero); contLineCarryH -= lh
+        lineCarryV += fV / lineDiv
+        lineCarryH += fH / lineDiv
+        let lv = lineCarryV.rounded(.towardZero); lineCarryV -= lv
+        let lh = lineCarryH.rounded(.towardZero); lineCarryH -= lh
         out.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: Int64(lv))
         out.setIntegerValueField(.scrollWheelEventDeltaAxis2, value: Int64(lh))
         out.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: fV / lineDiv)
@@ -1503,36 +1644,22 @@ extension EventTapEngine {
         out.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: Int64(int32Clamped(pV)))
         out.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: Int64(int32Clamped(pH)))
         out.setIntegerValueField(.eventSourceUserData, value: ScrollAnimator.syntheticTag)
-        out.flags = preserveFlags ? event.flags : []
-        out.post(tap: .cghidEventTap)
+        out.flags = event.flags.subtracting(.maskShift)
+        out.timestamp = event.timestamp
+        return out
     }
 
     /// Post a fresh notched wheel event with only direction and optional axes applied.
-    fileprivate func postNativeScroll(_ event: CGEvent, reverse: Bool, transpose: Bool,
-                                      preserveFlags: Bool = false) {
-        let sign: Double = reverse ? -1 : 1
-        let rawV = Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis1)) * sign
-        let rawH = Double(event.getIntegerValueField(.scrollWheelEventDeltaAxis2)) * sign
-        let lineV = transpose ? rawH : rawV
-        let lineH = transpose ? rawV : rawH
-        guard let out = CGEvent(scrollWheelEvent2Source: scrollSource, units: .line,
-                                wheelCount: 2, wheel1: int32Clamped(lineV),
-                                wheel2: int32Clamped(lineH), wheel3: 0) else { return }
-        let p1 = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
-        let p2 = event.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)
-        let f1 = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)
-        let f2 = event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)
-        out.setIntegerValueField(.scrollWheelEventPointDeltaAxis1,
-                                  value: Int64(sign) * (transpose ? p2 : p1))
-        out.setIntegerValueField(.scrollWheelEventPointDeltaAxis2,
-                                  value: Int64(sign) * (transpose ? p1 : p2))
-        out.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1,
-                                value: sign * (transpose ? f2 : f1))
-        out.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2,
-                                value: sign * (transpose ? f1 : f2))
+    static func nativeScrollEvent(_ event: CGEvent, transpose: Bool) -> CGEvent? {
+        guard let out = event.copy() else { return nil }
+        reverseScrollInPlace(out, vertical: false, horizontal: false, transpose: transpose)
         out.setIntegerValueField(.eventSourceUserData, value: ScrollAnimator.syntheticTag)
-        out.flags = preserveFlags ? event.flags : []
-        out.post(tap: .cghidEventTap)
+        out.flags.remove(.maskShift) // We already applied Shift transposition.
+        return out
+    }
+
+    fileprivate func postNativeScroll(_ event: CGEvent, transpose: Bool) {
+        Self.nativeScrollEvent(event, transpose: transpose)?.post(tap: .cghidEventTap)
     }
 }
 

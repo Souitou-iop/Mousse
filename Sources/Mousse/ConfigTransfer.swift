@@ -3,11 +3,14 @@ import Foundation
 enum ConfigTransferError: LocalizedError, Equatable {
     case invalidTopLevel
     case duplicateAppProfile(String)
+    case duplicateDeviceProfile(String)
 
     var errorDescription: String? {
         switch self {
         case .invalidTopLevel:
             return Localized.text("config.importInvalidTopLevel")
+        case let .duplicateDeviceProfile(key):
+            return Localized.format("config.importDuplicateDeviceProfile", key)
         case let .duplicateAppProfile(bundleID):
             return Localized.format("config.importDuplicateAppProfile", bundleID)
         }
@@ -38,6 +41,10 @@ enum ConfigTransfer {
         for profile in config.scrollAppProfiles
             where !bundleIDs.insert(profile.bundleID).inserted {
             throw ConfigTransferError.duplicateAppProfile(profile.bundleID)
+        }
+        var deviceKeys = Set<String>()
+        for profile in config.deviceProfiles where !deviceKeys.insert(profile.id).inserted {
+            throw ConfigTransferError.duplicateDeviceProfile(profile.id)
         }
         return config
     }

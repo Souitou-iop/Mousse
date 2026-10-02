@@ -26,9 +26,15 @@ final class MagnifySynthesizer {
     /// surfaces like Maps.
     static let pinchSupported = ProcessInfo.processInfo.operatingSystemVersion.majorVersion < 27
 
-    // Keystroke-fallback state: touched only on the event-tap thread (the fallback branch of
-    // `feed` is the sole user), so it needs no lock — unlike the pinch state below.
+    // Quantization and its generation share the lock: reload can cancel from another thread.
     private var zoomQuantizer = ZoomQuantizer()
+    private var fallbackGeneration: UInt64 = 0 // guarded by lock, also read by the key queue
+    private let emitKeystroke: (Bool) -> Void
+
+    init(emitKeystroke: @escaping (Bool) -> Void = { MagnifySynthesizer.emitZoomKeystroke(zoomIn: $0) }) {
+        self.emitKeystroke = emitKeystroke
+    }
+
 
     // Unfair lock (not NSLock): `feed` runs per zoom event on the tap thread — hundreds per
     // second on a free-spin flick. Not recursive; posting under it stays a few microseconds.
@@ -53,8 +59,9 @@ final class MagnifySynthesizer {
             // macOS 27+: quantize the tick stream into whole, rate-limited zoom steps (Cmd+= in,
             // Cmd+− out) — one keystroke per raw event would zoom-storm on free-spin/continuous
             // mice, whose flicks are dozens to hundreds of events.
-            let fired = zoomQuantizer.feed(magnification, at: CACurrentMediaTime())
-            if fired != 0 { MagnifySynthesizer.postZoomKeystroke(zoomIn: fired > 0) }
+            if let action = quantizedZoomAction(magnification: magnification, at: CACurrentMediaTime()) {
+                Self.keyQueue.async(execute: action)
+            }
             return
         }
 
@@ -121,21 +128,58 @@ final class MagnifySynthesizer {
         lock.unlock()
     }
 
+    /// Any thread: invalidate queued keys, quantization carry and the open pinch atomically.
+    func endWheelZoomNow() {
+        lock.lock()
+        zoomQuantizer = ZoomQuantizer()
+        fallbackGeneration &+= 1
+        let wasActive = active
+        active = false
+        if wasActive { post(phase: phaseEnded, magnification: 0) }
+        lock.unlock()
+    }
+
     /// Serial queue so the fallback keystroke is synthesized OFF the event-tap thread — same
     /// rationale as `RemapAction.keyQueue` (posting from inside the tap callback can stall it).
     private static let keyQueue = DispatchQueue(label: "com.mousse.zoom-keystroke", qos: .userInteractive)
 
     /// Keystroke fallback for OSes that ignore synthetic gesture events: Cmd+'=' / Cmd+'-'
     /// (ANSI key codes 0x18 / 0x1B), the universal app zoom shortcut.
-    private static func postZoomKeystroke(zoomIn: Bool) {
-        keyQueue.async {
-            let keyCode: CGKeyCode = zoomIn ? 0x18 : 0x1B
-            for down in [true, false] {
-                guard let e = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: down)
-                else { continue }
-                e.flags = .maskCommand
-                e.post(tap: .cghidEventTap)
-            }
+    func quantizedZoomAction(magnification: Double, at now: Double) -> (() -> Void)? {
+        lock.lock()
+        let fired = zoomQuantizer.feed(magnification, at: now)
+        let generation = fallbackGeneration
+        lock.unlock()
+        guard fired != 0 else { return nil }
+        // Capture at feed time: cancellation between quantization and enqueue must drop this action.
+        return fallbackZoomAction(zoomIn: fired > 0, generation: generation)
+    }
+
+    func fallbackZoomAction(zoomIn: Bool) -> () -> Void {
+        lock.lock(); let generation = fallbackGeneration; lock.unlock()
+        return fallbackZoomAction(zoomIn: zoomIn, generation: generation)
+    }
+
+    private func fallbackZoomAction(zoomIn: Bool, generation: UInt64) -> () -> Void {
+        return { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let isCurrent = self.fallbackGeneration == generation
+            self.lock.unlock()
+            guard isCurrent else { return }
+            // Never hold the cancellation lock while posting back into the event-tap pipeline.
+            // An already admitted pair completes both down/up; cancellation only drops queued pairs.
+            self.emitKeystroke(zoomIn)
+        }
+    }
+
+    private static func emitZoomKeystroke(zoomIn: Bool) {
+        let keyCode: CGKeyCode = zoomIn ? 0x18 : 0x1B
+        for down in [true, false] {
+            guard let e = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: down)
+            else { continue }
+            e.flags = .maskCommand
+            e.post(tap: .cghidEventTap)
         }
     }
 

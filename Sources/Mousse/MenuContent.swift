@@ -16,13 +16,15 @@ struct MenuContent: View {
 
         Divider()
 
-        Toggle(Localized.text("menu.reverseScroll"), isOn: $store.config.reverseScroll)
+        Toggle(Localized.text("menu.reverseScroll"), isOn: Binding(
+            get: { store.config.reverseScroll && store.config.reverseScrollHorizontal },
+            set: { store.config.setLegacyScrollReversal($0) }))
             .disabled(!store.config.enabled || !MoussePermissionGate.isGranted)
 
         Toggle(Localized.text("menu.smoothScroll"), isOn: Binding(
-            get: { store.config.scrollMode != .standard },
+            get: { store.config.scrollMode.isSmooth },
             set: { isSmooth in
-                store.config.scrollMode = isSmooth ? .smooth : .standard
+                store.config.scrollMode = ScrollMode.fromSmoothToggle(isSmooth)
             }
         ))
         .disabled(!store.config.enabled || !MoussePermissionGate.isGranted)

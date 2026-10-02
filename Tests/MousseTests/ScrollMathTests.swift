@@ -1,4 +1,5 @@
 import XCTest
+import CoreGraphics
 @testable import Mousse
 
 /// Guards the spring scroll math (`ScrollAnimator.springAdvance`) — the most regression-prone part,
@@ -39,6 +40,24 @@ final class ScrollMathTests: XCTestCase {
     func testNegativeTargetConverges() {
         let (total, _) = drain(target: -250, dt: 1.0 / 60)
         XCTAssertEqual(total, -250, accuracy: 1e-9)
+    }
+
+    func testSmoothStepUsesOnlyWheelDirection() {
+        XCTAssertEqual(ScrollAnimator.fixedStepDelta(lineDelta: 4, pixelsPerLine: 90), 90)
+        XCTAssertEqual(ScrollAnimator.fixedStepDelta(lineDelta: -3, pixelsPerLine: 90), -90)
+        XCTAssertEqual(ScrollAnimator.fixedStepDelta(lineDelta: 0, pixelsPerLine: 90), 0)
+    }
+
+    func testDiagonalWheelUsesDominantAxis() {
+        XCTAssertTrue(ScrollAnimator.dominantAxisIsVertical(lineV: 3, lineH: 2))
+        XCTAssertFalse(ScrollAnimator.dominantAxisIsVertical(lineV: -1, lineH: 2))
+        XCTAssertTrue(ScrollAnimator.dominantAxisIsVertical(lineV: 2, lineH: -2))
+    }
+
+    func testFastSameDirectionNotchKeepsUnfinishedPlan() {
+        XCTAssertTrue(ScrollAnimator.shouldKeepPlanLeftover(sequenceStart: true, speed: 250))
+        XCTAssertTrue(ScrollAnimator.shouldKeepPlanLeftover(sequenceStart: false, speed: 0))
+        XCTAssertFalse(ScrollAnimator.shouldKeepPlanLeftover(sequenceStart: true, speed: 249.99))
     }
 
     /// The closed-form solution must be exact: two 1/120 s steps land on the same (remaining,
@@ -643,4 +662,129 @@ final class CeilingTailTests: XCTestCase {
             }
         }
     }
+
+}
+
+final class EventScrollReversalTests: XCTestCase {
+    func testOriginalScrollReversalPreservesPreciseFieldsAndMetadata() throws {
+        let event = try XCTUnwrap(CGEvent(scrollWheelEvent2Source: nil, units: .pixel,
+                                         wheelCount: 2, wheel1: 7, wheel2: -3, wheel3: 0))
+        event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: 1.25)
+        event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: -2.5)
+        event.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: 37)
+        event.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: -19)
+        event.flags = [.maskCommand, .maskShift]
+        event.setIntegerValueField(.eventSourceUserData, value: 12345)
+        let integerFields: [CGEventField] = [.scrollWheelEventDeltaAxis1,
+            .scrollWheelEventDeltaAxis2, .scrollWheelEventPointDeltaAxis1,
+            .scrollWheelEventPointDeltaAxis2]
+        let preciseFields: [CGEventField] = [.scrollWheelEventFixedPtDeltaAxis1,
+                                           .scrollWheelEventFixedPtDeltaAxis2]
+        let integers = integerFields.map { event.getIntegerValueField($0) }
+        let precise = preciseFields.map { event.getDoubleValueField($0) }
+        let timestamp = event.timestamp
+        EventTapEngine.reverseScrollInPlace(event)
+        for (field, original) in zip(integerFields, integers) {
+            XCTAssertEqual(event.getIntegerValueField(field), -original)
+        }
+        for (field, original) in zip(preciseFields, precise) {
+            XCTAssertEqual(event.getDoubleValueField(field), -original, accuracy: 1 / 65536)
+        }
+        XCTAssertEqual(event.flags, [.maskCommand, .maskShift])
+        XCTAssertEqual(event.timestamp, timestamp)
+        XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData), 12345)
+        EventTapEngine.reverseScrollInPlace(event)
+        for (field, original) in zip(integerFields, integers) {
+            XCTAssertEqual(event.getIntegerValueField(field), original)
+        }
+    }
+
+    func testOriginalScrollReversalHandlesExtremeIntegerFieldsWithoutOverflow() throws {
+        let event = try XCTUnwrap(CGEvent(scrollWheelEvent2Source: nil, units: .line,
+                                         wheelCount: 2, wheel1: 0, wheel2: 0, wheel3: 0))
+        let fields: [CGEventField] = [.scrollWheelEventDeltaAxis1,
+            .scrollWheelEventDeltaAxis2, .scrollWheelEventPointDeltaAxis1,
+            .scrollWheelEventPointDeltaAxis2]
+        for value in [Int64.min, Int64.max, Int64(Int32.min), Int64(Int32.max), 0] {
+            for field in fields { event.setIntegerValueField(field, value: value) }
+            // CoreGraphics may narrow values to 32 bits; assert against what it actually stores.
+            let stored = fields.map { event.getIntegerValueField($0) }
+            EventTapEngine.reverseScrollInPlace(event)
+            for (field, original) in zip(fields, stored) {
+                let expected = original &* -1
+                // The setter applies the same platform narrowing as the original event fields.
+                let probe = try XCTUnwrap(CGEvent(scrollWheelEvent2Source: nil, units: .line,
+                                                 wheelCount: 2, wheel1: 0, wheel2: 0, wheel3: 0))
+                probe.setIntegerValueField(field, value: expected)
+                XCTAssertEqual(event.getIntegerValueField(field), probe.getIntegerValueField(field))
+            }
+        }
+    }
+
+
+    func testIndependentAxesReverseBeforeShiftAndAppTransposition() throws {
+        for vertical in [false, true] {
+            for horizontal in [false, true] {
+                for appTransposes in [false, true] {
+                    for shift in [false, true] {
+                        let event = try XCTUnwrap(CGEvent(scrollWheelEvent2Source: nil, units: .line,
+                            wheelCount: 2, wheel1: 7, wheel2: -3, wheel3: 0))
+                        event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: 1.25)
+                        event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: -2.5)
+                        event.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: 37)
+                        event.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: -19)
+                        event.flags = [.maskShift, .maskAlternate]
+                        let groups: [[CGEventField]] = [
+                            [.scrollWheelEventDeltaAxis1, .scrollWheelEventDeltaAxis2],
+                            [.scrollWheelEventPointDeltaAxis1, .scrollWheelEventPointDeltaAxis2]]
+                        let values = groups.map { $0.map { event.getIntegerValueField($0) } }
+                        EventTapEngine.reverseScrollInPlace(event, vertical: vertical, horizontal: horizontal)
+                        let transpose = EventTapEngine.shouldTransposeScroll(appTransposes: appTransposes, shift: shift)
+                        XCTAssertEqual(transpose, appTransposes != shift)
+                        let output = try XCTUnwrap(EventTapEngine.nativeScrollEvent(event, transpose: transpose))
+                        let signs: [Int64] = [vertical ? -1 : 1, horizontal ? -1 : 1]
+                        for (group, original) in zip(groups, values) {
+                            for axis in 0..<2 {
+                                let input = transpose ? 1 - axis : axis
+                                XCTAssertEqual(output.getIntegerValueField(group[axis]), original[input] * signs[input])
+                            }
+                        }
+                        let precise = [1.25 * Double(signs[0]), -2.5 * Double(signs[1])]
+                        XCTAssertEqual(output.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1),
+                                       precise[transpose ? 1 : 0], accuracy: 1 / 65536)
+                        XCTAssertEqual(output.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2),
+                                       precise[transpose ? 0 : 1], accuracy: 1 / 65536)
+                        XCTAssertEqual(output.timestamp, event.timestamp)
+                        XCTAssertEqual(output.flags, .maskAlternate)
+                        XCTAssertEqual(event.flags, [.maskShift, .maskAlternate])
+                        XCTAssertEqual(output.getIntegerValueField(.eventSourceUserData), ScrollAnimator.syntheticTag)
+                    }
+                }
+            }
+        }
+    }
+
+    func testHiResSyntheticGainKeepsSplitDirectionAndMetadata() throws {
+        let event = try XCTUnwrap(CGEvent(scrollWheelEvent2Source: nil, units: .pixel,
+                                         wheelCount: 2, wheel1: 40, wheel2: 20, wheel3: 0))
+        event.flags = [.maskShift, .maskControl]
+        event.setIntegerValueField(.eventSourceUnixProcessID, value: 123)
+        EventTapEngine.reverseScrollInPlace(event, vertical: true, horizontal: false)
+        var carryV = 0.0
+        var carryH = 0.0
+        let output = try XCTUnwrap(EventTapEngine.continuousScrollEvent(event, gain: 2, transpose: true,
+                                                       lineCarryV: &carryV, lineCarryH: &carryH))
+        XCTAssertEqual(output.getIntegerValueField(.scrollWheelEventPointDeltaAxis1), 40)
+        XCTAssertEqual(output.getIntegerValueField(.scrollWheelEventPointDeltaAxis2), -80)
+        XCTAssertEqual(output.getIntegerValueField(.scrollWheelEventDeltaAxis1), 2)
+        XCTAssertEqual(output.getIntegerValueField(.scrollWheelEventDeltaAxis2), -4)
+        XCTAssertEqual(output.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1), 2)
+        XCTAssertEqual(output.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2), -4)
+        XCTAssertEqual(output.timestamp, event.timestamp)
+        XCTAssertEqual(output.flags, .maskControl)
+        XCTAssertEqual(output.getIntegerValueField(.eventSourceUnixProcessID), 123)
+        XCTAssertEqual(output.getIntegerValueField(.eventSourceUserData), ScrollAnimator.syntheticTag)
+        XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventPointDeltaAxis1), -40)
+    }
+
 }

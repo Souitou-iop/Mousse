@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/Souitou-iop/Mousse/releases/latest"><img src="https://img.shields.io/github/v/release/Souitou-iop/Mousse?color=blue&label=Release" alt="Release"></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-green.svg" alt="License"></a>
-  <img src="https://img.shields.io/badge/Platform-macOS%2015%2B%20%7C%20Apple%20Silicon-orange.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/Platform-macOS%2026%2B%20%7C%20Apple%20Silicon-orange.svg" alt="Platform">
   <img src="https://img.shields.io/badge/Language-Swift%206-F05138.svg" alt="Swift">
 </p>
 
@@ -59,16 +59,31 @@ Compared to the upstream project, this fork adds significant capabilities, perfo
 
 ---
 
+## Scroll modes, devices and compatibility
+
+- **Native** keeps the original wheel event and applies only device/global vertical and horizontal reversal. It does not run Mousse wheel speed gain, smoothing, Cmd zoom, Shift/Option/Control enhancements, or ordinary per-app direction/transposition rules. Trackpad phased scrolling and safety bypasses stay untouched. Explicit button mappings, auto/edge scrolling and held-button wheel volume controls remain available.
+- **Standard** remains the existing mode; old `standard` and `smoothScroll:false` configs are not migrated to Native. **Smooth** supports smoothness and acceleration; **Smooth-step** sets normal notch distance with **Lines per notch**.
+- Every non-Native mode exposes speed and Cmd zoom speed. In Standard and Smooth-step, speed adjusts **high-resolution wheel gain**, not normal notched-wheel distance (macOS controls Standard notches; Lines per notch controls Smooth-step). High-resolution smoothing is available only in Smooth/Smooth-step. Inactive controls are hidden without discarding their saved values.
+- The Devices tab creates a profile from current global scroll settings, edits offline profiles, and removes profiles. Profiles use USB/Bluetooth `vendor:product`; identical models share a profile. HID and CGEvent delivery are unordered, so the **first scroll event after changing mice may use the previous device's settings**.
+- Normal-mode precedence, from lowest to highest: **device/global base → explicit app override → hard safety passthrough**. App overrides control direction and whether Mousse enhancements run; terminals stay hard passthrough, iPhone Mirroring keeps its original event, and configured remote-desktop/game bypasses remain authoritative. Native ignores ordinary app overrides, not these safety rules.
+- Device attribution requires **Input Monitoring**. Without attribution the base resolver falls back to global settings; the existing permission gate can also suspend processing. The tracker runs for `(enabled && profiles exist) || Devices tab is actually visible`: the page can discover mice even while Mousse is disabled. Tab switching, window close/minimize/hide and App Hide release UI demand; pending permission retries stop when no demand remains. Permission recovery retries while needed, without requiring an app restart.
+- Switching scroll contexts clears the previous context's inertia and not-yet-executed queued zoom tasks. A down/up pair already admitted for execution must finish; cancellation does not retract it.
+
+These are source-level changes with automated regression coverage, **not proof of real HID switching, wake recovery, iPhone Mirroring or long-duration memory stability**. Those require separate runtime acceptance.
+
 ## 📸 Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/buttons_en.png" alt="Buttons Tab" width="32%" />
-  <img src="docs/screenshots/scroll_en.png" alt="Scroll Tab" width="32%" />
-  <img src="docs/screenshots/pointer_en.png" alt="Pointer Tab" width="32%" />
+  <img src="docs/screenshots/buttons_en.png" alt="Buttons Tab" width="23%" />
+  <img src="docs/screenshots/scroll_en.png" alt="Scroll Tab" width="23%" />
+  <img src="docs/screenshots/pointer_en.png" alt="Pointer Tab" width="23%" />
+  <img src="docs/screenshots/devices_en.png" alt="Devices settings preview" width="23%" />
 </p>
 <p align="center">
-  <i>Buttons Mapping • Scroll & Enhancements • Pointer Acceleration Control</i>
+  <i>Buttons Mapping • Scroll & Enhancements • Pointer Control • Devices</i>
 </p>
+
+> Source-rendered settings content previews (without native window toolbar) from isolated XCTest + NSHostingView/AppKit. Device names/data are examples; these are not live HID acceptance screenshots. Rendering uses disabled temporary configuration and a fake tracker, without starting the full app or its event tap.
 
 ---
 
@@ -111,8 +126,9 @@ Launch Mousse to access the menu bar icon. Press `⌘,` to open Settings:
 | :--- | :--- |
 | **General** | Launch at login, UI language switch, Live Diagnostics Center, JSON Config Export/Import. |
 | **Buttons** | Capture mouse buttons, configure Single / Double / Long-press triggers, map to Shortcuts, Presets (Spotlight, Siri, App Switcher, Smart Zoom, Middle Click), Launch App, or Volume Control. |
-| **Scroll** | Styles (Standard, Smooth, Smooth-step), Speed & Direction (Invert, Zoom speed), Enhancements (Auto-scroll speed/HUD, Edge scroll, High-res smoothing), Modifier keys, Per-app scroll exceptions. |
+| **Scroll** | Styles (Native, Standard, Smooth, Smooth-step), Speed & Direction (Invert, Zoom speed), Enhancements (Auto-scroll speed/HUD, Edge scroll, High-res smoothing), Modifier keys, Per-app scroll exceptions. |
 | **Pointer** | Manage macOS mouse acceleration, Pointer speed multiplier (`0.25× – 4×`), Per-app acceleration & speed overrides, live HID diagnostics. |
+| **Devices** | Per-model scroll profiles, independent axes, connected/offline editors, global fallback. |
 | **Gestures** | Drag to switch Space, drag distance threshold, Pointer freeze during drag. |
 
 ---
@@ -134,7 +150,7 @@ Agents should check both the process exit code and the JSON `ok` field. `Mousse 
 ## 🛠 Development
 
 ```sh
-# Run all unit tests (190+ test cases)
+# Run all unit tests
 swift test
 
 # Build and package a local release zip with sha256 checksums

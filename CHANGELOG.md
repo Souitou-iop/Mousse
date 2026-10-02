@@ -2,6 +2,32 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。本文件同时提供中文与英文条目 / This file is bilingual.
 
+## Unreleased
+
+## 0.29.0 - 2026-10-02
+
+正式发布版本。 / Released version.
+
+### 新增 / Added
+- 分轴滚动方向与 `reverseScrollHorizontal`；旧 JSON 缺失水平字段时继承旧反转值。菜单与旧 CLI `set reverseScroll` 继续写双轴，`get` 读取垂直值。
+- `vendor:product` 按型号滚动配置、设备页连接/离线编辑、按需 HID session 与权限恢复重试。应用覆盖和安全硬直通保留；同型号共享，切换后的首事件可能沿用上一设备配置。
+- 新增 Native，不替换 Standard 或迁移旧配置。Native 只修改原滚轮事件的基础方向，忽略普通应用/键盘增强规则，保留安全绕过和明确按钮功能。
+- CLI diagnostics 增加 active/matched device keys 与 `baseScrollSettings`；base 不是应用规则处理后的最终结果。
+- **Added**: independent axis reversal with legacy JSON/CLI compatibility; model-keyed device profiles and demand-driven HID tracking; an additive Native mode that preserves Standard; device/base diagnostics. Per-app overrides and hard safety passthrough are retained, and identical models share a profile.
+
+### 修复与一致性 / Fixes and consistency
+- 事件热路径按需读取滚动状态；仅在非零刻度输入实际进入动画器时计算滑行参数，保留 Standard、修饰键与安全绕过行为。
+- **Performance**: non-wheel callbacks skip scroll-state reads and collection retains; glide tuning is resolved only for nonzero animated wheel ticks, preserving Standard, modifier, and safety-bypass behavior.
+- 唤醒重建 RunLoop 停止竞态、损坏/不可读配置保存保护、镜像原事件兼容、固定步进与高速惯性衔接回归覆盖。
+- 共享模式控制可见性：所有非 Native 模式可调 hi-res speed；加速/平滑度仅 Smooth，每格行数仅 Smooth-step，hi-res 平滑仅平滑两模式。Native 隐藏无效 wheel 控制，仍可分轴反转。
+- 滚动上下文切换清理旧惯性与尚未执行的缩放任务；已开始的 down/up 对完整结束，发键不持有取消锁。
+- README EN/ZH/JA、CLI 帮助/指南、五种语言说明和隔离源码设置预览同步；设备数据为示例，默认测试不写文档图片。
+- **Fixed and improved**: wake-rebuild stop scheduling, unreadable/corrupt-config save protection, original-event mirroring compatibility, fixed-step and fling continuity; mode-aware controls; context-boundary cancellation of stale scrolling and queued zoom. Updated multilingual documentation and isolated source previews.
+
+### 验证边界 / Verification limits
+- 自动化回归与构建不等于实机验收：真实 HID 切换、睡眠唤醒、iPhone 镜像及长期内存稳定性仍需独立验证。预览不启动完整新 App、不修改用户持久配置。
+- **Verification limits**: automated regression tests and builds do not establish real HID switching, sleep/wake, iPhone Mirroring or long-term memory stability. Source previews use sample device data, do not launch the full app and do not modify user configuration.
+
 ## [0.28.1] - 2026-09-26
 
 ### 新增 / Added
@@ -10,6 +36,8 @@
 - **菜单栏指针加速开关**：菜单栏下拉新增「指针加速」快捷开关，一键全局开关指针加速，与设置 → 指针中的同名选项为同一配置、双向同步。指针子系统仅在「由 Mousse 管理指针」开启时生效，因此从菜单翻转该开关会自动接管指针管理，避免开关看起来无效。
 - **Per-app exclusion for custom button mappings**: the Buttons tab gains an "Excluded apps" list. While the pointer is over one of these apps, the entire custom button-mapping set (click / double-click / hold) passes through natively instead of being intercepted or rewritten; an empty list keeps mappings active everywhere (the default, fully backward-compatible). Same model as the scroll exceptions, persisted with the config.
 - **Menu-bar pointer-acceleration switch**: the menu-bar dropdown gains a "Pointer Acceleration" quick switch that toggles global pointer acceleration, backed by the same setting as Settings → Pointer (kept in sync both ways). The pointer subsystem only acts while "Manage pointer with Mousse" is on, so flipping this switch from the menu also engages pointer management — otherwise the switch would look dead.
+
+[0.29.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.29.0
 
 [0.28.1]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.28.1
 

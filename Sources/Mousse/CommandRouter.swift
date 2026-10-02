@@ -50,7 +50,7 @@ enum CommandRouter {
     // MARK: Key whitelist (single source of truth for get/set and the CLI help text)
 
     private static let boolKeys: Set<String> = [
-        "enabled", "reverseScroll", "scrollAcceleration", "smoothHighRes", "edgeScroll",
+        "enabled", "reverseScroll", "reverseScrollHorizontal", "scrollAcceleration", "smoothHighRes", "edgeScroll",
     ]
     private static let numberKeys: [String: ClosedRange<Double>] = [
         "scrollSpeed": 0.05...3.0,
@@ -58,7 +58,7 @@ enum CommandRouter {
         "edgeScrollSpeed": 50.0...2400.0,
     ]
     private static let enumKeys: [String: Set<String>] = [
-        "scrollMode": ["standard", "smooth", "smoothStep"],
+        "scrollMode": ["native", "standard", "smooth", "smoothStep"],
         "scrollSmoothness": ["snappy", "balanced", "floaty"],
     ]
 
@@ -72,11 +72,11 @@ enum CommandRouter {
         var lines: [String] = []
         for key in supportedKeys {
             if boolKeys.contains(key) {
-                lines.append("  \(key.padding(toLength: 20, withPad: " ", startingAt: 0))true | false")
+                lines.append("  \(key.padding(toLength: max(20, key.count + 1), withPad: " ", startingAt: 0))true | false")
             } else if let range = numberKeys[key] {
-                lines.append("  \(key.padding(toLength: 20, withPad: " ", startingAt: 0))number in [\(range.lowerBound), \(range.upperBound)]")
+                lines.append("  \(key.padding(toLength: max(20, key.count + 1), withPad: " ", startingAt: 0))number in [\(range.lowerBound), \(range.upperBound)]")
             } else {
-                lines.append("  \(key.padding(toLength: 20, withPad: " ", startingAt: 0))\((enumKeys[key] ?? []).sorted().joined(separator: " | "))")
+                lines.append("  \(key.padding(toLength: max(20, key.count + 1), withPad: " ", startingAt: 0))\((enumKeys[key] ?? []).sorted().joined(separator: " | "))")
             }
         }
         return lines.joined(separator: "\n")

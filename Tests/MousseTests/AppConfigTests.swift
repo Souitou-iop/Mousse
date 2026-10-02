@@ -459,7 +459,7 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(
             bundleID: "com.example.Browser", profiles: [:], excluded: excluded,
             globalReverse: true),
-            .init(mousseScrollEnabled: true, reverseScroll: true))
+            .init(mousseScrollEnabled: true, reverseScroll: true, reverseScrollHorizontal: true))
         XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(
             bundleID: "com.example.Editor", profiles: [:], excluded: excluded,
             globalReverse: true),
@@ -481,10 +481,10 @@ final class AppConfigTests: XCTestCase {
             .init(mousseScrollEnabled: true, reverseScroll: false))
         XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(
             bundleID: reversed.bundleID, profiles: profiles, excluded: [], globalReverse: false),
-            .init(mousseScrollEnabled: true, reverseScroll: true))
+            .init(mousseScrollEnabled: true, reverseScroll: true, reverseScrollHorizontal: true))
         XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(
             bundleID: native.bundleID, profiles: profiles, excluded: [], globalReverse: false),
-            .init(mousseScrollEnabled: false, reverseScroll: true))
+            .init(mousseScrollEnabled: false, reverseScroll: true, reverseScrollHorizontal: true))
     }
 
     func testTerminalScrollAlwaysUsesNativeInput() {
@@ -495,6 +495,17 @@ final class AppConfigTests: XCTestCase {
             profiles: [terminal.bundleID: terminal],
             excluded: [], globalReverse: true),
             .init(mousseScrollEnabled: false, reverseScroll: false))
+    }
+
+    func testIPhoneMirroringKeepsNativeScrollPath() {
+        let profile = ScrollAppProfile(
+            bundleID: "com.apple.ScreenContinuity", mousseScrollEnabled: true, reverseScroll: true)
+        XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(
+            bundleID: profile.bundleID,
+            profiles: [profile.bundleID: profile],
+            excluded: [],
+            globalReverse: false),
+            .init(mousseScrollEnabled: false, reverseScroll: true, reverseScrollHorizontal: true))
     }
 
     func testButtonMappingBypassOnlyForListedApps() {
@@ -547,6 +558,75 @@ final class AppConfigTests: XCTestCase {
         XCTAssertThrowsError(try ConfigTransfer.importConfig(from: url)) { error in
             XCTAssertEqual(error as? ConfigTransferError, .invalidTopLevel)
         }
+    }
+
+
+    func testAxisReversalMigratesLegacyJSONAndToleratesFieldsIndependently() throws {
+        for reverse in [false, true] {
+            let data = Data("{\"reverseScroll\":\(reverse)}".utf8)
+            let config = try JSONDecoder().decode(AppConfig.self, from: data)
+            XCTAssertEqual(config.reverseScrollHorizontal, reverse)
+            let profile = try JSONDecoder().decode(ScrollAppProfile.self,
+                from: Data("{\"bundleID\":\"test\",\"reverseScroll\":\(reverse)}".utf8))
+            XCTAssertEqual(profile.reverseScrollHorizontal, reverse)
+        }
+        let brokenHorizontal = try JSONDecoder().decode(AppConfig.self,
+            from: Data(#"{"reverseScroll":true,"reverseScrollHorizontal":"bad","scrollSpeed":1.2}"#.utf8))
+        XCTAssertTrue(brokenHorizontal.reverseScroll)
+        XCTAssertTrue(brokenHorizontal.reverseScrollHorizontal)
+        XCTAssertEqual(brokenHorizontal.scrollSpeed, 1.2)
+        let brokenVertical = try JSONDecoder().decode(AppConfig.self,
+            from: Data(#"{"reverseScroll":"bad","reverseScrollHorizontal":true}"#.utf8))
+        XCTAssertFalse(brokenVertical.reverseScroll)
+        XCTAssertTrue(brokenVertical.reverseScrollHorizontal)
+        let profile = try JSONDecoder().decode(ScrollAppProfile.self,
+            from: Data(#"{"bundleID":"test","reverseScroll":"bad","reverseScrollHorizontal":true}"#.utf8))
+        XCTAssertFalse(profile.reverseScroll)
+        XCTAssertTrue(profile.reverseScrollHorizontal)
+        let brokenProfileHorizontal = try JSONDecoder().decode(ScrollAppProfile.self,
+            from: Data(#"{"bundleID":"test","reverseScroll":true,"reverseScrollHorizontal":"bad","mousseScrollEnabled":true}"#.utf8))
+        XCTAssertTrue(brokenProfileHorizontal.reverseScroll)
+        XCTAssertTrue(brokenProfileHorizontal.reverseScrollHorizontal)
+        XCTAssertTrue(brokenProfileHorizontal.mousseScrollEnabled)
+        var split = AppConfig()
+        split.reverseScroll = true
+        split.reverseScrollHorizontal = false
+        split.scrollAppProfiles = [ScrollAppProfile(bundleID: "test", reverseScroll: false,
+                                                    reverseScrollHorizontal: true)]
+        XCTAssertEqual(try roundTrip(split), split)
+    }
+
+    func testLegacyMenuAndCLIReversalWritesBothAxes() {
+        var config = AppConfig()
+        config.reverseScrollHorizontal = true
+        config.setLegacyScrollReversal(false)
+        XCTAssertFalse(config.reverseScroll)
+        XCTAssertFalse(config.reverseScrollHorizontal)
+        config.setLegacyScrollReversal(true)
+        XCTAssertTrue(config.reverseScroll)
+        XCTAssertTrue(config.reverseScrollHorizontal)
+        config.reverseScrollHorizontal = false
+        XCTAssertTrue(config.reverseScroll)
+    }
+
+    func testAxisAppOverrideAndHardPassthroughPriority() {
+        let profiles = ["test": ScrollAppProfile(bundleID: "test", mousseScrollEnabled: true,
+                                                reverseScroll: false, reverseScrollHorizontal: true)]
+        let app = EventTapEngine.resolveScrollAppSettings(bundleID: "test", profiles: profiles,
+            excluded: ["test"], globalReverse: true, globalReverseHorizontal: false)
+        XCTAssertEqual(app, .init(mousseScrollEnabled: true, reverseScroll: false,
+                                 reverseScrollHorizontal: true))
+        let terminal = ScrollAppProfile(bundleID: "com.apple.Terminal", mousseScrollEnabled: true,
+                                       reverseScroll: true, reverseScrollHorizontal: true)
+        XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(bundleID: terminal.bundleID,
+            profiles: [terminal.bundleID: terminal], excluded: [], globalReverse: true,
+            globalReverseHorizontal: true), .init(mousseScrollEnabled: false, reverseScroll: false))
+        let mirror = ScrollAppProfile(bundleID: "com.apple.ScreenContinuity", mousseScrollEnabled: true,
+                                     reverseScroll: false, reverseScrollHorizontal: true)
+        XCTAssertEqual(EventTapEngine.resolveScrollAppSettings(bundleID: mirror.bundleID,
+            profiles: [mirror.bundleID: mirror], excluded: [], globalReverse: true,
+            globalReverseHorizontal: false), .init(mousseScrollEnabled: false, reverseScroll: false,
+                                                  reverseScrollHorizontal: true))
     }
 
 }

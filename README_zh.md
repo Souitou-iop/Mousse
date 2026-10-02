@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/Souitou-iop/Mousse/releases/latest"><img src="https://img.shields.io/github/v/release/Souitou-iop/Mousse?color=blue&label=Release" alt="Release"></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-green.svg" alt="License"></a>
-  <img src="https://img.shields.io/badge/Platform-macOS%2015%2B%20%7C%20Apple%20Silicon-orange.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/Platform-macOS%2026%2B%20%7C%20Apple%20Silicon-orange.svg" alt="Platform">
   <img src="https://img.shields.io/badge/Language-Swift%206-F05138.svg" alt="Swift">
 </p>
 
@@ -60,16 +60,31 @@
 
 ---
 
+## 滚动模式、设备配置与兼容边界
+
+- **原生 Native** 保留滚轮原事件，仅应用设备/全局的垂直与水平反转。不运行 Mousse 滚轮速度增益、平滑、Cmd 缩放、Shift/Option/Control 增强或普通应用方向/轴转换规则。触控板相位滚动及安全绕过保持不变；明确触发的按钮映射、自动/边缘滚动及按住按钮滚轮调音量仍可使用。
+- **标准 Standard** 保留旧行为，旧 `standard` 与 `smoothScroll:false` 配置不迁移到 Native。**平滑 Smooth** 支持平滑度和加速；**平滑步进 Smooth-step** 通过“每格行数”决定普通刻度轮距离。
+- 所有非 Native 模式都可调速度与 Cmd 缩放速度。Standard/Smooth-step 的速度作用于**高分辨率滚轮增益**，不改变普通刻度轮距离：Standard 由系统决定，Smooth-step 由每格行数决定。高分辨率平滑仅用于两种平滑模式；隐藏无效控件不会删除其保存值。
+- 设备页可从当前全局设置创建配置、编辑离线配置、删除配置。键为 USB/Bluetooth `vendor:product`，**同型号共享配置**。HID 与 CGEvent 没有顺序保证，**切换鼠标后的第一个滚动事件可能使用上一只鼠标的配置**。
+- 普通模式的优先级从低到高为：**设备/全局基础 → 应用显式覆盖 → 安全硬直通**。应用覆盖控制方向和是否运行 Mousse 增强；终端硬直通、iPhone 镜像原事件、配置的远程桌面/游戏绕过保持优先。Native 忽略普通应用覆盖，但保留安全规则。
+- 设备识别需要**输入监控权限**。无法归属设备时，基础解析回退全局设置，既有权限门禁也可能暂停处理。追踪器仅在 `(启用且有设备配置) 或 设备页实际可见` 时运行：关闭 Mousse 仍可在设备页发现鼠标。切 tab、关窗、最小化/隐藏窗口及 App Hide 撤销页面需求；无需求时停止追踪与权限重试，有需求时授权恢复无需重启应用。
+- 切换滚动上下文会清理上一上下文的惯性和尚未执行的排队缩放任务；已获准开始的 down/up 对必须完整结束，不能被撤回。
+
+以上是源码实现和自动化回归覆盖，**不代表真实 HID 切换、唤醒恢复、iPhone 镜像或长期内存稳定性已经验收**；这些仍需独立运行验证。
+
 ## 📸 界面预览
 
 <p align="center">
-  <img src="docs/screenshots/buttons_zh.png" alt="按键设置" width="32%" />
-  <img src="docs/screenshots/scroll_zh.png" alt="滚动与增强设置" width="32%" />
-  <img src="docs/screenshots/pointer_zh.png" alt="指针与加速度设置" width="32%" />
+  <img src="docs/screenshots/buttons_zh.png" alt="按键设置" width="23%" />
+  <img src="docs/screenshots/scroll_zh.png" alt="滚动与增强设置" width="23%" />
+  <img src="docs/screenshots/pointer_zh.png" alt="指针与加速度设置" width="23%" />
+  <img src="docs/screenshots/devices_zh.png" alt="设备设置预览" width="23%" />
 </p>
 <p align="center">
   <i>按键动作映射 • 滚动与增强设置 • 指针与加速度管理</i>
 </p>
+
+> 以上为隔离 XCTest + NSHostingView/AppKit 从真实 SwiftUI 源码渲染的设置内容预览（不含原生窗口工具栏）。设备名称与数据为示例，非实时 HID 验收截图；使用禁用状态的临时配置和假追踪器，不启动完整应用或事件 tap。
 
 ---
 
@@ -112,8 +127,9 @@ open build/Mousse.app
 | :--- | :--- |
 | **常规 (General)** | 登录时启动、界面语言切换、实时诊断面板、配置 JSON 导入与导出。 |
 | **按钮 (Buttons)** | 捕获鼠标物理按键，配置单击 / 双击 / 长按触发方式，映射为自定义快捷键、系统预设（聚焦搜索、Siri、应用切换器、智能缩放、模拟中键）、打开指定 App 或滚动调音量。 |
-| **滚动 (Scroll)** | 滚动模式（标准、平滑、平滑步进）、滚动速度与反转、⌘+滚轮缩放速度、自动滚动参数与 HUD 开关、边缘滚动、高分辨率鼠标平滑、按应用例外。 |
+| **滚动 (Scroll)** | 滚动模式（原生、标准、平滑、平滑步进）、滚动速度与反转、⌘+滚轮缩放速度、自动滚动参数与 HUD 开关、边缘滚动、高分辨率鼠标平滑、按应用例外。 |
 | **指针 (Pointer)** | macOS 鼠标加速度接管、全局指针速度倍率（`0.25×–4×`）、按前台应用独立覆盖加速与速度、HID 状态诊断。 |
+| **设备 (Devices)** | 按型号滚动配置、分轴反转、连接/离线配置编辑、全局回退。 |
 | **手势 (Gestures)** | 按住按键拖拽切换 Space、切换灵敏度距离设定、拖拽期间锁定鼠标指针。 |
 
 ---
@@ -135,7 +151,7 @@ Agent 应同时检查进程退出码和 JSON 中的 `ok` 字段。`Mousse help` 
 ## 🛠 本地开发与测试
 
 ```sh
-# 执行完整单元测试套件（包含 190+ 测试用例）
+# 执行完整单元测试套件
 swift test
 
 # 打包本地 Release 发布包并生成 sha256 校验和

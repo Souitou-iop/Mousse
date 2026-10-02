@@ -128,6 +128,11 @@ enum CLICommand {
           - Every reply is one JSON object; exit code 0 = ok, 1 = error, 2 = usage.
           - Commands act on the RUNNING app instance (it must be running; nothing is spawned).
           - `set` writes through the same path as the Settings UI: live reload + persisted config.
+          - Legacy `set reverseScroll` writes BOTH axes; `get reverseScroll` reads vertical.
+          - `reverseScrollHorizontal` reads/writes horizontal independently.
+          - scrollMode accepts native | standard | smooth | smoothStep; old Standard stays Standard.
+          - diagnostics.baseScrollSettings is device/global base, not the final per-app result.
+          - Device profiles are edited in Settings; there are no device-profile write commands.
         """
     }
 }

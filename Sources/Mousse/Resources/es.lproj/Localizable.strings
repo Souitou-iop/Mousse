@@ -236,3 +236,23 @@
 "media.playPause" = "Reproducir / Pausar";
 "media.next" = "Siguiente pista";
 "media.previous" = "Pista anterior";
+
+"scroll.reverseVertical" = "Invertir desplazamiento vertical";
+"scroll.reverseHorizontal" = "Invertir desplazamiento horizontal";
+
+"tab.devices" = "Dispositivos";
+"devices.disabled" = "El procesamiento de Mousse está desactivado. Aquí puedes detectar ratones y editar perfiles.";
+"devices.permission" = "Los perfiles por dispositivo requieren permiso de monitorización de entrada. Sin él, se usan los ajustes globales.";
+"devices.connected" = "Conectado";
+"devices.empty" = "No se detectó ningún ratón.";
+"devices.create" = "Crear perfil";
+"devices.offline" = "Desconectado";
+"devices.custom" = "Ajustes de desplazamiento personalizados";
+"devices.description" = "Los ratones sin perfil usan los ajustes globales. Los modelos idénticos comparten un perfil. Al cambiar de ratón, el primer evento puede usar los ajustes del anterior.";
+"config.importDuplicateDeviceProfile" = "Clave de perfil de dispositivo duplicada: %@";
+
+"scroll.mode.native" = "Nativo (macOS)";
+"scroll.nativeDescription" = "Nativo conserva el evento original de la rueda y solo aplica la inversión global o por dispositivo. Mousse no cambia su velocidad, suaviza, genera zoom Cmd ni aplica mejoras Shift/Option/Control o reglas habituales de dirección y ejes por app. El trackpad y las exclusiones de seguridad se mantienen. Siguen disponibles los botones, el desplazamiento automático o de borde activado explícitamente y el volumen con botón y rueda.";
+
+"scroll.speedStandardNote" = "La velocidad ajusta la ganancia de ruedas de alta resolución. En Estándar, macOS controla la distancia de cada muesca normal, no este deslizador.";
+"scroll.speedStepNote" = "La velocidad ajusta la ganancia de ruedas de alta resolución. En Suave por pasos, las líneas por muesca controlan la distancia normal, no este deslizador.";

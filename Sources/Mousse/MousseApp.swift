@@ -58,6 +58,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else if !InputMonitoringPermission.isTrusted {
             InputMonitoringPermission.request()
         }
+        DeviceTracker.shared.configure(enabled: ConfigStore.shared.config.enabled,
+                                       hasProfiles: !ConfigStore.shared.config.deviceProfiles.isEmpty)
         EventTapEngine.shared.start(config: ConfigStore.shared.config)
         PointerSettingsController.shared.start(config: ConfigStore.shared.config)
         CommandServer.shared.start() // local CLI socket; owns no engine state, see CommandServer
@@ -85,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        DeviceTracker.shared.shutdown()
         CommandServer.shared.stop() // unlink the socket before the process goes away
         PointerSettingsController.shared.stopAndRestore()
         // The config write is debounced; a change made in the last half second is still in flight.

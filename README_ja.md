@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/Souitou-iop/Mousse/releases/latest"><img src="https://img.shields.io/github/v/release/Souitou-iop/Mousse?color=blue&label=Release" alt="Release"></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/License-PolyForm%20Noncommercial%201.0.0-green.svg" alt="License"></a>
-  <img src="https://img.shields.io/badge/Platform-macOS%2015%2B%20%7C%20Apple%20Silicon-orange.svg" alt="Platform">
+  <img src="https://img.shields.io/badge/Platform-macOS%2026%2B%20%7C%20Apple%20Silicon-orange.svg" alt="Platform">
   <img src="https://img.shields.io/badge/Language-Swift%206-F05138.svg" alt="Swift">
 </p>
 
@@ -60,16 +60,31 @@
 
 ---
 
+## スクロールモード・デバイス設定・互換性
+
+- **Native** は元のホイールイベントを保持し、デバイス/共通の縦・横方向反転のみ適用します。Mousse の速度倍率、平滑化、Cmd ズーム、Shift/Option/Control 拡張、通常のアプリ別方向・軸変換は使いません。トラックパッドの位相付きスクロールと安全な除外は維持します。明示的なボタン割り当て、自動・端スクロール、ボタンを押しながらホイールで行う音量操作は利用できます。
+- **Standard** の既存動作を残し、古い `standard` / `smoothScroll:false` を Native に移行しません。**Smooth** は平滑度と加速を設定でき、**Smooth-step** の通常ノッチ移動量はノッチあたりの行数で決まります。
+- Native 以外は速度と Cmd ズーム速度を設定できます。Standard/Smooth-step の速度は**高解像度ホイールの倍率**に作用し、通常ノッチの距離は変えません（Standard は macOS、Smooth-step は行数が制御）。高解像度の平滑化は Smooth/Smooth-step のみです。無効なコントロールを隠しても保存値は失われません。
+- デバイスタブでは共通設定からプロファイルを作成し、未接続のプロファイルも編集・削除できます。USB/Bluetooth の `vendor:product` をキーにし、同じモデルは設定を共有します。HID と CGEvent の順序は保証されないため、**マウス切り替え後の最初のスクロールは前の設定を使う場合があります**。
+- 通常モードの優先順位は低い順に **デバイス/共通の基本設定 → 明示的なアプリ設定 → 安全な強制パススルー**。端末、iPhone ミラーリングの元イベント、設定されたリモートデスクトップ/ゲーム除外を優先します。Native は通常のアプリ設定を無視しますが、安全規則は維持します。
+- デバイス識別には**入力監視の許可**が必要です。識別できない場合は共通基本設定に戻り、既存の権限ゲートが処理を停止する場合もあります。追跡は `(有効かつプロファイルあり) または デバイスタブが実際に表示中` の場合だけ動作します。Mousse が無効でも画面から検出できます。タブ切り替え、ウインドウ閉鎖・最小化・非表示、App Hide で画面の要求を解除し、要求がなければ追跡と再試行を止めます。必要な間は権限回復を再試行し、アプリの再起動は不要です。
+- スクロール文脈が変わると、前の慣性とまだ実行されていないズームタスクを解除します。実行を開始した down/up の組は最後まで完了し、取り消しません。
+
+これはソース実装と自動回帰テストの説明です。**実 HID 切り替え、スリープ復帰、iPhone ミラーリング、長時間のメモリ安定性の実機検証済みという意味ではありません**。
+
 ## 📸 スクリーンショット
 
 <p align="center">
-  <img src="docs/screenshots/buttons_ja.png" alt="ボタン設定" width="32%" />
-  <img src="docs/screenshots/scroll_ja.png" alt="スクロール設定" width="32%" />
-  <img src="docs/screenshots/pointer_ja.png" alt="ポインタ設定" width="32%" />
+  <img src="docs/screenshots/buttons_ja.png" alt="ボタン設定" width="23%" />
+  <img src="docs/screenshots/scroll_ja.png" alt="スクロール設定" width="23%" />
+  <img src="docs/screenshots/pointer_ja.png" alt="ポインタ設定" width="23%" />
+  <img src="docs/screenshots/devices_ja.png" alt="デバイス設定プレビュー" width="23%" />
 </p>
 <p align="center">
   <i>ボタン割り当て • スクロールと拡張機能 • ポインタ加速と速度管理</i>
 </p>
+
+> 隔離 XCTest + NSHostingView/AppKit で実 SwiftUI ソースから描画した設定内容プレビュー（ネイティブのウインドウツールバーを除く）です。デバイス名・データは例であり、実 HID の受け入れ検証画面ではありません。無効状態の一時設定と偽の追跡器を使用し、アプリ本体やイベント tap は起動しません。
 
 ---
 
@@ -112,8 +127,9 @@ Mousse を起動後、メニューバーのアイコンをクリックするか 
 | :--- | :--- |
 | **一般 (General)** | ログイン時起動、UI 言語切り替え、リアルタイム診断パネル、設定 JSON の書き出し/読み込み。 |
 | **ボタン (Buttons)** | マウス物理ボタンの登録、クリック / ダブルクリック / 長押しのトリガー設定、カスタムショートカット、システムプリセット（Spotlight、Siri、アプリスイッチャー、スマートズーム、中クリック）、アプリ起動、ホイール音量調整。 |
-| **スクロール (Scroll)** | スクロールスタイル（標準、なめらか、なめらかステップ）、速度と方向反転、⌘+ホイールズーム速度、自動スクロール設定と HUD 表示、エッジスクロール、高解像度マウス最適化、アプリ別例外。 |
+| **スクロール (Scroll)** | スクロールスタイル（Native、標準、なめらか、なめらかステップ）、速度と方向反転、⌘+ホイールズーム速度、自動スクロール設定と HUD 表示、エッジスクロール、高解像度マウス最適化、アプリ別例外。 |
 | **ポインタ (Pointer)** | macOS マウス加速の管理、ポインタ速度倍率（`0.25× ～ 4×`）、アプリごとの加速・速度上書き、HID 診断。 |
+| **デバイス (Devices)** | モデル別スクロール設定、縦横反転、接続・未接続プロファイル編集、共通設定へのフォールバック。 |
 | **ジェスチャ (Gestures)** | ドラッグによる Space 切り替え、切り替え距離の調整、ドラッグ中のポインタ固定。 |
 
 ---
