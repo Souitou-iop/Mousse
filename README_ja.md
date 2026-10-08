@@ -115,11 +115,11 @@ Xcode の Swift ツールチェーンが必要です：
 # ローカル署名証明書を作成（リビルド時のアクセシビリティ再要求を防止）
 tools/setup-signing-cert.sh
 
-# アプリケーションを build/Mousse.app にビルド
+# アーキテクチャごとに build/Mousse-arm64.app と build/Mousse-x86_64.app を生成
 ./build-app.sh
 
-# 起動
-open build/Mousse.app
+# 起動（お使いのチップに合ったバンドルを選択）
+open build/Mousse-arm64.app
 ```
 
 ---

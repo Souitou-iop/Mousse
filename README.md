@@ -114,11 +114,11 @@ Requires Xcode Swift toolchain:
 # Setup a stable local signing identity (prevents repeated Accessibility prompts)
 tools/setup-signing-cert.sh
 
-# Build the application bundle into build/Mousse.app
+# Build one bundle per architecture: build/Mousse-arm64.app and build/Mousse-x86_64.app
 ./build-app.sh
 
-# Launch the app
-open build/Mousse.app
+# Launch the app (pick the bundle matching your Mac)
+open build/Mousse-arm64.app
 ```
 
 ---

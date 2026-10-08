@@ -21,22 +21,31 @@ echo "==> building ${APP_NAME} ${VERSION}"
 ./build-app.sh
 
 # One archive per staged bundle: Mousse-<version>-arm64.zip, Mousse-<version>-x86_64.zip.
+# Inside every archive the bundle is named Mousse.app, so unzipping needs no renaming step.
 ZIPS=()
 for APP in "build/${APP_NAME}"-*.app; do
     [ -d "$APP" ] || continue
     ARCH="$(basename "$APP" | sed "s/^${APP_NAME}-//; s/\.app$//")"
     ZIP="build/${APP_NAME}-${VERSION}-${ARCH}.zip"
+    STAGE="build/.stage-${ARCH}"
     echo "==> zipping ${APP} -> ${ZIP}"
     rm -f "$ZIP"
+    rm -rf "$STAGE"
+    mkdir -p "$STAGE"
+    cp -R "$APP" "${STAGE}/${APP_NAME}.app"
     # Keep the bundle structure and embedded signature files, but omit external-disk metadata that
     # otherwise appears as `._*` AppleDouble entries in the public archive.
-    ditto -c -k --keepParent --norsrc --noextattr --noqtn --noacl "$APP" "$ZIP"
+    ditto -c -k --keepParent --norsrc --noextattr --noqtn --noacl "${STAGE}/${APP_NAME}.app" "$ZIP"
+    rm -rf "$STAGE"
     SHA="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
     echo "==> ${ARCH} sha256: ${SHA}"
     ZIPS+=("$ZIP")
 done
 
 [ "${#ZIPS[@]}" -gt 0 ] || { echo "error: build-app.sh produced no bundles" >&2; exit 1; }
+
+( cd build && shasum -a 256 "${ZIPS[@]#build/}" > SHA256SUMS )
+echo "==> wrote build/SHA256SUMS"
 
 if [ "$PUBLISH" -eq 1 ]; then
     command -v gh >/dev/null || { echo "error: gh CLI not found" >&2; exit 1; }

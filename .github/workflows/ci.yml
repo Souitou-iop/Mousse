@@ -58,7 +58,7 @@ jobs:
             check_dir="$check_root/$arch"
             mkdir -p "$check_dir"
             ditto -x -k "dist/Mousse-${arch}.zip" "$check_dir"
-            app="$check_dir/Mousse-${arch}.app"
+            app="$check_dir/Mousse.app"
             test -d "$app/Contents/Resources/Mousse_Mousse.bundle"
             test "$(lipo -archs "$app/Contents/MacOS/Mousse")" = "$arch"
             test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$app/Contents/Info.plist")" = "14.0"
@@ -67,7 +67,7 @@ jobs:
           done
 
           # Only the runner's own architecture is launched; the x86_64 slice would need Rosetta.
-          app_executable="$check_root/arm64/Mousse-arm64.app/Contents/MacOS/Mousse"
+          app_executable="$check_root/arm64/Mousse.app/Contents/MacOS/Mousse"
           app_log="$check_root/launch.log"
           "$app_executable" >"$app_log" 2>&1 &
           app_pid=$!

@@ -115,11 +115,11 @@
 # 创建本地稳定签名证书（避免重新编译后重复提示授权辅助功能）
 tools/setup-signing-cert.sh
 
-# 编译应用包至 build/Mousse.app
+# 按架构分别产出 build/Mousse-arm64.app 与 build/Mousse-x86_64.app
 ./build-app.sh
 
-# 启动应用
-open build/Mousse.app
+# 启动应用（选择与你机器架构一致的包）
+open build/Mousse-arm64.app
 ```
 
 ---
