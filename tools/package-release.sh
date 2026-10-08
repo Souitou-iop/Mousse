@@ -1,8 +1,9 @@
 #!/bin/bash
-# Package a Mousse release: build the .app, zip it, and compute its sha256. Publishing to
-# GitHub is opt-in (--publish) so this never makes an outward-facing change by accident. Usage:
-#   tools/package-release.sh            # build + zip + sha256 (local only)
-#   tools/package-release.sh --publish  # also create the GitHub release and upload the zip
+# Package Mousse releases: build one bundle per architecture, zip each, and compute sha256.
+# Publishing to GitHub is opt-in (--publish) so this never makes an outward-facing change by
+# accident. Usage:
+#   tools/package-release.sh            # build + zip + sha256 per architecture (local only)
+#   tools/package-release.sh --publish  # also create the GitHub release and upload every zip
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -16,28 +17,32 @@ VERSION="$(awk -F'"' '/^VERSION=/ {print $2; exit}' build-app.sh)"
 [ -n "$VERSION" ] || { echo "error: could not read VERSION from build-app.sh" >&2; exit 1; }
 TAG="v${VERSION}"
 
-APP="build/${APP_NAME}.app"
-ZIP="build/${APP_NAME}-${VERSION}.zip"
-
 echo "==> building ${APP_NAME} ${VERSION}"
 ./build-app.sh
 
-echo "==> zipping ${APP} -> ${ZIP}"
-mkdir -p build
-rm -f "$ZIP"
-# Keep the bundle structure and embedded signature files, but omit external-disk metadata that
-# otherwise appears as `._*` AppleDouble entries in the public archive.
-ditto -c -k --keepParent --norsrc --noextattr --noqtn --noacl "$APP" "$ZIP"
+# One archive per staged bundle: Mousse-<version>-arm64.zip, Mousse-<version>-x86_64.zip.
+ZIPS=()
+for APP in "build/${APP_NAME}"-*.app; do
+    [ -d "$APP" ] || continue
+    ARCH="$(basename "$APP" | sed "s/^${APP_NAME}-//; s/\.app$//")"
+    ZIP="build/${APP_NAME}-${VERSION}-${ARCH}.zip"
+    echo "==> zipping ${APP} -> ${ZIP}"
+    rm -f "$ZIP"
+    # Keep the bundle structure and embedded signature files, but omit external-disk metadata that
+    # otherwise appears as `._*` AppleDouble entries in the public archive.
+    ditto -c -k --keepParent --norsrc --noextattr --noqtn --noacl "$APP" "$ZIP"
+    SHA="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
+    echo "==> ${ARCH} sha256: ${SHA}"
+    ZIPS+=("$ZIP")
+done
 
-SHA="$(shasum -a 256 "$ZIP" | awk '{print $1}')"
-echo "==> sha256: ${SHA}"
+[ "${#ZIPS[@]}" -gt 0 ] || { echo "error: build-app.sh produced no bundles" >&2; exit 1; }
 
 if [ "$PUBLISH" -eq 1 ]; then
     command -v gh >/dev/null || { echo "error: gh CLI not found" >&2; exit 1; }
-    echo "==> creating GitHub release ${TAG} and uploading ${ZIP}"
-    # --generate-notes auto-builds release notes from merged commits; clobber re-uploads on re-run.
-    gh release create "$TAG" "$ZIP" --title "$TAG" --generate-notes 2>/dev/null \
-        || gh release upload "$TAG" "$ZIP" --clobber
+    echo "==> creating GitHub release ${TAG} and uploading ${#ZIPS[@]} archive(s)"
+    gh release create "$TAG" "${ZIPS[@]}" --title "$TAG" --generate-notes 2>/dev/null \
+        || gh release upload "$TAG" "${ZIPS[@]}" --clobber
     echo "==> published: $(gh release view "$TAG" --json url -q .url)"
 else
     echo ""

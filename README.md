@@ -17,7 +17,7 @@
 
 ---
 
-**Mousse** is a lightweight, single-process menu bar utility for Apple Silicon Macs running macOS 14 or later. It brings essential mouse enhancements to standard USB and Bluetooth mice — smooth scrolling, customizable button remapping, pointer acceleration management, Windows-style auto-scrolling, and Space-switching gestures — without background helper daemons, license servers, or system configuration tampering.
+**Mousse** is a lightweight, single-process menu bar utility for Macs running macOS 14 or later — Apple silicon and Intel both supported. It brings essential mouse enhancements to standard USB and Bluetooth mice — smooth scrolling, customizable button remapping, pointer acceleration management, Windows-style auto-scrolling, and Space-switching gestures — without background helper daemons, license servers, or system configuration tampering.
 
 > [!NOTE]
 > This repository is an enhanced fork of the original [Mousse](https://github.com/MinhQuang28/Mousse) created by **Ha Minh Quang ([@MinhQuang28](https://github.com/MinhQuang28))**.
@@ -90,15 +90,17 @@ These are source-level changes with automated regression coverage, **not proof o
 ## 📥 Requirements & Installation
 
 ### Requirements
-- Apple Silicon Mac (`arm64`).
+- Apple silicon (`arm64`) or Intel (`x86_64`) Mac.
 - macOS 14.0 or later.
 - **Accessibility Permission** (System Settings → Privacy & Security → Accessibility).
 
+Releases ship one archive per architecture — `Mousse-<version>-arm64.zip` and `Mousse-<version>-x86_64.zip`. Check which one you need under the Apple menu → **About This Mac** (Chip / Processor); the wrong slice refuses to launch.
+
 > [!NOTE]
-> System-version differences: closing Mission Control / App Exposé by dragging back in the natural direction needs macOS 26+, where the overlay state is detectable; on macOS 14 / 15 vertical drags keep the plain one-step toggle. Everything else — smooth scrolling, button remapping, pointer acceleration, auto-scroll, follow-finger Space switching and synthesized pinch zoom — behaves identically.
+> System-version differences: closing Mission Control / App Exposé by dragging back in the natural direction needs macOS 26+, where the overlay state is detectable; on macOS 14 / 15 vertical drags keep the plain one-step toggle. Everything else — smooth scrolling, button remapping, pointer acceleration, auto-scroll, follow-finger Space switching and synthesized pinch zoom — behaves identically. Intel coverage is new in this release and the pointer-takeover IOHID path has not been accepted on real Intel hardware yet.
 
 ### Option 1: Download Pre-Built App (Recommended)
-1. Download `Mousse.zip` from [Latest Releases](https://github.com/Souitou-iop/Mousse/releases/latest).
+1. Download `Mousse-<version>-arm64.zip` or `Mousse-<version>-x86_64.zip`, matching your Mac, from [Latest Releases](https://github.com/Souitou-iop/Mousse/releases/latest).
 2. Unzip and drag `Mousse.app` into your `/Applications` folder.
 3. Remove the Gatekeeper quarantine attribute (since the binary uses local signing):
    ```sh

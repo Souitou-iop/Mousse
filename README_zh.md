@@ -1,7 +1,7 @@
 # Mousse
 
 <p align="center">
-  <b>面向 Apple 芯片 Mac 与 macOS 14+ 的轻量级、单进程菜单栏鼠标增强工具。</b>
+  <b>面向 Apple 芯片与 Intel Mac、macOS 14+ 的轻量级、单进程菜单栏鼠标增强工具。</b>
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 
 ---
 
-**Mousse** 是一款专为 Apple 芯片 Mac 与 macOS 14+ 设计的轻量级、单进程菜单栏鼠标增强工具。它为普通 USB 和蓝牙鼠标补齐了 macOS 原生缺失的核心体验：平滑滚动、按键动作重映射、指针加速度接管、Windows 风格自动滚动以及拖拽切换 Space 手势，且**无需后台常驻 Daemon 辅助进程、无需许可证联网验证、无需破坏性修改系统底层配置**。
+**Mousse** 是一款专为 Apple 芯片与 Intel Mac、macOS 14+ 设计的轻量级、单进程菜单栏鼠标增强工具。它为普通 USB 和蓝牙鼠标补齐了 macOS 原生缺失的核心体验：平滑滚动、按键动作重映射、指针加速度接管、Windows 风格自动滚动以及拖拽切换 Space 手势，且**无需后台常驻 Daemon 辅助进程、无需许可证联网验证、无需破坏性修改系统底层配置**。
 
 > [!NOTE]
 > 本仓库为 **Ha Minh Quang ([@MinhQuang28](https://github.com/MinhQuang28))** 原项目 [Mousse](https://github.com/MinhQuang28/Mousse) 的增强 Fork 版本。
@@ -91,15 +91,17 @@
 ## 📥 系统要求与安装
 
 ### 系统要求
-- Apple 芯片 Mac（`arm64`）。
+- Apple 芯片（`arm64`）或 Intel（`x86_64`）Mac。
 - macOS 14.0 或更高版本。
 - **辅助功能权限**（系统设置 → 隐私与安全性 → 辅助功能）。
 
+每个版本按架构分别提供两个压缩包 —— `Mousse-<version>-arm64.zip` 与 `Mousse-<version>-x86_64.zip`。请先在苹果菜单 → **关于本机**（芯片 / 处理器）确认自己的架构再下载对应包；下错架构无法启动。
+
 > [!NOTE]
-> 系统版本差异：反向拖拽自然关闭 Mission Control / App Exposé 依赖 macOS 26+ 的覆盖层状态检测，在 macOS 14 / 15 上纵向拖拽保留原来的每次一格切换；平滑滚动、按键重映射、指针加速接管、自动滚动、跟手切换 Space 与捏合缩放合成等行为一致。
+> 系统版本差异：反向拖拽自然关闭 Mission Control / App Exposé 依赖 macOS 26+ 的覆盖层状态检测，在 macOS 14 / 15 上纵向拖拽保留原来的每次一格切换；平滑滚动、按键重映射、指针加速接管、自动滚动、跟手切换 Space 与捏合缩放合成等行为一致。Intel 支持为本版本新增，指针接管的 IOHID 通路尚未在 Intel 真机上完成验收。
 
 ### 方式一：下载预构建应用（推荐）
-1. 从 [最新发布页面](https://github.com/Souitou-iop/Mousse/releases/latest) 下载 `Mousse.zip`。
+1. 从 [最新发布页面](https://github.com/Souitou-iop/Mousse/releases/latest) 下载与你机器匹配的 `Mousse-<version>-arm64.zip` 或 `Mousse-<version>-x86_64.zip`。
 2. 解压并将 `Mousse.app` 拖入 **应用程序 (Applications)** 文件夹。
 3. 移除 macOS Gatekeeper 隔离标记（由于采用本地签名）：
    ```sh

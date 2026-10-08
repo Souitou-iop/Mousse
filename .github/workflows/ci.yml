@@ -35,7 +35,7 @@ jobs:
       - name: Run tests
         run: swift test --sdk "$(xcrun --sdk macosx --show-sdk-path)" --triple arm64-apple-macosx14.0
 
-      - name: Build release archive
+      - name: Build release archives
         shell: bash
         run: |
           set -euo pipefail
@@ -43,25 +43,32 @@ jobs:
           tools/package-release.sh
           version="$(awk -F'"' '/^VERSION=/ {print $2; exit}' build-app.sh)"
           mkdir -p dist
-          cp "build/Mousse-${version}.zip" dist/Mousse.zip
-          (cd dist && shasum -a 256 Mousse.zip > Mousse.zip.sha256)
+          cp "build/Mousse-${version}-arm64.zip" dist/Mousse-arm64.zip
+          cp "build/Mousse-${version}-x86_64.zip" dist/Mousse-x86_64.zip
+          (cd dist && shasum -a 256 Mousse-arm64.zip Mousse-x86_64.zip > SHA256SUMS)
 
-      - name: Validate release archive
+      - name: Validate release archives
         shell: bash
         run: |
           set -euo pipefail
-          check_dir="$(mktemp -d)"
-          check_dir="$(cd "$check_dir" && pwd -P)"
-          trap 'rm -rf "$check_dir"' EXIT
-          ditto -x -k dist/Mousse.zip "$check_dir"
-          test -d "$check_dir/Mousse.app/Contents/Resources/Mousse_Mousse.bundle"
-          test "$(lipo -archs "$check_dir/Mousse.app/Contents/MacOS/Mousse")" = "arm64"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$check_dir/Mousse.app/Contents/Info.plist")" = "14.0"
-          otool -l "$check_dir/Mousse.app/Contents/MacOS/Mousse" | grep -A 3 LC_BUILD_VERSION | grep -q "minos 14.0"
-          codesign --verify --deep --strict --verbose=2 "$check_dir/Mousse.app"
+          check_root="$(mktemp -d)"
+          check_root="$(cd "$check_root" && pwd -P)"
+          trap 'rm -rf "$check_root"' EXIT
+          for arch in arm64 x86_64; do
+            check_dir="$check_root/$arch"
+            mkdir -p "$check_dir"
+            ditto -x -k "dist/Mousse-${arch}.zip" "$check_dir"
+            app="$check_dir/Mousse-${arch}.app"
+            test -d "$app/Contents/Resources/Mousse_Mousse.bundle"
+            test "$(lipo -archs "$app/Contents/MacOS/Mousse")" = "$arch"
+            test "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$app/Contents/Info.plist")" = "14.0"
+            otool -l "$app/Contents/MacOS/Mousse" | grep -A 3 LC_BUILD_VERSION | grep -q "minos 14.0"
+            codesign --verify --deep --strict --verbose=2 "$app"
+          done
 
-          app_executable="$check_dir/Mousse.app/Contents/MacOS/Mousse"
-          app_log="$check_dir/launch.log"
+          # Only the runner's own architecture is launched; the x86_64 slice would need Rosetta.
+          app_executable="$check_root/arm64/Mousse-arm64.app/Contents/MacOS/Mousse"
+          app_log="$check_root/launch.log"
           "$app_executable" >"$app_log" 2>&1 &
           app_pid=$!
           sleep 2
@@ -73,13 +80,14 @@ jobs:
           fi
           ! grep -q "could not load resource bundle" "$app_log"
 
-      - name: Upload release archive
+      - name: Upload release archives
         uses: actions/upload-artifact@v7
         with:
-          name: Mousse-${{ github.sha }}-macOS14-arm64
+          name: Mousse-${{ github.sha }}-macOS14-multiarch
           path: |
-            dist/Mousse.zip
-            dist/Mousse.zip.sha256
+            dist/Mousse-arm64.zip
+            dist/Mousse-x86_64.zip
+            dist/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
 
@@ -91,10 +99,10 @@ jobs:
       contents: write
 
     steps:
-      - name: Download validated release archive
+      - name: Download validated release archives
         uses: actions/download-artifact@v7
         with:
-          name: Mousse-${{ github.sha }}-macOS14-arm64
+          name: Mousse-${{ github.sha }}-macOS14-multiarch
           path: dist
 
       - name: Publish GitHub release
@@ -106,8 +114,8 @@ jobs:
           set -euo pipefail
           tag="$GITHUB_REF_NAME"
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" dist/Mousse.zip dist/Mousse.zip.sha256 --clobber
+            gh release upload "$tag" dist/Mousse-arm64.zip dist/Mousse-x86_64.zip dist/SHA256SUMS --clobber
           else
-            gh release create "$tag" dist/Mousse.zip dist/Mousse.zip.sha256 \
+            gh release create "$tag" dist/Mousse-arm64.zip dist/Mousse-x86_64.zip dist/SHA256SUMS \
               --title "$tag" --generate-notes
           fi
