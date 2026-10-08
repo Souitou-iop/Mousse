@@ -4,6 +4,33 @@
 
 ## Unreleased
 
+## [0.30.0] - 2026-10-08
+
+正式发布版本。 / Released version.
+
+### 变更 / Changed
+
+- **最低系统要求由 macOS 26 降至 macOS 14**：SwiftPM、Release、Debug staging 与 GitHub Actions 统一以 `arm64-apple-macosx14.0` 构建，应用 `LSMinimumSystemVersion` 与 Mach-O `minos` 均为 `14.0`。构建仍使用 macOS 26+ SDK 与 macOS 26 runner，以保持新系统适配；代码未引入任何需要 macOS 26 才能运行的未保护 API，14.0 门槛编译与回归全绿。
+- **Minimum system requirement lowered from macOS 26 to macOS 14**: SwiftPM, release, debug staging and GitHub Actions now build for `arm64-apple-macosx14.0`, with `LSMinimumSystemVersion` and Mach-O `minos` both `14.0`. Builds still use the macOS 26+ SDK on the macOS 26 runner for current-system integration, and no unguarded API requiring macOS 26 at runtime was introduced; the 14.0 floor compiles and passes the full test suite.
+
+### 兼容性说明 / Compatibility notes
+
+- **macOS 14 / 15 的功能降级点**：覆盖层状态检测需要 macOS 26+，因此纵向拖拽自然关闭 Mission Control / App Exposé 在更早系统不可用，保留每次一格的离散切换；启动台在 macOS 15 及更早继续回放符号热键。跟手切换 Space 与捏合缩放合成在 macOS 26 及之前均生效（仅 macOS 27+ 退回离散跳转）。
+- **Feature degradation on macOS 14 / 15**: overlay-state detection requires macOS 26+, so natural-direction dismissal of Mission Control / App Exposé falls back to the one-Space-per-drag toggle on earlier systems, and Launchpad keeps replaying its symbolic hotkey on macOS 15 and earlier. Follow-finger Space switching and synthesized pinch-to-zoom work through macOS 26 (only macOS 27+ reverts to discrete jumps).
+- **外观自适应**：继续使用标准 SwiftUI/AppKit 结构，macOS 14 / 15 保持系统原生样式，macOS 26 及以后自动采用 Liquid Glass 等对应平台外观。
+- **Adaptive appearance**: standard SwiftUI/AppKit structures remain, so macOS 14 / 15 keep their native styling while macOS 26+ adopts Liquid Glass automatically.
+- **仍为 arm64-only**：本次只降低系统版本门槛，不新增 Intel 支持；macOS 15 Sequoia 覆盖的部分 Intel 机型（2018–2020）依然无法运行。
+- **Still arm64-only**: this lowers the OS floor only and adds no Intel support; Intel Macs still covered by macOS 15 Sequoia (2018–2020) remain unsupported.
+
+### 验证边界 / Verification limits
+
+- `--triple arm64-apple-macosx14.0` 下 `swift build -c release` 与 `swift test`（268 tests，1 skipped，0 failures）通过；`13.0` 因 `CADisplayLink`（`AutoScrollHUD`、`ScrollAnimator`）与 `openSettings`（`MenuContent`）不可用而编译失败，故 14.0 是当前代码的最低可行门槛。
+- **Verified**: `swift build -c release` and `swift test` (268 tests, 1 skipped, 0 failures) pass at `--triple arm64-apple-macosx14.0`; `13.0` fails to compile because `CADisplayLink` (`AutoScrollHUD`, `ScrollAnimator`) and `openSettings` (`MenuContent`) are unavailable, making 14.0 the lowest workable floor for the current code.
+- 编译与测试通过不等于 macOS 14 / 15 实机验收：指针接管的 IOHID SPI、事件 tap 与跟手滑动合成在 Sonoma / Sequoia 真机上的表现仍需独立验证。
+- **Verification limits**: a green build and test suite do not establish macOS 14 / 15 acceptance — the pointer-takeover IOHID SPI, event taps and follow-finger swipe synthesis still need real-device validation on Sonoma / Sequoia.
+
+[0.30.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.30.0
+
 ## 0.29.0 - 2026-10-02
 
 正式发布版本。 / Released version.

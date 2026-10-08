@@ -12,7 +12,7 @@ enum MousseEntry {
     }
 }
 
-/// Mousse — a lean, single-process menu-bar mouse utility for Apple silicon and macOS 26+.
+/// Mousse — a lean, single-process menu-bar mouse utility for Apple silicon and macOS 14+.
 /// Original codebase (not derived from any other app). Pointer control uses a narrowly wrapped
 /// IOHID service SPI; the rest of the app uses public macOS APIs.
 struct MousseApp: App {

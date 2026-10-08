@@ -17,7 +17,7 @@
 
 ---
 
-**Mousse** is a lightweight, single-process menu bar utility for Apple Silicon Macs running macOS 26 or later. It brings essential mouse enhancements to standard USB and Bluetooth mice — smooth scrolling, customizable button remapping, pointer acceleration management, Windows-style auto-scrolling, and Space-switching gestures — without background helper daemons, license servers, or system configuration tampering.
+**Mousse** is a lightweight, single-process menu bar utility for Apple Silicon Macs running macOS 14 or later. It brings essential mouse enhancements to standard USB and Bluetooth mice — smooth scrolling, customizable button remapping, pointer acceleration management, Windows-style auto-scrolling, and Space-switching gestures — without background helper daemons, license servers, or system configuration tampering.
 
 > [!NOTE]
 > This repository is an enhanced fork of the original [Mousse](https://github.com/MinhQuang28/Mousse) created by **Ha Minh Quang ([@MinhQuang28](https://github.com/MinhQuang28))**.
@@ -55,7 +55,7 @@ Compared to the upstream project, this fork adds significant capabilities, perfo
 - 🌐 **Multilingual & Modern macOS Interface**:
   - 5 UI languages supported: **English**, **Simplified Chinese (简体中文)**, **Japanese (日本語)**, **Korean (한국어)**, and **Spanish (Español)**.
   - Dock-aware Settings window with minimize support, organized into 5 intuitive tabs: **General**, **Buttons**, **Scroll**, **Pointer**, and **Gestures**.
-  - Adaptive system appearance on macOS 26+.
+  - Adaptive system appearance: native styling on macOS 14 / 15, Liquid Glass on macOS 26+.
 
 ---
 
@@ -91,8 +91,11 @@ These are source-level changes with automated regression coverage, **not proof o
 
 ### Requirements
 - Apple Silicon Mac (`arm64`).
-- macOS 26.0 or later.
+- macOS 14.0 or later.
 - **Accessibility Permission** (System Settings → Privacy & Security → Accessibility).
+
+> [!NOTE]
+> System-version differences: closing Mission Control / App Exposé by dragging back in the natural direction needs macOS 26+, where the overlay state is detectable; on macOS 14 / 15 vertical drags keep the plain one-step toggle. Everything else — smooth scrolling, button remapping, pointer acceleration, auto-scroll, follow-finger Space switching and synthesized pinch zoom — behaves identically.
 
 ### Option 1: Download Pre-Built App (Recommended)
 1. Download `Mousse.zip` from [Latest Releases](https://github.com/Souitou-iop/Mousse/releases/latest).
