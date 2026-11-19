@@ -32,6 +32,7 @@ final class AppConfigTests: XCTestCase {
         XCTAssertTrue(decoded.remoteDesktopBundleIDs.isEmpty)
         XCTAssertTrue(decoded.gameBypass)
         XCTAssertTrue(decoded.gameBundleIDs.isEmpty)
+        XCTAssertTrue(decoded.remoteInjectionBypass)
     }
 
     func testEveryLanguageRoundTrips() throws {
@@ -91,6 +92,7 @@ final class AppConfigTests: XCTestCase {
         config.mappings = [ButtonMapping(buttonNumber: 6, trigger: .doubleClick,
                                          action: .missionControl)]
         config.buttonMappingExcludedBundleIDs = ["com.apple.Safari", "com.example.ide"]
+        config.remoteInjectionBypass = false
 
         let decoded = try roundTrip(config)
         XCTAssertEqual(decoded.enabled, false)
@@ -115,6 +117,7 @@ final class AppConfigTests: XCTestCase {
         XCTAssertEqual(decoded.configuredButtons, [3, 6])
         XCTAssertEqual(decoded.mappings, config.mappings)
         XCTAssertEqual(decoded.buttonMappingExcludedBundleIDs, ["com.apple.Safari", "com.example.ide"])
+        XCTAssertEqual(decoded.remoteInjectionBypass, false)
     }
 
     /// A config saved before the button-mapping exclusion existed must default to an empty list

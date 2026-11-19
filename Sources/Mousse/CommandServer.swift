@@ -299,6 +299,33 @@ struct AppCommandDelegate: CommandRouter.Delegate {
                                                        activeKey: DeviceTracker.shared.activeDeviceKey())) { _, new in new }
             if let at = snap.lastRecoveryAt { payload["lastRecoveryAt"] = AppCommandDelegate.iso.string(from: at) }
             if let pointer = snap.pointerBundleID { payload["pointerBundleID"] = pointer }
+            if snap.injectedScrollLedger.totalCount > 0 {
+                payload["injectedScroll"] = [
+                    "count": snap.injectedScrollLedger.totalCount,
+                    "lastAt": snap.injectedScrollLedger.lastAt.map { AppCommandDelegate.iso.string(from: $0) } as Any? ?? NSNull(),
+                    "sources": snap.injectedScrollLedger.samples.map { sample in
+                        [
+                            "sourceStateID": sample.sourceStateID,
+                            "sourceProcessID": sample.sourceProcessID,
+                            "processName": sample.processName as Any? ?? NSNull(),
+                            "count": sample.count,
+                            "lastAt": AppCommandDelegate.iso.string(from: sample.lastAt),
+                        ] as [String: Any]
+                    },
+                ] as [String: Any]
+            }
+            payload["wheelEvents"] = [
+                "total": snap.wheelEventCount,
+                "unusualSources": snap.unusualHardwareLedger.samples.map { sample in
+                    [
+                        "sourceStateID": sample.sourceStateID,
+                        "sourceProcessID": sample.sourceProcessID,
+                        "processName": sample.processName as Any? ?? NSNull(),
+                        "count": sample.count,
+                        "lastAt": AppCommandDelegate.iso.string(from: sample.lastAt),
+                    ] as [String: Any]
+                },
+            ] as [String: Any]
             if let last = snap.lastAction {
                 payload["lastAction"] = [
                     "button": last.button,
@@ -337,6 +364,7 @@ struct AppCommandDelegate: CommandRouter.Delegate {
             case "scrollAcceleration": return .bool(config.scrollAcceleration)
             case "smoothHighRes":      return .bool(config.smoothHighRes)
             case "edgeScroll":         return .bool(config.edgeScroll)
+            case "remoteInjectionBypass": return .bool(config.remoteInjectionBypass)
             case "scrollSpeed":        return .number(config.scrollSpeed)
             case "zoomSpeed":          return .number(config.zoomSpeed)
             case "edgeScrollSpeed":    return .number(config.edgeScrollSpeed)
@@ -356,6 +384,7 @@ struct AppCommandDelegate: CommandRouter.Delegate {
             case ("scrollAcceleration", .bool(let v)): ConfigStore.shared.config.scrollAcceleration = v
             case ("smoothHighRes", .bool(let v)):      ConfigStore.shared.config.smoothHighRes = v
             case ("edgeScroll", .bool(let v)):         ConfigStore.shared.config.edgeScroll = v
+            case ("remoteInjectionBypass", .bool(let v)): ConfigStore.shared.config.remoteInjectionBypass = v
             case ("scrollSpeed", .number(let v)):      ConfigStore.shared.config.scrollSpeed = v
             case ("zoomSpeed", .number(let v)):        ConfigStore.shared.config.zoomSpeed = v
             case ("edgeScrollSpeed", .number(let v)):  ConfigStore.shared.config.edgeScrollSpeed = v

@@ -77,6 +77,7 @@ The accepted values in the current protocol are:
 | `edgeScroll` | `true` or `false` |
 | `edgeScrollSpeed` | Number from `50` to `2400` |
 | `enabled` | `true` or `false` |
+| `remoteInjectionBypass` | `true` or `false` |
 | `reverseScroll` | `true` or `false`; legacy writes set BOTH axes, reads return vertical |
 | `reverseScrollHorizontal` | `true` or `false`; horizontal only |
 | `scrollAcceleration` | `true` or `false` |
@@ -173,7 +174,7 @@ The socket is available only while the app is running and is restricted to the l
 
 The `native` raw value is additive; existing `standard` and legacy `smoothScroll:false` are not migrated. Native keeps the original physical wheel event, with only device/global reversal; no Mousse speed gain, smoothing, Cmd zoom, modifier enhancement or ordinary per-app transposition/reversal. It preserves flags, timestamp and source user data rather than reposting a synthetic wheel. Phased trackpads, terminal hard passthrough, iPhone Mirroring's original-event path and configured remote-desktop/game safety bypasses remain protected. Explicit button mappings, auto/edge scrolling and held-button wheel volume actions remain available.
 
-Normal modes resolve **device/global base → explicit app override → hard safety passthrough** (increasing priority). Native ignores ordinary app overrides but keeps safety rules. A device profile is keyed by USB/Bluetooth `vendor:product`; identical models share one profile. The first event after switching mice can use the previous profile because HID and CGEvent streams are unordered. Input Monitoring is required for attribution; an unknown active key resolves to the global base, and the existing permission gate can suspend the engine.
+Normal modes resolve **device/global base → explicit app override → hard safety passthrough** (increasing priority). Native ignores ordinary app overrides but keeps safety rules. Wheel events injected by another process (remote-control clients posting over the combined/private session state with their own PID) additionally bypass everything untouched when `remoteInjectionBypass` is on, so the remote side keeps its own scroll direction while physical wheels keep theirs. A device profile is keyed by USB/Bluetooth `vendor:product`; identical models share one profile. The first event after switching mice can use the previous profile because HID and CGEvent streams are unordered. Input Monitoring is required for attribution; an unknown active key resolves to the global base, and the existing permission gate can suspend the engine.
 
 Tracking runs for `(enabled && profiles exist) || Devices page actually visible`. A visible page can discover devices while processing is disabled; closing, minimizing/hiding the window, switching tabs or hiding the app releases UI demand. Missing-permission retries occur only while tracking is needed. There are **no device-profile write commands**: create, edit offline, and delete profiles through Settings; JSON import rejects duplicate profile keys.
 
@@ -184,6 +185,8 @@ Tracking runs for `(enabled && profiles exist) || Devices page actually visible`
 | `activeDeviceKey` | Most recent HID wheel/pan model key, or `null` when unknown/stopped. |
 | `matchedDeviceProfileKey` | Matching saved model profile key, or `null` for global fallback. |
 | `baseScrollSettings` | Device/global base parameters **before** application overrides, hard bypasses or runtime modifiers; not the final per-app behavior. |
+| `injectedScroll` | Present only after wheel events injected by another process (remote-control clients such as UU Remote) were detected and passed through untouched while `remoteInjectionBypass` is on. Reports the total count, last detection time, and per-source samples (source state ID, posting PID, executable name, count, last time). |
+| `wheelEvents` | Physical wheel event volume (`total`) and `unusualSources` — hardware-classified wheels whose (source state ID, PID) signature deviates from the plain HID one. A remote-control client mimicking HID state shows up here, which calibrates the detection rule. |
 
 Changing scroll context clears the previous inertia and not-yet-executed queued zoom tasks. An already admitted down/up pair finishes; cancellation cannot retract it. Read-only diagnostics do not prove that an individual physical event used a profile, nor that hardware switching, wake recovery, mirroring or long-running memory behavior passed runtime acceptance.
 

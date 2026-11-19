@@ -256,3 +256,6 @@
 
 "scroll.speedStandardNote" = "速度は高解像度ホイールの倍率を調整します。標準モードの通常のノッチ移動量は macOS が制御し、このスライダーでは変わりません。";
 "scroll.speedStepNote" = "速度は高解像度ホイールの倍率を調整します。なめらかステップの通常のノッチ移動量は「ノッチあたりの行数」で設定します。";
+"apps.remoteInjectionBypass" = "リモート注入スクロールの自動検出";
+"apps.remoteInjectionDescription" = "リモート操作クライアント（UUリモート、TeamViewerなど）が注入したホイールイベントはそのまま通過し、リモート側のスクロール方向を維持します。物理デバイスの入力は反転されたままです。";
+

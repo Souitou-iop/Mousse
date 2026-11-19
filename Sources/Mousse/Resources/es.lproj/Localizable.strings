@@ -256,3 +256,6 @@
 
 "scroll.speedStandardNote" = "La velocidad ajusta la ganancia de ruedas de alta resolución. En Estándar, macOS controla la distancia de cada muesca normal, no este deslizador.";
 "scroll.speedStepNote" = "La velocidad ajusta la ganancia de ruedas de alta resolución. En Suave por pasos, las líneas por muesca controlan la distancia normal, no este deslizador.";
+"apps.remoteInjectionBypass" = "Detectar desplazamiento remoto inyectado";
+"apps.remoteInjectionDescription" = "Los eventos de rueda inyectados por clientes de control remoto (UU Remote, TeamViewer…) pasan sin modificarse, conservando la dirección del lado remoto. La entrada física sigue invertida.";
+

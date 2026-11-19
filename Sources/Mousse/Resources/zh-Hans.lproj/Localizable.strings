@@ -256,3 +256,6 @@
 
 "scroll.speedStandardNote" = "速度调节高分辨率滚轮增益。标准模式普通刻度轮的每格距离由 macOS 控制，不受此滑块影响。";
 "scroll.speedStepNote" = "速度调节高分辨率滚轮增益。平滑步进模式普通刻度轮的距离由“每格行数”控制，不受此滑块影响。";
+"apps.remoteInjectionBypass" = "自动识别远控注入的滚轮";
+"apps.remoteInjectionDescription" = "远控客户端（UU 远控、TeamViewer 等）注入的滚轮事件不做任何处理直接放行，远程端保持其原有滚动方向；本地物理滚轮不受影响。";
+

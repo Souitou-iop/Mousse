@@ -106,7 +106,7 @@ final class CommandRouterTests: XCTestCase {
     func testGetAndSetAcceptExactlyTheWhitelistedKeys() {
         let supported = Set(CommandRouter.supportedKeys)
         XCTAssertEqual(supported, ["enabled", "reverseScroll", "reverseScrollHorizontal", "scrollAcceleration", "smoothHighRes",
-                                   "edgeScroll", "scrollSpeed", "zoomSpeed", "edgeScrollSpeed",
+                                   "edgeScroll", "remoteInjectionBypass", "scrollSpeed", "zoomSpeed", "edgeScrollSpeed",
                                    "scrollMode", "scrollSmoothness"])
         // The help text must mention every supported key — it is the CLI's discoverability.
         for key in supported {
@@ -117,7 +117,7 @@ final class CommandRouterTests: XCTestCase {
     // MARK: set — bool keys accept only real booleans
 
     func testSetBoolKeysAcceptTrueAndFalseOnly() {
-        for key in ["enabled", "reverseScroll", "reverseScrollHorizontal", "scrollAcceleration", "smoothHighRes", "edgeScroll"] {
+        for key in ["enabled", "reverseScroll", "reverseScrollHorizontal", "scrollAcceleration", "smoothHighRes", "edgeScroll", "remoteInjectionBypass"] {
             for v in [true, false] {
                 let (response, _) = route(request(cmd: "set", key: key, value: v))
                 XCTAssertEqual(response["ok"] as? Bool, true, "\(key) = \(v)")
