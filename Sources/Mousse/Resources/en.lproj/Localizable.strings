@@ -256,3 +256,6 @@
 
 "scroll.speedStandardNote" = "Speed adjusts high-resolution wheel gain. Normal notched-wheel distance in Standard is controlled by macOS, not this slider.";
 "scroll.speedStepNote" = "Speed adjusts high-resolution wheel gain. Normal notch distance in Smooth-step is set by Lines per notch, not this slider.";
+"apps.remoteInjectionBypass" = "Auto-Detect Injected Remote Scroll";
+"apps.remoteInjectionDescription" = "Wheel events injected by remote-control clients (UU Remote, TeamViewer…) bypass Mousse untouched, so the remote side keeps its own scroll direction. Physical input stays inverted.";
+

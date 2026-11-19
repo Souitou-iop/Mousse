@@ -46,6 +46,7 @@ Compared to the upstream project, this fork adds significant capabilities, perfo
 - 📜 **Refined Scrolling & Independent Zoom**:
   - **Independent Pinch-to-Zoom Speed**: `⌘ + Wheel` zoom sensitivity (`0.2× – 6.0×`) is decoupled from general scroll speed.
   - **Per-App Scroll Exceptions**: Separately enable/disable Mousse scrolling optimization and reverse scrolling for specific applications (e.g. Parallels Desktop VM passthrough).
+  - **Remote-Session Scroll Passthrough**: Wheel events injected by remote-control clients (NetEase UU Remote, TeamViewer…) are classified at the event tap and passed through untouched, so the remote side keeps its own scroll direction; physical input stays inverted.
   - **Stall-Free Smooth Scrolling**: Removed reversal brakes and transitioned to continuous phase-free event streams.
 - 🌌 **Space Dragging with Pointer Freeze**:
   - Locks the pointer in place during drag-to-switch-Spaces gestures, preventing the cursor from wandering off-screen.

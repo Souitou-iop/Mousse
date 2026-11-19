@@ -51,6 +51,7 @@ enum CommandRouter {
 
     private static let boolKeys: Set<String> = [
         "enabled", "reverseScroll", "reverseScrollHorizontal", "scrollAcceleration", "smoothHighRes", "edgeScroll",
+        "remoteInjectionBypass",
     ]
     private static let numberKeys: [String: ClosedRange<Double>] = [
         "scrollSpeed": 0.05...3.0,

@@ -256,3 +256,6 @@
 
 "scroll.speedStandardNote" = "속도는 고해상도 휠 배율을 조절합니다. 표준 모드의 일반 휠 한 칸 이동 거리는 macOS가 제어하며 이 슬라이더로 바뀌지 않습니다.";
 "scroll.speedStepNote" = "속도는 고해상도 휠 배율을 조절합니다. 부드러운 단계 모드의 일반 휠 이동 거리는 칸당 줄 수로 설정합니다.";
+"apps.remoteInjectionBypass" = "원격 주입 스크롤 자동 감지";
+"apps.remoteInjectionDescription" = "원격 제어 클라이언트(UU 원격, TeamViewer 등)가 주입한 휠 이벤트는 그대로 통과하여 원격 측의 스크롤 방향을 유지합니다. 물리 입력은 계속 반전됩니다.";
+
