@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+### 新增 / Added
+
+- **远控注入滚轮自动直通（默认开启）**：远控客户端（网易 UU 远控、TeamViewer 等）受控时通过 `CGEventPost` 注入的滚轮事件，源状态为会话状态且携带注入进程 PID，Mousse 现在会识别这类"双重非硬件签名"的事件并 1:1 原生放行——不做反转、不做平滑加速，远程端保持其原有滚动方向；本地物理滚轮（HID 系统状态、无注入进程）行为完全不变。被控解除后无需任何恢复操作，物理事件自动回到原有处理路径。设置位于 滚动 → 例外 App → 远程桌面与虚拟机（"自动识别远控注入的滚轮"），也可通过 CLI `Mousse get/set remoteInjectionBypass` 读写。诊断中心与 `Mousse diagnostics` 新增 `injectedScroll` 汇总（总数、来源进程 PID/可执行名、按来源计数），用于确认识别是否生效。
+- **Automatic passthrough for remotely injected wheel events (default on)**: when a remote-control client (NetEase UU Remote, TeamViewer…) injects wheel deltas via `CGEventPost`, those events carry the combined/private session source state plus the posting PID. Mousse now classifies this dual non-hardware signature and passes such events through 1:1 — no reversal, no smoothing or acceleration — so the remote side keeps its own scroll direction while physical wheels (HID system state, no posting process) behave exactly as before. No restore step exists: once the session ends, physical events simply resume the normal path. The toggle lives under Scroll → App Exceptions → Remote Desktop & Virtual Machines ("Auto-Detect Injected Remote Scroll"), also readable/writable via `Mousse get/set remoteInjectionBypass`. The Diagnostics center and `Mousse diagnostics` gain an `injectedScroll` summary (total count, per-source PID/executable name and counts) to confirm detection.
+
 ## [0.30.0] - 2026-10-08
 
 正式发布版本。 / Released version.

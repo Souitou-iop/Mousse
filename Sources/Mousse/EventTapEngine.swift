@@ -110,6 +110,16 @@ final class EventTapEngine {
     private var remoteDesktopBundleIDs: Set<String> = []
     private var gameBypass = true
     private var gameBundleIDs: Set<String> = []
+    private var remoteInjectionBypass = true
+    /// Injected-wheel bookkeeping for the diagnostics center. Only injected events touch it —
+    /// hardware wheels pay two integer field reads and one comparison per event, nothing else.
+    private var injectedScrollLedger = ScrollSourceLedger()
+    /// Wheel events classified as hardware whose (source state, PID) signature is NOT the plain
+    /// HID one — a UU Remote-style client mimicking the HID state would land here, so the
+    /// diagnostics center can show what its injected events actually look like.
+    private var unusualHardwareLedger = ScrollSourceLedger()
+    private var wheelEventCount = 0
+    private var injectedProcessNames: [Int64: String] = [:]
 
     /// Terminal emulators are always excluded from smoothing (merged with the user's list).
     /// They are line-grid UIs that translate accumulated scroll PIXELS into mouse-reporting
@@ -414,6 +424,9 @@ final class EventTapEngine {
         let creationFailed = tapCreationFailed
         let detectedMice = self.detectedMice
         let lastAction = lastTriggeredAction
+        let injectedLedger = injectedScrollLedger
+        let unusualLedger = unusualHardwareLedger
+        let wheelCount = wheelEventCount
         lock.unlock()
 
         let health = EventTapHealth.resolve(
@@ -433,7 +446,10 @@ final class EventTapEngine {
             lastRecoveryAt: lastRecoveryAt,
             detectedMice: detectedMice,
             pointerBundleID: pointerBundleID,
-            lastAction: lastAction)
+            lastAction: lastAction,
+            injectedScrollLedger: injectedLedger,
+            wheelEventCount: wheelCount,
+            unusualHardwareLedger: unusualLedger)
     }
 
     /// Periodically poll for a silently-disabled tap. 2s is invisible to the user yet costs nothing.
@@ -611,6 +627,7 @@ final class EventTapEngine {
         remoteDesktopBundleIDs = Set(config.remoteDesktopBundleIDs)
         gameBypass = config.gameBypass
         gameBundleIDs = Set(config.gameBundleIDs)
+        remoteInjectionBypass = config.remoteInjectionBypass
         buttonMappings = CompiledButtonMappings(config.mappings)
         buttonMappingExcludedBundleIDs = Set(config.buttonMappingExcludedBundleIDs)
         (captureCancellation, keyboardCaptureCancellation) = cancelCaptureLocked()
@@ -1030,6 +1047,7 @@ final class EventTapEngine {
         let rdBundles = remoteDesktopBundleIDs
         let gBypass = gameBypass
         let gBundles = gameBundleIDs
+        let injBypass = remoteInjectionBypass
         let dragCancel = pendingDragCancel
         let autoScrollCancel = pendingAutoScrollCancel
         let triggerCancel = pendingTriggerCancel
@@ -1217,6 +1235,25 @@ final class EventTapEngine {
             // which a mouse wheel never does (high-resolution mice are "continuous" but phase-less, so
             // we must NOT gate on `isContinuous` here — that's what was skipping reverse on those mice).
             guard Self.isPhysicalWheel(event) else { return Unmanaged.passUnretained(event) }
+
+            // Remote-control sessions (UU 远控, TeamViewer…) post wheel deltas that are already
+            // final on the controller side — reversing or smoothing them fights the remote user.
+            // Pass them through untouched and keep a ledger entry for the diagnostics center.
+            let stateID = event.getIntegerValueField(.eventSourceStateID)
+            let sourcePID = event.getIntegerValueField(.eventSourceUnixProcessID)
+            if Self.isInjectedScrollEvent(sourceStateID: stateID, sourceProcessID: sourcePID) {
+                if injBypass {
+                    recordInjectedScroll(sourceStateID: stateID, sourcePID: sourcePID)
+                    return Unmanaged.passUnretained(event)
+                }
+            } else if stateID != Self.hardwareScrollSourceStateID || sourcePID != 0 {
+                // Hardware-classified yet deviant: the HID-mimicking injection case the AND rule
+                // deliberately lets through. Record it so the next calibration sees the signature.
+                recordUnusualHardwareWheel(sourceStateID: stateID, sourcePID: sourcePID)
+            }
+            lock.lock()
+            wheelEventCount += 1
+            lock.unlock()
 
             // A real wheel input — used to reset the edge-scroll rest timer (user input first).
             lastRealWheelAt = CACurrentMediaTime()
@@ -1497,6 +1534,66 @@ final class EventTapEngine {
         guard let bundleID else { return false }
         return (remoteDesktopBypass && remoteDesktopBundles.contains(bundleID))
             || (gameBypass && gameBundles.contains(bundleID))
+    }
+
+    /// Hardware wheel state ID of the HID event system (`kCGEventSourceStateHIDSystemState`).
+    static let hardwareScrollSourceStateID: Int64 = 1
+
+    /// Both fields must deviate before an event counts as injected: a remote-control client's
+    /// `CGEventPost` carries the combined/private session state plus its own PID, while hardware
+    /// wheels report the HID system state with no posting process. Requiring both keeps a lone
+    /// unexpected field from ever disabling reversal on physical input.
+    static func isInjectedScrollEvent(sourceStateID: Int64, sourceProcessID: Int64) -> Bool {
+        ScrollSourceLedger.isInjected(sourceStateID: sourceStateID,
+                                      sourceProcessID: sourceProcessID,
+                                      hardwareStateID: hardwareScrollSourceStateID)
+    }
+
+    /// Called on the tap thread right before an injected wheel is passed through untouched.
+    private func recordInjectedScroll(sourceStateID: Int64, sourcePID: Int64) {
+        let now = Date()
+        let name = resolveSourceName(sourcePID)
+        lock.lock()
+        injectedScrollLedger.record(sourceStateID: sourceStateID, sourceProcessID: sourcePID,
+                                    processName: name, at: now)
+        lock.unlock()
+    }
+
+    /// Called on the tap thread for hardware-classified wheels with a deviant signature only.
+    private func recordUnusualHardwareWheel(sourceStateID: Int64, sourcePID: Int64) {
+        let now = Date()
+        let name = resolveSourceName(sourcePID)
+        lock.lock()
+        unusualHardwareLedger.record(sourceStateID: sourceStateID, sourceProcessID: sourcePID,
+                                     processName: name, at: now)
+        lock.unlock()
+    }
+
+    /// Best-effort executable name for a posting PID — bare helpers (e.g. UURemoteServer) have no
+    /// bundle ID, so the path's last component is the only stable identity.
+    static func processName(forPID pid: Int64) -> String? {
+        // PROC_PIDPATHINFO_MAXSIZE (4 × MAXPATHLEN) is a C macro Swift cannot import.
+        var buffer = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
+        let length = proc_pidpath(pid_t(pid), &buffer, UInt32(buffer.count))
+        guard length > 0 else { return nil }
+        let path = String(cString: buffer)
+        return path.split(separator: "/").last.map(String.init)
+    }
+
+    /// Cached PID → executable name so repeated sources stay off the per-event syscall path.
+    private func resolveSourceName(_ pid: Int64) -> String? {
+        lock.lock()
+        if let cached = injectedProcessNames[pid] {
+            lock.unlock()
+            return cached
+        }
+        lock.unlock()
+        let name = Self.processName(forPID: pid)
+        lock.lock()
+        injectedProcessNames[pid] = name
+        if injectedProcessNames.count > 64 { injectedProcessNames.removeAll(keepingCapacity: true) }
+        lock.unlock()
+        return name
     }
 
     /// Returns the exact original event: no repost, tag, modifier clearing or axis swap.

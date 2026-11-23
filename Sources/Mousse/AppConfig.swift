@@ -217,6 +217,8 @@ struct AppConfig: Codable, Sendable, Equatable {
     var remoteDesktopBundleIDs: [String] = AppConfig.defaultRemoteDesktopBundleIDs
     var gameBypass: Bool = true
     var gameBundleIDs: [String] = AppConfig.defaultGameBundleIDs
+    var remoteInjectionBypass: Bool = true // wheel events injected by remote-control clients
+                                           // (non-HID source) pass through untouched
 
     // The menu and legacy CLI write historically flipped both axes; publish one config change.
     mutating func setLegacyScrollReversal(_ value: Bool) {
@@ -284,6 +286,7 @@ extension AppConfig {
         case pointerAppProfiles
         case remoteDesktopBypass, remoteDesktopBundleIDs
         case gameBypass, gameBundleIDs
+        case remoteInjectionBypass
     }
 
     init(from decoder: Decoder) throws {        self.init()
@@ -357,6 +360,7 @@ extension AppConfig {
             remoteDesktopBundleIDs = ids
         }
         gameBypass = field(Bool.self, .gameBypass) ?? gameBypass
+        remoteInjectionBypass = field(Bool.self, .remoteInjectionBypass) ?? remoteInjectionBypass
         if c.contains(.gameBundleIDs),
            let ids = field([String].self, .gameBundleIDs) {
             let legacyGames: Set<String> = [
@@ -422,5 +426,6 @@ extension AppConfig {
         try c.encode(remoteDesktopBundleIDs, forKey: .remoteDesktopBundleIDs)
         try c.encode(gameBypass, forKey: .gameBypass)
         try c.encode(gameBundleIDs, forKey: .gameBundleIDs)
+        try c.encode(remoteInjectionBypass, forKey: .remoteInjectionBypass)
     }
 }

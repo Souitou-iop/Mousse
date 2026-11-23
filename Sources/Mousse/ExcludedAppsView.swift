@@ -123,6 +123,10 @@ struct RemoteDesktopAppsContent: View {
                                emptyLabel: Localized.text("apps.noRemoteDesktop"),
                                addPrompt: Localized.text("common.add"))
             }
+            Toggle(Localized.text("apps.remoteInjectionBypass"),
+                   isOn: $store.config.remoteInjectionBypass)
+            Text(Localized.text("apps.remoteInjectionDescription"))
+                .font(.caption).foregroundStyle(.secondary)
             Text(Localized.text("apps.remoteDesktopDescription"))
                 .font(.caption).foregroundStyle(.secondary)
         }
