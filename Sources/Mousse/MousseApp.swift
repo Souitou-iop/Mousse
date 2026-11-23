@@ -63,6 +63,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         EventTapEngine.shared.start(config: ConfigStore.shared.config)
         PointerSettingsController.shared.start(config: ConfigStore.shared.config)
         CommandServer.shared.start() // local CLI socket; owns no engine state, see CommandServer
+        // A daily update check; the first one waits a few seconds so startup stays offline-silent.
+        UpdateChecker.shared.startAutomaticChecks(
+            enabled: ConfigStore.shared.config.automaticallyChecksForUpdates)
         // When the Settings window closes, drop the Dock presence again.
         NotificationCenter.default.addObserver(self, selector: #selector(settingsWindowClosed),
                                                name: NSWindow.willCloseNotification, object: nil)

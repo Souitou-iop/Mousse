@@ -259,3 +259,19 @@
 "apps.remoteInjectionBypass" = "リモート注入スクロールの自動検出";
 "apps.remoteInjectionDescription" = "リモート操作クライアント（UUリモート、TeamViewerなど）が注入したホイールイベントはそのまま通過し、リモート側のスクロール方向を維持します。物理デバイスの入力は反転されたままです。";
 
+"menu.checkForUpdates" = "アップデートを確認…";
+"menu.updateAvailable" = "%@ にアップデート…";
+"general.updates" = "アップデート";
+"update.checking" = "確認中…";
+"update.upToDate" = "最新です";
+"update.checkNow" = "今すぐ確認";
+"update.retry" = "再試行";
+"update.failedHint" = "GitHub Releases に接続できませんでした。";
+"update.downloadVersion" = "%@ をダウンロード";
+"update.downloading" = "ダウンロード中…";
+"update.revealDownload" = "Finder で表示";
+"update.retryDownload" = "ダウンロードを再試行";
+"update.releaseNotes" = "%@ の変更点";
+"update.automatic" = "アップデートを自動確認";
+"update.automaticDescription" = "GitHub Releases を 1 日 1 回バックグラウンドで確認します。";
+

@@ -259,3 +259,19 @@
 "apps.remoteInjectionBypass" = "Detectar desplazamiento remoto inyectado";
 "apps.remoteInjectionDescription" = "Los eventos de rueda inyectados por clientes de control remoto (UU Remote, TeamViewer…) pasan sin modificarse, conservando la dirección del lado remoto. La entrada física sigue invertida.";
 
+"menu.checkForUpdates" = "Buscar actualizaciones…";
+"menu.updateAvailable" = "Actualizar a %@…";
+"general.updates" = "Actualizaciones";
+"update.checking" = "Comprobando…";
+"update.upToDate" = "Actualizado";
+"update.checkNow" = "Comprobar ahora";
+"update.retry" = "Reintentar";
+"update.failedHint" = "No se pudo conectar con GitHub Releases.";
+"update.downloadVersion" = "Descargar %@";
+"update.downloading" = "Descargando…";
+"update.revealDownload" = "Mostrar en Finder";
+"update.retryDownload" = "Reintentar descarga";
+"update.releaseNotes" = "Novedades de %@";
+"update.automatic" = "Buscar actualizaciones automáticamente";
+"update.automaticDescription" = "Comprueba GitHub Releases una vez al día en segundo plano.";
+

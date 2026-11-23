@@ -34,6 +34,7 @@ final class ConfigStore: ObservableObject {
             DeviceTracker.shared.configure(enabled: config.enabled, hasProfiles: !config.deviceProfiles.isEmpty)
             EventTapEngine.shared.reload(config)
             PointerSettingsController.shared.reload(config)
+            UpdateChecker.shared.startAutomaticChecks(enabled: config.automaticallyChecksForUpdates)
             scheduleSave()
         }
     }

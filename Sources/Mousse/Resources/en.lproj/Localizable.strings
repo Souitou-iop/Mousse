@@ -259,3 +259,19 @@
 "apps.remoteInjectionBypass" = "Auto-Detect Injected Remote Scroll";
 "apps.remoteInjectionDescription" = "Wheel events injected by remote-control clients (UU Remote, TeamViewer…) bypass Mousse untouched, so the remote side keeps its own scroll direction. Physical input stays inverted.";
 
+"menu.checkForUpdates" = "Check for Updates…";
+"menu.updateAvailable" = "Update to %@…";
+"general.updates" = "Updates";
+"update.checking" = "Checking…";
+"update.upToDate" = "Up to date";
+"update.checkNow" = "Check Now";
+"update.retry" = "Try Again";
+"update.failedHint" = "Could not reach GitHub Releases.";
+"update.downloadVersion" = "Download %@";
+"update.downloading" = "Downloading…";
+"update.revealDownload" = "Show in Finder";
+"update.retryDownload" = "Retry Download";
+"update.releaseNotes" = "What's new in %@";
+"update.automatic" = "Check for updates automatically";
+"update.automaticDescription" = "Checks GitHub Releases once a day in the background.";
+

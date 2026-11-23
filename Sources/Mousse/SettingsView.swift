@@ -10,10 +10,13 @@ struct SettingsView: View {
     @State private var configMessage: String?
     @State private var showingDiagnostics = false
     @State private var scrollEnhancementsExpanded = false
+    @ObservedObject private var updates: UpdateChecker
 
-    init(initialTab: Int = 0, tracker: DeviceTracker = .shared) {
+    init(initialTab: Int = 0, tracker: DeviceTracker = .shared,
+         updates: UpdateChecker? = nil) {
         _selectedTab = State(initialValue: initialTab)
         _tracker = ObservedObject(wrappedValue: tracker)
+        _updates = ObservedObject(wrappedValue: updates ?? .shared)
     }
 
     var body: some View {
@@ -68,6 +71,7 @@ struct SettingsView: View {
                 }
             }
             LabeledContent(Localized.text("general.version"), value: appVersion)
+            updateSection
             if let issue = store.persistenceIssue {
                 Section(Localized.text("config.persistenceSection")) {
                     Label(persistenceIssueDescription(issue), systemImage: "exclamationmark.triangle.fill")
@@ -149,6 +153,60 @@ struct SettingsView: View {
 
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+    }
+
+    @ViewBuilder
+    private var updateSection: some View {
+        LabeledContent(Localized.text("general.updates")) {
+            switch updates.phase {
+            case .checking:
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text(Localized.text("update.checking"))
+                }
+            case .upToDate:
+                Label(Localized.text("update.upToDate"), systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            case .available(let release):
+                switch updates.downloadState {
+                case .downloading:
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text(Localized.text("update.downloading"))
+                    }
+                case .saved:
+                    Button(Localized.text("update.revealDownload")) {
+                        if case .saved(let url) = updates.downloadState {
+                            NSWorkspace.shared.activateFileViewerSelecting([url])
+                        }
+                    }
+                case .failed:
+                    Button(Localized.text("update.retryDownload")) { updates.download(release) }
+                case .idle:
+                    Button(Localized.format("update.downloadVersion", release.version)) {
+                        updates.download(release)
+                    }
+                }
+            case .failed(let reason):
+                Button(Localized.text("update.retry")) {
+                    Task { await updates.check() }
+                }
+                .help(reason)
+            case .idle:
+                Button(Localized.text("update.checkNow")) {
+                    Task { await updates.check() }
+                }
+            }
+        }
+        if case .available(let release) = updates.phase {
+            Link(Localized.format("update.releaseNotes", release.tag), destination: release.htmlURL)
+                .font(.caption)
+        } else if case .failed = updates.phase {
+            Text(Localized.text("update.failedHint"))
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        Toggle(Localized.text("update.automatic"), isOn: $store.config.automaticallyChecksForUpdates)
+            .help(Localized.text("update.automaticDescription"))
     }
 
     private func persistenceIssueDescription(_ issue: ConfigPersistenceIssue) -> String {

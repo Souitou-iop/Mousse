@@ -365,6 +365,7 @@ struct AppCommandDelegate: CommandRouter.Delegate {
             case "smoothHighRes":      return .bool(config.smoothHighRes)
             case "edgeScroll":         return .bool(config.edgeScroll)
             case "remoteInjectionBypass": return .bool(config.remoteInjectionBypass)
+            case "automaticallyChecksForUpdates": return .bool(config.automaticallyChecksForUpdates)
             case "scrollSpeed":        return .number(config.scrollSpeed)
             case "zoomSpeed":          return .number(config.zoomSpeed)
             case "edgeScrollSpeed":    return .number(config.edgeScrollSpeed)
@@ -385,6 +386,8 @@ struct AppCommandDelegate: CommandRouter.Delegate {
             case ("smoothHighRes", .bool(let v)):      ConfigStore.shared.config.smoothHighRes = v
             case ("edgeScroll", .bool(let v)):         ConfigStore.shared.config.edgeScroll = v
             case ("remoteInjectionBypass", .bool(let v)): ConfigStore.shared.config.remoteInjectionBypass = v
+            case ("automaticallyChecksForUpdates", .bool(let v)):
+                ConfigStore.shared.config.automaticallyChecksForUpdates = v
             case ("scrollSpeed", .number(let v)):      ConfigStore.shared.config.scrollSpeed = v
             case ("zoomSpeed", .number(let v)):        ConfigStore.shared.config.zoomSpeed = v
             case ("edgeScrollSpeed", .number(let v)):  ConfigStore.shared.config.edgeScrollSpeed = v

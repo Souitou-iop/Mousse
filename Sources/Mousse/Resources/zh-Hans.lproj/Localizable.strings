@@ -259,3 +259,19 @@
 "apps.remoteInjectionBypass" = "自动识别远控注入的滚轮";
 "apps.remoteInjectionDescription" = "远控客户端（UU 远控、TeamViewer 等）注入的滚轮事件不做任何处理直接放行，远程端保持其原有滚动方向；本地物理滚轮不受影响。";
 
+"menu.checkForUpdates" = "检查更新…";
+"menu.updateAvailable" = "更新到 %@…";
+"general.updates" = "更新";
+"update.checking" = "正在检查…";
+"update.upToDate" = "已是最新版本";
+"update.checkNow" = "立即检查";
+"update.retry" = "重试";
+"update.failedHint" = "无法连接 GitHub Releases。";
+"update.downloadVersion" = "下载 %@";
+"update.downloading" = "正在下载…";
+"update.revealDownload" = "在访达中显示";
+"update.retryDownload" = "重试下载";
+"update.releaseNotes" = "%@ 更新内容";
+"update.automatic" = "自动检查更新";
+"update.automaticDescription" = "每天在后台检查一次 GitHub Releases。";
+

@@ -4,6 +4,20 @@
 
 ## Unreleased
 
+## [0.32.0] - 2026-11-23
+
+正式发布版本。 / Released version.
+
+### 新增 / Added
+
+- **检测更新（菜单栏与设置页）**：菜单栏新增「检查更新…」，发现新版本时直接变成「更新到 x.y.z…」；设置页「通用」里新增更新区块（当前状态、检查/下载按钮、版本说明链接、自动检查开关）。检查走 GitHub Releases 的 `latest` 接口，按 `v` 前缀后的数字逐段比较，所以 `0.10 > 0.9`；草稿和预发布版本一律不作为更新。下载按当前构建的架构取 `Mousse-arm64.zip` / `Mousse-x86_64.zip`，用同一 Release 的 `SHA256SUMS` 校验通过后才解包到 `~/Downloads/Mousse-<version>/`，并在访达中定位，绝不替换正在运行的 app。自动检查默认开启，每天一次、启动后延迟 10 秒；检查失败不记为"已检查"，不会因此压掉下一次自动尝试。CLI 新增 `automaticallyChecksForUpdates` 键。
+- **Update checking in the menu bar and Settings**: the menu gains "Check for Updates…", which becomes "Update to x.y.z…" when a newer release exists, and General gains an Updates section (status, check/download button, release-notes link, automatic-check toggle). Checks hit the GitHub Releases `latest` endpoint and compare dot-separated numbers, so `0.10 > 0.9`; drafts and pre-releases are never offered. Downloads pick `Mousse-arm64.zip` or `Mousse-x86_64.zip` for the running slice, verify against the same release's `SHA256SUMS`, then unpack to `~/Downloads/Mousse-<version>/` and reveal it in Finder — a running app is never replaced in place. Automatic checks are on by default, run daily, and start 10 seconds after launch; a failed check is not recorded as "checked", so it cannot suppress the next attempt. The CLI gains the `automaticallyChecksForUpdates` key.
+
+### 验证边界 / Verification limits
+
+- `arm64-apple-macosx14.0` 下 `swift test`：297 tests，2 skipped，0 failures（跳过的是需要环境变量的离屏渲染预览）。真实 GitHub 接口端到端验证：0.30.0 判定有新版本 0.31.0、0.31.0 判定已是最新；真实下载经 `SHA256SUMS` 校验后解包出的 bundle 版本为 0.31.0、最低系统为 14.0；篡改校验和会被拒绝。未验证项：菜单项与设置页按钮的真人点击（含「在访达中显示」与自动检查的 24 小时节奏），以及下载完成后用户手动替换 app 的完整升级流程。
+- **Verified**: `swift test` at `arm64-apple-macosx14.0` passes (297 tests, 2 skipped — the skips are env-gated offscreen render previews). The live GitHub endpoint was exercised end to end: 0.30.0 sees 0.31.0 as available, 0.31.0 reports up to date, a real download verifies against `SHA256SUMS` and unpacks a 0.31.0 bundle with a 14.0 floor, and a tampered checksum is rejected. Not verified: human clicking through the menu item and Settings buttons (including "Show in Finder" and the 24-hour cadence of automatic checks), and the manual replace-the-app step of a full upgrade.
+
 ## [0.31.0] - 2026-11-23
 
 正式发布版本。 / Released version.
@@ -47,6 +61,7 @@
 - 编译与测试通过不等于 macOS 14 / 15 实机验收：指针接管的 IOHID SPI、事件 tap 与跟手滑动合成在 Sonoma / Sequoia 真机上的表现仍需独立验证。
 - **Verification limits**: a green build and test suite do not establish macOS 14 / 15 acceptance — the pointer-takeover IOHID SPI, event taps and follow-finger swipe synthesis still need real-device validation on Sonoma / Sequoia.
 
+[0.32.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.32.0
 [0.31.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.31.0
 [0.30.0]: https://github.com/Souitou-iop/Mousse/releases/tag/v0.30.0
 

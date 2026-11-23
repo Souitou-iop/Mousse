@@ -77,6 +77,7 @@ The accepted values in the current protocol are:
 | `edgeScroll` | `true` or `false` |
 | `edgeScrollSpeed` | Number from `50` to `2400` |
 | `enabled` | `true` or `false` |
+| `automaticallyChecksForUpdates` | `true` or `false`; daily background check against GitHub Releases |
 | `remoteInjectionBypass` | `true` or `false` |
 | `reverseScroll` | `true` or `false`; legacy writes set BOTH axes, reads return vertical |
 | `reverseScrollHorizontal` | `true` or `false`; horizontal only |

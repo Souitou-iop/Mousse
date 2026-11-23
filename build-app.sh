@@ -17,7 +17,7 @@ SWIFT="/usr/bin/swift"
 
 APP_NAME="Mousse"
 BUNDLE_ID="com.mousse.app"
-VERSION="0.31.0"
+VERSION="0.32.0"
 MIN_MACOS="14.0"
 # "<arch>:<triple>" — one staged bundle and one archive per entry, so Apple silicon and Intel
 # users each get a package that matches their hardware.
